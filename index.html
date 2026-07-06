@@ -920,11 +920,9 @@ function createApplicant(){
   ['na-name','na-email','na-phone','na-position','na-date','na-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('na-source').value='';
   naEmmRequired=false;
-  document.getElementById('na-emmToggle').style.background='#ccc';
-  document.getElementById('na-emmKnob').style.transform='translateX(0)';
-  document.getElementById('na-emmLabel').textContent='Not required';
-  document.getElementById('na-emmLabel').style.color='#888';
-  alert('✓ Applicant record created: '+name+'\n'+(naEmmRequired?'EMM cognitive test is required for this role.':'No cognitive test required for this role.')+'\nGo to Tracker to view and update their assessments.');
+  var emmT=document.getElementById('na-emmToggle');
+  if(emmT) emmT.className='toggle-track';
+  showToast('✓ Applicant record created: ' + name);
   // Sync new applicant to Google Sheets
   const newApp = getApplicants().find(a=>a.name===name&&a.email===email);
   if(newApp) syncApplicantToSheets(newApp);
@@ -936,8 +934,6 @@ function createApplicant(){
 // ============================================================
 
 
-function renderQuickTable(apps){
-  if(!apps.length){document.getElementById('dashTable').innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No applicants yet. Click &quot;+ New Applicant&quot; to get started.</div>';return;}
   const rows=apps.slice(0,20).map(a=>`<tr class="tr-hover" onclick="openApplicant(${a.id})">
     <td><strong>${a.name}</strong><div style="font-size:11px;color:#3b3f8c">${a.position||'—'}</div></td>
     <td><div style="font-size:12px">${a.email}</div><div style="font-size:12px;color:#555">${a.phone||'—'}</div></td>
@@ -946,7 +942,6 @@ function renderQuickTable(apps){
     <td>${stageStatusBadge(a)}</td>
     <td style="color:#888;font-size:12px">${a.dateReceived||new Date(a.createdAt).toLocaleDateString()}</td>
   </tr>`).join('');
-  document.getElementById('dashTable').innerHTML=`<table><thead><tr><th>Name / Position</th><th>Contact</th><th>Stage</th><th>EMM</th><th>Status</th><th>Date</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function renderTracker(){
   populateApplicantSelect();
