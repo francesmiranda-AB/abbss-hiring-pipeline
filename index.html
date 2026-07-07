@@ -452,13 +452,19 @@ tbody tr:last-child td{border-bottom:none}
     </div>
   </div>
   <div class="topbar-right">
-    <div class="topbar-pill" id="syncStatus">
+    <div class="topbar-pill" id="syncStatus" onclick="retryFailedSyncs()" style="cursor:pointer" title="Click to retry syncing any unsaved changes">
       <span class="topbar-dot" id="syncDot" style="background:var(--gray400)"></span>
       <span id="syncLabel">Not synced</span>
     </div>
     <button class="topbar-pill" onclick="exportCSV()">&#11015; Export</button>
     <button class="topbar-pill" onclick="window.print()">&#128424; Print</button>
   </div>
+</div>
+
+<div id="syncWarningBanner" class="alert alert-warn no-print" style="display:none;margin:0;border-radius:0;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px">
+  <span class="alert-icon">&#9888;&#65039;</span>
+  <span id="syncWarningText" style="flex:1;max-width:640px"></span>
+  <button class="btn btn-sm btn-primary" onclick="retryFailedSyncs()">Retry Now</button>
 </div>
 
 <div class="layout">
@@ -789,8 +795,13 @@ async function apiPost(action, data) {
 }
 
 async function syncApplicantToSheets(applicant) {
-  if (!SCRIPT_URL) return;
-  await apiPost('saveApplicant', {data: applicant});
+  if (!SCRIPT_URL || !applicant) return;
+  const res = await apiPost('saveApplicant', {data: applicant});
+  if (res && res.success) {
+    setSyncFailedFlag(applicant.id, false);
+  } else {
+    setSyncFailedFlag(applicant.id, true);
+  }
 }
 
 async function loadFromSheets() {
@@ -817,8 +828,12 @@ async function loadFromSheets() {
       return localA;
     });
     saveApplicants(merged);
+    _pullFailed = false;
+    updateSyncWarningBanner();
     return true;
   }
+  _pullFailed = true;
+  updateSyncWarningBanner();
   return false;
 }
 
@@ -832,6 +847,89 @@ async function lookupAssessmentScores(email) {
     grit:   gritRes  && gritRes.success  ? gritRes.data  : null,
     values: valRes   && valRes.success   ? valRes.data   : null
   };
+}
+
+// ============================================================
+// SYNC FAILURE TRACKING
+// ============================================================
+// When a push to Google Sheets fails (dropped internet, timeout, etc.),
+// the record is flagged locally so nothing is lost silently and the
+// person can see it and retry.
+let _sheetsConnected = false;
+let _pullFailed = false;
+
+function getSyncFailedApplicants(){
+  return getRawApplicants().filter(a=>a._syncFailed);
+}
+
+function setSyncFailedFlag(id, failed){
+  const apps = getRawApplicants();
+  const a = apps.find(x=>x.id===id);
+  if(a){
+    if(failed) a._syncFailed = true; else delete a._syncFailed;
+    saveApplicants(apps);
+  }
+  updateSyncWarningBanner();
+}
+
+function updateSyncWarningBanner(){
+  const failed = getSyncFailedApplicants();
+  const banner = document.getElementById('syncWarningBanner');
+  const text = document.getElementById('syncWarningText');
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  const hasIssue = failed.length>0 || _pullFailed;
+  if(hasIssue){
+    if(banner && text){
+      let msg = '';
+      if(_pullFailed){
+        msg += "Couldn't load the latest data from the shared sheet — you may be looking at an outdated list. ";
+      }
+      if(failed.length>0){
+        msg += failed.length===1
+          ? `"${failed[0].name}" didn't save to the shared sheet yet — it's still safe here on this device. `
+          : `${failed.length} records didn't save to the shared sheet yet (including "${failed[0].name}") — they're still safe here on this device. `;
+      }
+      msg += 'This usually means the internet connection dropped, or Google Sheets was slow to respond. Click Retry Now, or check your connection and try again.';
+      text.textContent = msg;
+      banner.style.display='flex';
+    }
+    if(dot && lbl){ dot.style.background='var(--amber)'; lbl.textContent='Sync issue'; }
+  } else {
+    if(banner) banner.style.display='none';
+    if(dot && lbl){
+      if(_sheetsConnected){ dot.style.background='var(--green)'; lbl.textContent='Sheets connected'; }
+      else { dot.style.background='var(--gray400)'; lbl.textContent='Not synced'; }
+    }
+  }
+}
+
+async function retryFailedSyncs(){
+  const failedBefore = getSyncFailedApplicants();
+  if(!failedBefore.length && !_pullFailed){
+    showToast('✓ Everything is already synced.');
+    return;
+  }
+  const text = document.getElementById('syncWarningText');
+  if(text) text.textContent = 'Retrying sync...';
+  if(_pullFailed){
+    await loadFromSheets();
+  }
+  const toPush = getSyncFailedApplicants();
+  for(const a of toPush){
+    await syncApplicantToSheets(a);
+  }
+  const stillFailed = getSyncFailedApplicants();
+  if(!stillFailed.length && !_pullFailed){
+    showToast('✓ All caught up — everything synced successfully.');
+    renderDashboard(); updateTrackerBadge();
+  } else {
+    const parts = [];
+    if(_pullFailed) parts.push('loading the latest data');
+    if(stillFailed.length) parts.push(`${stillFailed.length} record${stillFailed.length>1?'s':''} not saved`);
+    showToast(`⚠ Still having trouble with ${parts.join(' and ')}. Check your internet connection.`, 'error');
+  }
+  updateSyncWarningBanner();
 }
 
 // ============================================================
@@ -1339,6 +1437,7 @@ function setInterviewQ(id,qKey,value,el){
   el.classList.add('selected');
   // Update header badge
   const header=el.closest('.q-card').querySelector('.q-header span:last-child');
+  header.removeAttribute('style');
   header.className='badge '+(value==='pass'?'badge-pass':value==='cond'?'badge-warn':'badge-fail');
   header.textContent=value==='pass'?'✓ Pass':value==='cond'?'~ Conditional':'✗ Fail';
 }
@@ -2469,12 +2568,8 @@ function updateTrackerBadge() {
 // OVERRIDE sync status
 // ============================================================
 function updateSyncStatus(connected) {
-  var dot = document.getElementById('syncDot');
-  var lbl = document.getElementById('syncLabel');
-  if (dot && lbl) {
-    dot.style.background = connected ? 'var(--green)' : 'var(--gray400)';
-    lbl.textContent = connected ? 'Sheets connected' : 'Not synced';
-  }
+  _sheetsConnected = connected;
+  updateSyncWarningBanner();
 }
 
 // ============================================================
