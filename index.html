@@ -1996,7 +1996,11 @@ ABBSS`
 let currentTemplate='assessment';
 function setEmailTemplate(key){
   currentTemplate=key;
-  document.querySelectorAll('[id^="etBtn-"]').forEach(b=>b.style.fontWeight='600');
+  document.querySelectorAll('[id^="etBtn-"]').forEach(b=>{
+    b.style.fontWeight='600';
+    b.style.background='';
+    b.style.color='';
+  });
   document.getElementById('etBtn-'+key).style.background='#3b3f8c';
   document.getElementById('etBtn-'+key).style.color='#fff';
   updateEmail();
