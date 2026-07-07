@@ -795,18 +795,25 @@ async function syncApplicantToSheets(applicant) {
 async function loadFromSheets() {
   if (!SCRIPT_URL) return false;
   const res = await apiGet('getAll');
-  if (res && res.success && res.data && res.data.length > 0) {
-    // Merge: sheets data is source of truth, preserve any local-only fields
-    const local = getApplicants();
-    const localMap = {};
-    local.forEach(a => localMap[a.id] = a);
-    const merged = res.data.map(sheetA => {
-      const localA = localMap[sheetA.id];
-      // Keep full local data (interview details, notes etc) but update with sheet scores
-      return localA ? {...localA, ...sheetA,
-        interview: localA.interview || sheetA.interview,
-        emm: localA.emm?.fullResult ? localA.emm : sheetA.emm
-      } : sheetA;
+  if (res && res.success && res.data) {
+    // Merge: union of local-only and sheet-only records, sheet wins on conflicts
+    const local = getRawApplicants();
+    const sheetMap = {}; res.data.forEach(a => sheetMap[a.id] = a);
+    const localMap = {}; local.forEach(a => localMap[a.id] = a);
+    const allIds = new Set([...Object.keys(sheetMap), ...Object.keys(localMap)]);
+    const merged = Array.from(allIds).map(id => {
+      const sheetA = sheetMap[id], localA = localMap[id];
+      if (sheetA && localA) {
+        return {...localA, ...sheetA,
+          interview: localA.interview || sheetA.interview,
+          emm: localA.emm?.fullResult ? localA.emm : sheetA.emm
+        };
+      }
+      if (sheetA) return sheetA;
+      // Local-only record — the Sheet doesn't have it yet. Retry pushing it now
+      // instead of silently dropping it, and keep it in local storage either way.
+      syncApplicantToSheets(localA);
+      return localA;
     });
     saveApplicants(merged);
     return true;
@@ -850,24 +857,67 @@ const TOTAL_ROWS=1869,PASS_EMM=75;
 function gritOutcome(score){
   if(score===null||score===undefined||score==='')return{label:'Not yet scored',badge:'badge-gray',pass:null};
   const s=parseFloat(score);
-  if(s>=4.0)return{label:'HIGH GRIT',badge:'badge-pass',pass:true,action:'Fast-track. Green flag.'};
-  if(s>=3.0)return{label:'MODERATE GRIT',badge:'badge-warn',pass:true,action:'Proceed. Ask: Tell me about a time you wanted to quit.'};
-  if(s>=2.0)return{label:'LOW GRIT',badge:'badge-warn',pass:false,action:'Flag. Only if role is not high-pressure.'};
-  return{label:'VERY LOW GRIT',badge:'badge-fail',pass:false,action:'Do not advance.'};
+  if(s>=4.0)return{label:'HIGH GRIT',badge:'badge-pass',pass:true,action:'Fast-track. Green flag.',questions:[
+    'Tell me about the most difficult goal you\'ve pursued long-term — what kept you going?',
+    'Describe a time you sustained effort on something with no immediate payoff.'
+  ]};
+  if(s>=3.0)return{label:'MODERATE GRIT',badge:'badge-warn',pass:true,action:'Proceed. Ask targeted follow-ups.',questions:[
+    'Tell me about a time you wanted to quit. What made you keep going, or stop?',
+    'Describe a project that took longer than expected — how did you stay motivated?',
+    'What\'s the biggest setback you\'ve faced at work, and how did you recover?'
+  ]};
+  if(s>=2.0)return{label:'LOW GRIT',badge:'badge-warn',pass:false,action:'Flag. Only if role is not high-pressure.',questions:[
+    'Describe a time you gave up on a goal. What led to that decision?',
+    'How do you typically respond when a task becomes repetitive or frustrating?',
+    'Tell me about a deadline you missed — what happened?'
+  ]};
+  return{label:'VERY LOW GRIT',badge:'badge-fail',pass:false,action:'Do not advance.',questions:[
+    'If proceeding despite the score, ask them to walk through their longest-running commitment (job, project, hobby) and what sustained it.'
+  ]};
 }
 
 // Values thresholds
 function valuesOutcome(score,confScore,intScore){
   if(score===null||score===undefined||score==='')return{label:'Not yet scored',badge:'badge-gray',pass:null};
   const s=parseFloat(score);
-  // Integrity gate
-  if((confScore!==''&&parseFloat(confScore)<=2)||(intScore!==''&&parseFloat(intScore)<=2))
-    return{label:'INTEGRITY GATE FAIL',badge:'badge-fail',pass:false,action:'Automatic red flag — Confidentiality or Integrity scored ≤2.'};
-  if(s>=255)return{label:'EXCELLENT FIT',badge:'badge-pass',pass:true,action:'Fast-track. Verify in interview.'};
-  if(s>=210)return{label:'STRONG FIT',badge:'badge-pass',pass:true,action:'Proceed to interview.'};
-  if(s>=165)return{label:'POTENTIAL FIT',badge:'badge-warn',pass:true,action:'Interview with targeted questions on low-scoring sections.'};
-  if(s>=120)return{label:'NEEDS VALIDATION',badge:'badge-warn',pass:false,action:'Panel interview required. High risk.'};
-  return{label:'NOT RECOMMENDED',badge:'badge-fail',pass:false,action:'Do not advance.'};
+  const cf=confScore!==''&&confScore!=null?parseFloat(confScore):null;
+  const it=intScore!==''&&intScore!=null?parseFloat(intScore):null;
+
+  if((cf!==null&&cf<=2)||(it!==null&&it<=2))
+    return{label:'INTEGRITY GATE FAIL',badge:'badge-fail',pass:false,action:'Automatic red flag — Confidentiality or Integrity scored ≤2.',questions:[
+      'Describe a real situation where you had access to confidential company or client data — what did you do with it?',
+      'A coworker asks you to share information you know is confidential. Walk me through how you\'d handle it.'
+    ]};
+
+  if(s>=255)return{label:'EXCELLENT FIT',badge:'badge-pass',pass:true,action:'Fast-track. Verify in interview.',questions:[
+    'What does integrity mean to you in a workplace setting? Give me a real example.',
+    'Describe a time you made an unpopular decision because it was the right thing to do.'
+  ]};
+
+  if(s>=210)return{label:'STRONG FIT',badge:'badge-pass',pass:true,action:'Proceed to interview.',questions:[
+    'Tell me about a time you noticed a colleague doing something questionable. What did you do?',
+    'How do you handle situations where following the rules conflicts with getting the job done quickly?'
+  ]};
+
+  if(s>=165){
+    const confIsLower=cf!==null&&(it===null||cf<=it);
+    const targeted=confIsLower?[
+      'Walk me through how you\'ve handled sensitive or confidential information in a past role.',
+      'Have you ever been asked to share information you weren\'t sure you should? What did you do?'
+    ]:[
+      'Describe a time your integrity was tested at work — what did you do and why?',
+      'Tell me about a mistake you made at work and how you handled disclosing it.'
+    ];
+    return{label:'POTENTIAL FIT',badge:'badge-warn',pass:true,action:'Interview with targeted questions on low-scoring sections.',questions:targeted};
+  }
+
+  if(s>=120)return{label:'NEEDS VALIDATION',badge:'badge-warn',pass:false,action:'Panel interview required. High risk.',questions:[
+    'Give me a specific, detailed example of a time you upheld a company policy even when it was inconvenient.',
+    'Tell me about a time you disagreed with a decision from leadership — what did you do?',
+    'How would you handle finding out a close colleague was violating company policy?'
+  ]};
+
+  return{label:'NOT RECOMMENDED',badge:'badge-fail',pass:false,action:'Do not advance.',questions:[]};
 }
 
 // DISC — no pass threshold, HR judgment
@@ -879,9 +929,10 @@ function discOutcome(type){
 // ============================================================
 // STORAGE
 // ============================================================
-function getApplicants(){try{return JSON.parse(localStorage.getItem('abbss_applicants')||'[]')}catch{return[]}}
+function getRawApplicants(){try{return JSON.parse(localStorage.getItem('abbss_applicants')||'[]')}catch{return[]}}
+function getApplicants(){return getRawApplicants().filter(a=>a.overallStatus!=='Deleted')}
 function saveApplicants(arr){localStorage.setItem('abbss_applicants',JSON.stringify(arr))}
-function getApplicant(id){return getApplicants().find(a=>a.id===id)}
+function getApplicant(id){return getRawApplicants().find(a=>a.id===id)}
 
 // ============================================================
 // NAV
@@ -1056,6 +1107,7 @@ function buildAssessmentsTab(a){
         <div style="padding:10px;background:#f4f4f8;border-radius:8px;font-size:13px;font-weight:600">
           <span class="badge ${gOut.badge}">${gOut.label}</span>
           ${gOut.action?`<div style="font-size:11px;color:#666;margin-top:5px">${gOut.action}</div>`:''}
+          ${gOut.questions&&gOut.questions.length?`<ul style="margin:6px 0 0 16px;padding:0;font-size:11px;font-weight:400;color:#444">${gOut.questions.map(q=>`<li style="margin-bottom:3px">${q}</li>`).join('')}</ul>`:''}
         </div>
       </div>
     </div>
@@ -1088,6 +1140,7 @@ function buildAssessmentsTab(a){
     <div style="margin-bottom:10px;padding:10px;background:#f4f4f8;border-radius:8px">
       <span class="badge ${vOut.badge}">${vOut.label}</span>
       ${vOut.action?`<span style="font-size:11px;color:#666;margin-left:8px">${vOut.action}</span>`:''}
+      ${vOut.questions&&vOut.questions.length?`<ul style="margin:8px 0 0 16px;padding:0;font-size:11px;color:#444">${vOut.questions.map(q=>`<li style="margin-bottom:3px">${q}</li>`).join('')}</ul>`:''}
     </div>
     <label class="lbl">Values Notes</label>
     <textarea onchange="updateNestedField(${a.id},'values','notes',this.value)" placeholder="Observations from values assessment...">${a.values&&a.values.notes||''}</textarea>
@@ -1261,7 +1314,11 @@ function buildDecisionTab(a){
 function updateField(id,field,value){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a){a[field]=value;saveApplicants(apps);}
+  if(a){a[field]=value;saveApplicants(apps);
+    // Debounced sync to sheets
+    clearTimeout(a._syncTimer);
+    a._syncTimer=setTimeout(()=>syncApplicantToSheets(getApplicant(id)),2000);
+  }
 }
 
 function updateNestedField(id,section,field,value){
@@ -1289,14 +1346,18 @@ function setInterviewQ(id,qKey,value,el){
 function advanceStage(id,stage){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a&&a.stage<stage){a.stage=stage;saveApplicants(apps);}
-  alert('Stage updated. Go to EMM Grader to upload and grade their assessment.');
+  if(a&&a.stage<stage){a.stage=stage;saveApplicants(apps);syncApplicantToSheets(a);}
+  if(a&&a.requiresEmm){
+    alert('Stage updated. Go to EMM Grader to upload and grade their assessment.');
+  } else {
+    alert('Stage updated. Ready for interview.');
+  }
 }
 
 function setDecision(id,decision){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a){a.overallStatus=decision;if(decision==='Hired'||decision==='Rejected')a.stage=decision==='Hired'?5:a.stage;saveApplicants(apps);}
+  if(a){a.overallStatus=decision;if(decision==='Hired'||decision==='Rejected')a.stage=decision==='Hired'?5:a.stage;saveApplicants(apps);syncApplicantToSheets(a);}
   document.getElementById('modalTabContent').innerHTML=buildDecisionTab(getApplicant(id));
   renderDashboard();
   updateTrackerBadge();
@@ -1304,7 +1365,13 @@ function setDecision(id,decision){
 
 function deleteApplicant(id){
   if(!confirm('Delete this applicant record permanently?'))return;
-  saveApplicants(getApplicants().filter(a=>a.id!==id));
+  const apps=getRawApplicants();
+  const a=apps.find(a=>a.id===id);
+  if(a){
+    a.overallStatus='Deleted';
+    saveApplicants(apps);
+    syncApplicantToSheets(a);
+  }
   closeModal();
   renderDashboard();
   updateTrackerBadge();
@@ -2051,7 +2118,7 @@ async function syncFromSheets(){
 
 async function pushAllToSheets(){
   if(!SCRIPT_URL){showSettingsMsg('Not connected. Save a URL first.','#b52a2a');return;}
-  const apps = getApplicants();
+  const apps = getRawApplicants();
   if(!apps.length){showSettingsMsg('No local records to push.','#888');return;}
   showSettingsMsg(`Pushing ${apps.length} records...`,'#888');
   let ok=0;
