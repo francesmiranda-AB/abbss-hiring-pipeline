@@ -765,7 +765,8 @@ tbody tr:last-child td{border-bottom:none}
 // GOOGLE SHEETS BACKEND
 // ============================================================
 // Paste your Apps Script Web App URL here after deploying
-let SCRIPT_URL = localStorage.getItem('abbss_script_url') || '';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFDU6dzUpbB_lfW352qUNiM3PeZ6mZXbVJXxfEQ8JWKmWVpcoOK1c5eeah0cI6mDWl/exec';
+let SCRIPT_URL = localStorage.getItem('abbss_script_url') || DEFAULT_SCRIPT_URL;
 
 async function apiGet(action, params={}) {
   if (!SCRIPT_URL) return null;
@@ -2483,14 +2484,12 @@ setEmailTemplate('assessment');
 renderDashboard();
 updateTrackerBadge();
 var savedUrl = localStorage.getItem('abbss_script_url');
-if (savedUrl) {
-  SCRIPT_URL = savedUrl;
-  document.getElementById('scriptUrlInput').value = savedUrl;
-  document.getElementById('connectionStatus').className = 'badge badge-pass';
-  document.getElementById('connectionStatus').textContent = '&#10003; Connected';
-  updateSyncStatus(true);
-  loadFromSheets().then(function(loaded) { if (loaded) { renderDashboard(); updateTrackerBadge(); } });
-}
+SCRIPT_URL = savedUrl || DEFAULT_SCRIPT_URL;
+document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+document.getElementById('connectionStatus').className = 'badge badge-pass';
+document.getElementById('connectionStatus').textContent = '✓ Connected';
+updateSyncStatus(true);
+loadFromSheets().then(function(loaded) { if (loaded) { renderDashboard(); updateTrackerBadge(); } });
 var nd = document.getElementById('na-date');
 if (nd) nd.value = new Date().toISOString().slice(0,10);
 
