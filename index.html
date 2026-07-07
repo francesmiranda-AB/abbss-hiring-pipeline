@@ -645,8 +645,8 @@ tbody tr:last-child td{border-bottom:none}
       <div class="card">
         <div class="card-header"><div class="card-title">Template</div></div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-ghost btn-full" id="etBtn-assessment" onclick="setEmailTemplate('assessment')" style="justify-content:flex-start;gap:10px"><span>&#128203;</span><div style="text-align:left"><div style="font-weight:700">Assessment Invite (with EMM)</div><div style="font-size:11px;color:var(--gray400);font-weight:400">DISC + GRIT + Values + EMM file</div></div></button>
-          <button class="btn btn-ghost btn-full" id="etBtn-assessment_no_emm" onclick="setEmailTemplate('assessment_no_emm')" style="justify-content:flex-start;gap:10px"><span>&#128203;</span><div style="text-align:left"><div style="font-weight:700">Assessment Invite (no EMM)</div><div style="font-size:11px;color:var(--gray400);font-weight:400">DISC + GRIT + Values only</div></div></button>
+          <button class="btn btn-ghost btn-full" id="etBtn-assessment" onclick="setEmailTemplate('assessment')" style="justify-content:flex-start;gap:10px"><span>&#128203;</span><div style="text-align:left"><div style="font-weight:700">Assessment Invite (with EMM)</div><div style="font-size:11px;color:var(--gray400);font-weight:400">GRIT + Values + EMM file</div></div></button>
+          <button class="btn btn-ghost btn-full" id="etBtn-assessment_no_emm" onclick="setEmailTemplate('assessment_no_emm')" style="justify-content:flex-start;gap:10px"><span>&#128203;</span><div style="text-align:left"><div style="font-weight:700">Assessment Invite (no EMM)</div><div style="font-size:11px;color:var(--gray400);font-weight:400">GRIT + Values only</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-reminder" onclick="setEmailTemplate('reminder')" style="justify-content:flex-start;gap:10px"><span>&#9200;</span><div style="text-align:left"><div style="font-weight:700">Assessment Reminder</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Follow-up for non-responders</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-interview" onclick="setEmailTemplate('interview')" style="justify-content:flex-start;gap:10px"><span>&#127919;</span><div style="text-align:left"><div style="font-weight:700">Interview Invitation</div><div style="font-size:11px;color:var(--gray400);font-weight:400">After passing all assessments</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-regret" onclick="setEmailTemplate('regret')" style="justify-content:flex-start;gap:10px"><span>&#10060;</span><div style="text-align:left"><div style="font-weight:700">Regret Letter</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Not moving forward</div></div></button>
@@ -680,7 +680,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="g2" style="margin-bottom:20px">
     <div class="card">
       <div class="card-header"><div class="card-title">Pipeline Stages</div></div>
-      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Resume comes in. HR creates applicant record and reviews for basic fit.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">One email with DISC link + GRIT form + Values form + blank EMM file.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Results Recorded</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR enters DISC result and pastes GRIT/Values scores. Auto-pulled from Google Sheets if connected.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">EMM Grading</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Upload applicant xlsx, auto-grade, review integrity flags. Pass threshold is 75%.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Live validation scorecard with 5 questions. Final hiring decision recorded.</div></div></div>
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Resume comes in. HR creates applicant record and reviews for basic fit.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">One email with GRIT form + Values form + blank EMM file (if the role requires it).</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Results Recorded</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR pastes GRIT/Values scores, or they're auto-pulled from Google Sheets if connected.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">EMM Grading</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Upload applicant xlsx, auto-grade, review integrity flags. Pass threshold is 75%.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Live validation scorecard (5 EMM questions) plus a separate Resilience &amp; Adaptability Check (2 questions). Final hiring decision recorded.</div></div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Assessment Thresholds</div></div>
@@ -1019,12 +1019,6 @@ function valuesOutcome(score,confScore,intScore){
   return{label:'NOT RECOMMENDED',badge:'badge-fail',pass:false,action:'Do not advance.',questions:[]};
 }
 
-// DISC — no pass threshold, HR judgment
-function discOutcome(type){
-  if(!type)return{label:'Not recorded',badge:'badge-gray',pass:null};
-  return{label:type,badge:'badge-blue',pass:null};
-}
-
 // ============================================================
 // STORAGE
 // ============================================================
@@ -1058,7 +1052,6 @@ function createApplicant(){
     resumeNotes:document.getElementById('na-notes').value.trim(),
     requiresEmm: naEmmRequired,
     stage:1,status:'Applied',createdAt:new Date().toISOString(),
-    disc:{type:'',notes:'',pass:null},
     grit:{score:'',outcome:'',notes:''},
     values:{score:'',confScore:'',intScore:'',outcome:'',notes:''},
     emm:{graded:false,overallPct:null,catPct:null,actPct:null,pass:null,gradedAt:'',notes:'',fullResult:''},
@@ -1166,30 +1159,6 @@ function buildAssessmentsTab(a){
   const gOut=gritOutcome(a.grit&&a.grit.score);
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
   return`
-  <!-- DISC -->
-  <div class="assess-card ${a.disc&&a.disc.type?'':'pending'}">
-    <div class="assess-header">
-      <div class="assess-title">🔵 DISC Personality</div>
-      <a href="https://www.tonyrobbins.com/disc" target="_blank" class="btn-sm btn-blue" style="text-decoration:none">Open DISC Test ↗</a>
-    </div>
-    <div class="g2" style="margin-bottom:10px">
-      <div>
-        <label class="lbl">Dominant Type (e.g. High D, High I)</label>
-        <input type="text" value="${a.disc&&a.disc.type||''}" placeholder="e.g. D/I, High C" onchange="updateNestedField(${a.id},'disc','type',this.value)">
-      </div>
-      <div>
-        <label class="lbl">HR Decision</label>
-        <select onchange="updateNestedField(${a.id},'disc','pass',this.value==='true'?true:this.value==='false'?false:null)">
-          <option value="">Pending review</option>
-          <option value="true" ${a.disc&&a.disc.pass===true?'selected':''}>✓ Suitable</option>
-          <option value="false" ${a.disc&&a.disc.pass===false?'selected':''}>✗ Not suitable</option>
-        </select>
-      </div>
-    </div>
-    <label class="lbl">DISC Notes</label>
-    <textarea onchange="updateNestedField(${a.id},'disc','notes',this.value)" placeholder="Profile observations...">${a.disc&&a.disc.notes||''}</textarea>
-  </div>
-
   <!-- GRIT -->
   <div class="assess-card ${gOut.pass===true?'passed':gOut.pass===false?'failed':'pending'}">
     <div class="assess-header">
@@ -1352,6 +1321,52 @@ function buildInterviewTab(a){
     else{recLabel='Fail — Do not proceed';recBadge='badge-fail';}
   }
 
+  const resQuestions=[
+    {num:'RQ1',skill:'Perseverance Under Pressure',color:'#7209b7',
+     ask:'Tell me about a specific time — at this job or another — when you seriously considered giving up on a task or role. Walk me through exactly what happened and what you did next.',
+     pass:'Gives a specific, real example with concrete detail, and describes what got them through it or what they honestly learned from stepping back.',
+     fail:'Can\'t recall a specific instance, gives a vague or hypothetical answer, or blames external factors entirely with no self-reflection.',
+     note:'Vague or rehearsed-sounding answers are worth a live follow-up before scoring.'},
+    {num:'RQ2',skill:'Adaptability to Sudden Change',color:'#3a0ca3',
+     ask:'A client changes the process on you in the middle of a task with no warning. Walk me through what you\'d actually do, step by step.',
+     pass:'Describes a calm, concrete process — clarify what changed, adjust the work, confirm with the client or supervisor if unsure — rather than freezing up or resisting.',
+     fail:'Reacts with frustration or resistance as the primary response, or gives a vague answer that avoids the specific scenario.',
+     note:'Watch for answers that amount to "I\'d just figure it out" with no actual process described.'}
+  ];
+
+  const resCards=resQuestions.map(q=>{
+    const val=iv['r'+q.num.slice(2)]||null;
+    return`<div class="q-card">
+      <div class="q-header" style="background:${q.color}">
+        <span>${q.num} — ${q.skill}</span>
+        ${val?`<span class="badge ${val==='pass'?'badge-pass':val==='cond'?'badge-warn':'badge-fail'}">${val==='pass'?'✓ Pass':val==='cond'?'~ Conditional':'✗ Fail'}</span>`:'<span style="font-size:11px;color:#ffffff88">Not yet scored</span>'}
+      </div>
+      <div class="q-body">
+        <div class="q-ask">Ask: ${q.ask}</div>
+        <div style="font-size:12px;color:#666;margin-bottom:10px">
+          <strong>Pass:</strong> ${q.pass}<br>
+          <strong>Concern:</strong> ${q.fail}<br>
+          <em style="color:#888">Note: ${q.note}</em>
+        </div>
+        <div class="q-options">
+          <div class="q-opt pass ${val==='pass'?'selected':''}" onclick="setInterviewQ(${a.id},'r${q.num.slice(2)}','pass',this)">✓ Pass</div>
+          <div class="q-opt cond ${val==='cond'?'selected':''}" onclick="setInterviewQ(${a.id},'r${q.num.slice(2)}','cond',this)">~ Conditional</div>
+          <div class="q-opt fail ${val==='fail'?'selected':''}" onclick="setInterviewQ(${a.id},'r${q.num.slice(2)}','fail',this)">✗ Fail</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const allResScored=resQuestions.every(q=>iv['r'+q.num.slice(2)]);
+  const resFails=resQuestions.filter(q=>iv['r'+q.num.slice(2)]==='fail').length;
+  const resPasses=resQuestions.filter(q=>iv['r'+q.num.slice(2)]==='pass').length;
+  let resLabel='',resBadge='';
+  if(allResScored){
+    if(resFails===0){resLabel='Pass — Shows real resilience';resBadge='badge-pass';}
+    else if(resFails===1){resLabel='Conditional — One area of concern';resBadge='badge-warn';}
+    else{resLabel='Fail — Do not proceed';resBadge='badge-fail';}
+  }
+
   return`
     ${qCards}
     <div class="assess-card" style="margin-top:14px">
@@ -1361,6 +1376,20 @@ function buildInterviewTab(a){
         <span class="badge ${recBadge}">${recLabel}</span>
         <span style="font-size:12px;color:#666;margin-left:8px">${passes}/5 pass, ${fails}/5 fail, ${questions.filter(q=>iv['q'+q.num.slice(1)]==='cond').length}/5 conditional</span>
       </div>`:''}
+    </div>
+
+    <div style="margin:24px 0 14px;padding-top:14px;border-top:2px solid var(--gray200)">
+      <div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:2px">🧗 Resilience &amp; Adaptability Check</div>
+      <div style="font-size:12px;color:var(--gray500)">Separate from the EMM validation above — scored on its own, to catch candidates who look fine on paper but struggle once real friction shows up.</div>
+    </div>
+    ${resCards}
+    <div class="assess-card" style="margin-top:14px">
+      <label class="lbl">Resilience Notes</label>
+      <textarea onchange="updateNestedField(${a.id},'interview','resilienceNotes',this.value)" style="min-height:80px" placeholder="Specific examples given, how concrete vs. vague, follow-up answers...">${iv.resilienceNotes||''}</textarea>
+      ${allResScored?`<div style="margin-top:10px;padding:10px;background:#f4f4f8;border-radius:8px">
+        <span class="badge ${resBadge}">${resLabel}</span>
+        <span style="font-size:12px;color:#666;margin-left:8px">${resPasses}/2 pass, ${resFails}/2 fail</span>
+      </div>`:''}
     </div>`;
 }
 
@@ -1368,18 +1397,23 @@ function buildDecisionTab(a){
   const gOut=gritOutcome(a.grit&&a.grit.score);
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
   const iv=a.interview||{};
-  const ivFails=Object.values(iv).filter(v=>v==='fail').length;
+  const ivQKeys=['q1','q2','q3','q4','q5'];
+  const resKeys=['rq1','rq2'];
+  const ivFails=ivQKeys.filter(k=>iv[k]==='fail').length;
+  const ivDone=ivQKeys.filter(k=>iv[k]).length;
+  const resFails=resKeys.filter(k=>iv[k]==='fail').length;
+  const resDone=resKeys.filter(k=>iv[k]).length;
 
   const checks=[
-    ['DISC',a.disc&&a.disc.pass===true?'pass':a.disc&&a.disc.pass===false?'fail':'pending',a.disc&&a.disc.type||'Not recorded'],
     ['GRIT',gOut.pass===true?'pass':gOut.pass===false?'fail':'pending',gOut.label],
     ['Value-Integrity',vOut.pass===true?'pass':vOut.pass===false?'fail':'pending',vOut.label],
     ...(a.requiresEmm?[['EMM Cognitive',a.emm&&a.emm.pass===true?'pass':a.emm&&a.emm.pass===false?'fail':'pending',a.emm&&a.emm.graded?a.emm.overallPct+'%':'Not graded']]:[['EMM Cognitive','skipped','Not required for this role']]),
-    ['Live Interview',ivFails===0&&Object.keys(iv).filter(k=>k.startsWith('q')).length>=5?'pass':ivFails>1?'fail':'pending',ivFails===0?'All passed':ivFails>0?ivFails+' failed':'Not yet done'],
+    ['Live Interview',ivFails===0&&ivDone>=5?'pass':ivFails>1?'fail':'pending',ivDone===0?'Not yet done':ivFails>0?ivFails+' failed':'All passed'],
+    ['Resilience Check',resFails===0&&resDone>=2?'pass':resFails>0?'fail':'pending',resDone===0?'Not yet done':resFails>0?resFails+' failed':'All passed'],
   ];
 
   const coreChecks = checks.filter(c=>c[1]!=='skipped');
-  const allPass=coreChecks.slice(0,a.requiresEmm?4:3).every(c=>c[1]==='pass');
+  const allPass=coreChecks.slice(0,a.requiresEmm?3:2).every(c=>c[1]==='pass');
   const anyFail=checks.some(c=>c[1]==='fail');
 
   const checkRows=checks.map(([label,status,detail])=>`<tr>
@@ -1850,23 +1884,19 @@ Thank you for your interest in the {position} role at ABBSS. We are pleased to i
 
 Please complete all of the following assessments and submit them within 3 business days:
 
-1. DISC Personality Assessment (approx. 10 minutes)
-   Link: https://www.tonyrobbins.com/disc
-   → Once completed, please take a screenshot of your results and reply to this email with it attached.
-
-2. GRIT Assessment (approx. 5 minutes)
+1. GRIT Assessment (approx. 5 minutes)
    Link: https://forms.gle/JwGGt8UWnR6NgFga8
    → Your results will be recorded automatically.
 
-3. Value-Integrity Assessment (approx. 10 minutes)
+2. Value-Integrity Assessment (approx. 10 minutes)
    Link: https://forms.gle/RH5HGDDvPL9H5YvRA
    → Your results will be recorded automatically.
 
-4. AR EMM Cognitive Assessment (approx. 30–45 minutes)
+3. AR EMM Cognitive Assessment (approx. 30–45 minutes)
    → Please find the assessment file attached to this email.
    → Complete the Excel file according to the instructions inside, then reply with your completed file.
 
-Please ensure all four are submitted together in your reply. If you have any questions, feel free to reach out.
+Please ensure all three are submitted together in your reply. If you have any questions, feel free to reach out.
 
 We look forward to reviewing your results.
 
@@ -1881,7 +1911,6 @@ ABBSS`
 This is a friendly reminder that we have not yet received your completed assessments for the {position} role.
 
 As a reminder, please submit:
-• DISC screenshot
 • GRIT form (online submission)
 • Value-Integrity form (online submission)
 • Completed AR EMM Excel assessment
@@ -1932,19 +1961,15 @@ Thank you for your interest in the {position} role at ABBSS. We are pleased to i
 
 Please complete all of the following assessments and submit them within 3 business days:
 
-1. DISC Personality Assessment (approx. 10 minutes)
-   Link: https://www.tonyrobbins.com/disc
-   → Once completed, please take a screenshot of your results and reply to this email with it attached.
-
-2. GRIT Assessment (approx. 5 minutes)
+1. GRIT Assessment (approx. 5 minutes)
    Link: https://forms.gle/JwGGt8UWnR6NgFga8
    → Your results will be recorded automatically.
 
-3. Value-Integrity Assessment (approx. 10 minutes)
+2. Value-Integrity Assessment (approx. 10 minutes)
    Link: https://forms.gle/RH5HGDDvPL9H5YvRA
    → Your results will be recorded automatically.
 
-Please ensure all three are submitted within your reply or via the forms above. If you have any questions, feel free to reach out.
+Please ensure both are submitted within your reply or via the forms above. If you have any questions, feel free to reach out.
 
 We look forward to reviewing your results.
 
@@ -2039,14 +2064,14 @@ function setEmailAndSwitch(name,position,requiresEmm,email){
 function exportCSV(){
   const apps=getApplicants();
   if(!apps.length){alert('No records to export.');return;}
-  const hdrs=['Name','Email','Phone','Position','Source','Date Received','Stage','DISC Type','DISC Pass','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Pass','Interview Done','Overall Status','Decision Notes'];
+  const hdrs=['Name','Email','Phone','Position','Source','Date Received','Stage','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Pass','Interview Done','Resilience Check','Overall Status','Decision Notes'];
   const rows=apps.map(a=>[
     a.name,a.email,a.phone||'',a.position||'',a.source||'',a.dateReceived||'',a.stage,
-    a.disc&&a.disc.type||'',a.disc&&a.disc.pass!=null?(a.disc.pass?'Pass':'Fail'):'Pending',
     a.grit&&a.grit.score||'',a.grit&&a.grit.score?gritOutcome(a.grit.score).label:'Pending',
     a.values&&a.values.score||'',a.values&&a.values.score?valuesOutcome(a.values.score,a.values.confScore||'',a.values.intScore||'').label:'Pending',
     a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?(a.emm.pass?'Pass':'Fail'):'Pending',
-    a.interview&&Object.keys(a.interview).filter(k=>k.startsWith('q')).length>0?'Yes':'No',
+    a.interview&&['q1','q2','q3','q4','q5'].some(k=>a.interview[k])?'Yes':'No',
+    a.interview&&['rq1','rq2'].some(k=>a.interview[k])?(['rq1','rq2'].some(k=>a.interview[k]==='fail')?'Fail':['rq1','rq2'].every(k=>a.interview[k])?'Pass':'In Progress'):'Not yet done',
     a.overallStatus||'In Progress',(a.decisionNotes||'').replace(/,/g,';')
   ]);
   const csv=[hdrs,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
@@ -2090,8 +2115,9 @@ function setupSheet(){
       'DISC Type','DISC Pass','DISC Notes','GRIT Score','GRIT Outcome',
       'Values Score','Values Conf','Values Int','Values Outcome',
       'EMM Overall%','EMM Category%','EMM Action%','EMM Pass','EMM Graded At',
-      'Interview Result','Decision Notes','Resume Notes','Created At']);
-    t.getRange(1,1,1,28).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'Interview Result','Decision Notes','Resume Notes','Created At',
+      'Interview Full JSON','EMM Full JSON']);
+    t.getRange(1,1,1,30).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -2123,6 +2149,11 @@ function saveApplicant(d){
   let t=ss.getSheetByName('Applicants');if(!t){setupSheet();t=ss.getSheetByName('Applicants');}
   const rows=t.getDataRange().getValues();
   const idx=rows.findIndex((r,i)=>i>0&&String(r[0])===String(d.id));
+  // Cap catWrong so a very poor EMM result can't produce a cell too large for Sheets to store
+  let emmForSync=d.emm||null;
+  if(emmForSync&&emmForSync.catWrong&&emmForSync.catWrong.length>300){
+    emmForSync={...emmForSync,catWrong:emmForSync.catWrong.slice(0,300),catWrongTruncated:true};
+  }
   const row=[d.id,d.name,d.email,d.phone||'',d.position||'',d.source||'',d.dateReceived||'',
     d.requiresEmm?'Yes':'No',d.stage||1,d.overallStatus||'In Progress',
     d.disc?.type||'',d.disc?.pass===true?'Yes':d.disc?.pass===false?'No':'',d.disc?.notes||'',
@@ -2131,7 +2162,8 @@ function saveApplicant(d){
     d.values?.score?getValuesLabel(parseFloat(d.values.score),parseFloat(d.values.confScore||0),parseFloat(d.values.intScore||0)):'',
     d.emm?.overallPct||'',d.emm?.catPct||'',d.emm?.actPct||'',
     d.emm?.pass===true?'PASS':d.emm?.pass===false?'FAIL':'',d.emm?.gradedAt||'',
-    d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString()];
+    d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString(),
+    d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -2140,17 +2172,22 @@ function getAllApplicants(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');if(!t)return[];
   const data=t.getDataRange().getValues();if(data.length<=1)return[];
-  return data.slice(1).map(r=>({
-    id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
-    requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
-    disc:{type:r[10],pass:r[11]==='Yes'?true:r[11]==='No'?false:null,notes:r[12]},
-    grit:{score:r[13]||''},
-    values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||''},
-    emm:{graded:!!r[19],overallPct:r[19]||null,catPct:r[20]||null,actPct:r[21]||null,
-      pass:r[22]==='PASS'?true:r[22]==='FAIL'?false:null,gradedAt:r[23]||''},
-    interview:{recommendation:r[24]||''},decisionNotes:r[25]||'',
-    resumeNotes:r[26]||'',createdAt:r[27]||''
-  }));
+  return data.slice(1).map(r=>{
+    let interview={recommendation:r[24]||''};
+    if(r[28]){ try{ interview=JSON.parse(r[28]); }catch(e){} }
+    let emm={graded:!!r[19],overallPct:r[19]||null,catPct:r[20]||null,actPct:r[21]||null,
+      pass:r[22]==='PASS'?true:r[22]==='FAIL'?false:null,gradedAt:r[23]||''};
+    if(r[29]){ try{ emm=JSON.parse(r[29]); }catch(e){} }
+    return{
+      id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
+      requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
+      grit:{score:r[13]||''},
+      values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||''},
+      emm:emm,
+      interview:interview,decisionNotes:r[25]||'',
+      resumeNotes:r[26]||'',createdAt:r[27]||''
+    };
+  });
 }
 
 function getGritLabel(s){if(s>=4)return'HIGH GRIT';if(s>=3)return'MODERATE GRIT';if(s>=2)return'LOW GRIT';return'VERY LOW GRIT';}
@@ -2407,9 +2444,6 @@ function renderTrackerTable(apps) {
     var val = a.values && a.values.score ?
       '<span class="badge ' + vOut.badge + '" style="font-size:10px">' + vOut.label + '</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + a.values.score + '/300</div>' :
       '<span class="badge badge-gray" style="font-size:10px">Pending</span>';
-    var disc = a.disc && a.disc.type ?
-      '<span class="badge badge-blue" style="font-size:10px">' + a.disc.type + '</span>' :
-      '<span class="badge badge-gray" style="font-size:10px">Pending</span>';
     var emm = a.requiresEmm ?
       (a.emm && a.emm.graded ?
         '<div style="font-weight:800;font-size:15px;color:' + (a.emm.pass?'#166534':'#991b1b') + '">' + a.emm.overallPct + '%</div><span class="badge ' + (a.emm.pass?'badge-pass':'badge-fail') + '" style="font-size:10px">' + (a.emm.pass?'PASS':'FAIL') + '</span>' :
@@ -2419,13 +2453,13 @@ function renderTrackerTable(apps) {
       '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div><div style="font-weight:700;font-size:13px">' + a.name + '</div><div style="font-size:11px;color:var(--gray400)">' + (a.position||'No position') + '</div></div></div></td>' +
       '<td><div style="font-size:12px;color:var(--gray700)">' + a.email + '</div><div style="font-size:12px;color:var(--gray500)">' + (a.phone||'No phone') + '</div></td>' +
       '<td><span class="badge badge-stage">Stage ' + a.stage + '</span></td>' +
-      '<td>' + disc + '</td><td>' + grit + '</td><td>' + val + '</td><td>' + emm + '</td>' +
+      '<td>' + grit + '</td><td>' + val + '</td><td>' + emm + '</td>' +
       '<td>' + stageStatusBadge(a) + '</td>' +
       '<td style="color:var(--gray400);font-size:11px">' + (a.dateReceived||new Date(a.createdAt).toLocaleDateString()) + '</td></tr>';
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Contact</th><th>Stage</th><th>DISC</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Status</th><th>Date</th>' +
+    '<th>Applicant</th><th>Contact</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Status</th><th>Date</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
