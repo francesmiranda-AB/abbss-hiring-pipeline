@@ -2365,7 +2365,7 @@ function uploadCV(d){
     const bytes=Utilities.base64Decode(d.data);
     const blob=Utilities.newBlob(bytes,d.mimeType||'application/octet-stream',d.filename||'resume');
     const file=folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
+    file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK,DriveApp.Permission.VIEW);
     return{success:true,url:file.getUrl(),fileId:file.getId(),filename:d.filename||file.getName()};
   }catch(e){
     return{success:false,error:e.message};
