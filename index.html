@@ -743,6 +743,7 @@ tbody tr:last-child td{border-bottom:none}
       <button class="btn btn-ghost" onclick="testConnection()">Test Connection</button>
       <button class="btn btn-ghost" onclick="syncFromSheets()">Pull from Sheets</button>
       <button class="btn btn-ghost" onclick="pushAllToSheets()">Push All to Sheets</button>
+      <button class="btn btn-ghost" style="color:#b52a2a;border-color:#f5b8b8" onclick="resetScriptUrlToDefault()">Reset to Default</button>
     </div>
     <div id="settingsMsg" style="display:none"></div>
   </div>
@@ -2454,6 +2455,14 @@ function saveScriptUrl(){
   SCRIPT_URL = url;
   localStorage.setItem('abbss_script_url', url);
   showSettingsMsg('✓ URL saved. Testing connection...','#1a7a4a');
+  testConnection();
+}
+
+function resetScriptUrlToDefault(){
+  localStorage.removeItem('abbss_script_url');
+  SCRIPT_URL = DEFAULT_SCRIPT_URL;
+  document.getElementById('scriptUrlInput').value = DEFAULT_SCRIPT_URL;
+  showSettingsMsg('✓ Reset to the default URL. Testing connection...','#1a7a4a');
   testConnection();
 }
 
