@@ -524,6 +524,13 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
     <div style="margin-bottom:16px"><label class="lbl">Resume Notes</label><textarea class="inp" id="na-notes" placeholder="Relevant experience, skills noted from resume..."></textarea></div>
+    <div style="margin-bottom:16px">
+      <label class="lbl">Resume / CV File (optional)</label>
+      <label class="dropzone" id="na-cv-dropzone" style="padding:14px 16px;display:block;cursor:pointer;text-align:left">
+        <span style="font-size:13px;color:var(--gray500)" id="na-cv-label">📎 Click to upload CV (PDF or Word, max 10MB)</span>
+        <input type="file" id="na-cv-input" accept=".pdf,.doc,.docx" style="display:none" onchange="handleNaCvSelect(this)">
+      </label>
+    </div>
     <div class="toggle-wrap" style="margin-bottom:16px">
       <div>
         <div class="toggle-title">Requires EMM Cognitive Test?</div>
@@ -641,7 +648,8 @@ tbody tr:last-child td{border-bottom:none}
         <div class="card-header"><div class="card-title">Recipient</div></div>
         <div style="margin-bottom:12px"><label class="lbl">Applicant Name</label><input class="inp" id="et-name" placeholder="Juan dela Cruz" oninput="updateEmail()"></div>
         <div style="margin-bottom:12px"><label class="lbl">Applicant Email</label><input class="inp" id="et-email" type="email" placeholder="juan@email.com"></div>
-        <div><label class="lbl">Position</label><input class="inp" id="et-position" placeholder="AR Specialist" oninput="updateEmail()"></div>
+        <div style="margin-bottom:12px"><label class="lbl">Position</label><input class="inp" id="et-position" placeholder="AR Specialist" oninput="updateEmail()"></div>
+        <div><label class="lbl">Assessment Deadline</label><input class="inp" id="et-deadline" placeholder="e.g. July 15, 2026" oninput="updateEmail()"></div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Template</div></div>
@@ -1063,7 +1071,7 @@ function getApplicant(id){return getRawApplicants().find(a=>a.id===id)}
 // ============================================================
 let naEmmRequired = false;
 
-function createApplicant(){
+async function createApplicant(){
   const name=document.getElementById('na-name').value.trim();
   const email=document.getElementById('na-email').value.trim();
   if(!name||!email){document.getElementById('naErrorText').textContent='Name and email are required.';document.getElementById('naError').style.display='flex';return;}
@@ -1087,17 +1095,34 @@ function createApplicant(){
   });
   saveApplicants(apps);
   updateTrackerBadge();
+  const cvFileToUpload = naCvFile;
   // Reset form and toggle
   ['na-name','na-email','na-phone','na-position','na-date','na-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('na-source').value='';
   naEmmRequired=false;
   var emmT=document.getElementById('na-emmToggle');
   if(emmT) emmT.className='toggle-track';
+  resetNaCvDropzone();
   showToast('✓ Applicant record created: ' + name);
   // Sync new applicant to Google Sheets
   const newApp = getApplicants().find(a=>a.name===name&&a.email===email);
   if(newApp) syncApplicantToSheets(newApp);
   renderDashboard();
+  if(cvFileToUpload){
+    const res = await uploadCvFile(id, cvFileToUpload);
+    if(res && res.success){
+      const apps2=getApplicants();
+      const a2=apps2.find(x=>x.id===id);
+      if(a2){
+        a2.cvUrl=res.url; a2.cvFileId=res.fileId; a2.cvFileName=cvFileToUpload.name; a2.cvUploadedAt=new Date().toISOString();
+        saveApplicants(apps2);
+        syncApplicantToSheets(a2);
+        showToast('✓ CV attached for '+name);
+      }
+    } else {
+      showToast('⚠ Applicant created, but the CV upload failed — attach it from their Profile tab instead.','error');
+    }
+  }
 }
 
 
@@ -1494,46 +1519,69 @@ function updateField(id,field,value){
   }
 }
 
-function handleCvUpload(id,input){
+function uploadCvFile(id,file){
+  return new Promise((resolve)=>{
+    if(file.size>10*1024*1024){resolve({success:false,error:'File is too large (max 10MB).'});return;}
+    if(!SCRIPT_URL){resolve({success:false,error:'Not connected to Google Sheets.'});return;}
+    const reader=new FileReader();
+    reader.onload=async function(e){
+      const base64=e.target.result.split(',')[1];
+      const res=await apiPost('uploadCV',{data:{id,filename:file.name,mimeType:file.type||'application/octet-stream',data:base64}});
+      resolve(res);
+    };
+    reader.onerror=function(){resolve({success:false,error:'Could not read that file.'});};
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleCvUpload(id,input){
   const file=input.files[0];
   if(!file) return;
-  if(file.size>10*1024*1024){
-    alert('That file is too large — please upload a CV under 10MB.');
-    input.value='';
-    return;
-  }
-  if(!SCRIPT_URL){
-    alert("Not connected to Google Sheets — CV upload needs a connection. Check Settings.");
-    input.value='';
-    return;
-  }
   const statusEl=document.getElementById('cvUploadStatus_'+id);
   if(statusEl) statusEl.textContent='Uploading…';
-  const reader=new FileReader();
-  reader.onload=async function(e){
-    const base64=e.target.result.split(',')[1];
-    const res=await apiPost('uploadCV',{data:{id,filename:file.name,mimeType:file.type||'application/octet-stream',data:base64}});
-    if(res&&res.success){
-      const apps=getApplicants();
-      const a=apps.find(x=>x.id===id);
-      if(a){
-        a.cvUrl=res.url;
-        a.cvFileId=res.fileId;
-        a.cvFileName=file.name;
-        a.cvUploadedAt=new Date().toISOString();
-        saveApplicants(apps);
-        syncApplicantToSheets(a);
-        showToast('✓ CV uploaded for '+a.name);
-        const fresh=getApplicant(id);
-        if(document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(fresh);
-      }
-    } else {
-      alert('CV upload failed: '+(res&&res.error?res.error:'Check your connection and try again.'));
-      if(statusEl) statusEl.textContent='';
+  const res=await uploadCvFile(id,file);
+  if(res&&res.success){
+    const apps=getApplicants();
+    const a=apps.find(x=>x.id===id);
+    if(a){
+      a.cvUrl=res.url;
+      a.cvFileId=res.fileId;
+      a.cvFileName=file.name;
+      a.cvUploadedAt=new Date().toISOString();
+      saveApplicants(apps);
+      syncApplicantToSheets(a);
+      showToast('✓ CV uploaded for '+a.name);
+      const fresh=getApplicant(id);
+      if(document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(fresh);
     }
-  };
-  reader.onerror=function(){ alert('Could not read that file. Please try again.'); if(statusEl) statusEl.textContent=''; };
-  reader.readAsDataURL(file);
+  } else {
+    alert('CV upload failed: '+(res&&res.error?res.error:'Check your connection and try again.'));
+    if(statusEl) statusEl.textContent='';
+  }
+}
+
+let naCvFile=null;
+function handleNaCvSelect(input){
+  const file=input.files[0];
+  const label=document.getElementById('na-cv-label');
+  if(!file){ naCvFile=null; if(label) label.textContent='📎 Click to upload CV (PDF or Word, max 10MB)'; return; }
+  if(file.size>10*1024*1024){
+    alert('That file is too large — please choose a CV under 10MB.');
+    input.value='';
+    naCvFile=null;
+    if(label) label.textContent='📎 Click to upload CV (PDF or Word, max 10MB)';
+    return;
+  }
+  naCvFile=file;
+  if(label) label.textContent='📄 '+file.name+' — ready to attach';
+}
+
+function resetNaCvDropzone(){
+  const input=document.getElementById('na-cv-input');
+  const label=document.getElementById('na-cv-label');
+  if(input) input.value='';
+  if(label) label.textContent='📎 Click to upload CV (PDF or Word, max 10MB)';
+  naCvFile=null;
 }
 
 function updateNestedField(id,section,field,value){
@@ -1976,11 +2024,11 @@ Please complete all of the following assessments and submit them within 3 busine
 
 3. AR EMM Cognitive Assessment (approx. 30–45 minutes)
    → Please find the assessment file attached to this email.
-   → Complete the Excel file according to the instructions inside, then reply with your completed file.
+   Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
+   Format: Save your completed file as AR_Assessment_{name}.xlsx, then reply to this email with it attached.
+   Deadline: Kindly return the completed file by {deadline}, or at your earliest convenience.
 
-Please complete all three within 3 business days. The GRIT and Values forms record automatically — for the EMM assessment, please reply to this email with your completed file attached. If you have any questions, feel free to reach out.
-
-We look forward to reviewing your results.
+We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
 
 Warm regards,
 HR Team
@@ -2151,9 +2199,11 @@ function updateEmailSentStatus(){
 function updateEmail(){
   const name=document.getElementById('et-name').value||'{name}';
   const pos=document.getElementById('et-position').value||'{position}';
+  const deadlineEl=document.getElementById('et-deadline');
+  const deadline=(deadlineEl&&deadlineEl.value)||'[DEADLINE]';
   const t=EMAIL_TEMPLATES[currentTemplate];
-  document.getElementById('emailSubject').textContent=t.subject.replace(/{name}/g,name).replace(/{position}/g,pos);
-  document.getElementById('emailBody').textContent=t.body.replace(/{name}/g,name).replace(/{position}/g,pos);
+  document.getElementById('emailSubject').textContent=t.subject.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
+  document.getElementById('emailBody').textContent=t.body.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
 }
 
 function openOutlook(){
@@ -2201,6 +2251,8 @@ function setEmailAndSwitch(name,position,requiresEmm,email,applicantId){
   document.getElementById('et-position').value=position||'';
   var emailEl=document.getElementById('et-email');
   if(emailEl) emailEl.value=email||'';
+  var deadlineEl=document.getElementById('et-deadline');
+  if(deadlineEl) deadlineEl.value='';
   currentEmailApplicantId = applicantId!=null ? applicantId : null;
   setEmailTemplate(requiresEmm?'assessment':'assessment_no_emm');
 }
