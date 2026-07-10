@@ -2323,7 +2323,9 @@ function getAllApplicants(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');if(!t)return[];
   const data=t.getDataRange().getValues();if(data.length<=1)return[];
-  return data.slice(1).map(r=>{
+  return data.slice(1)
+    .filter(r=>String(r[0]).trim()!==''&&String(r[1]).trim()!=='')
+    .map(r=>{
     let interview={recommendation:r[24]||''};
     if(r[28]){ try{ interview=JSON.parse(r[28]); }catch(e){} }
     let emm={graded:!!r[19],overallPct:r[19]||null,catPct:r[20]||null,actPct:r[21]||null,
