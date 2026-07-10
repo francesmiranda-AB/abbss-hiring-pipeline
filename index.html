@@ -2429,7 +2429,7 @@ function uploadCV(d){
 
 function doGet(e){
   try{
-    const a=e.parameter.action,out={};
+    const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
     else if(a==='getAll')out={success:true,data:getAllApplicants()};
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
@@ -2441,7 +2441,7 @@ function doGet(e){
 
 function doPost(e){
   try{
-    const p=JSON.parse(e.postData.contents),out={};
+    const p=JSON.parse(e.postData.contents);let out={};
     if(p.action==='saveApplicant')out=saveApplicant(p.data);
     else if(p.action==='uploadCV')out=uploadCV(p.data);
     else out={success:false,error:'Unknown: '+p.action};
