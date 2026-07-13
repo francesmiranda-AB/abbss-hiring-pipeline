@@ -2240,7 +2240,7 @@ function openGmail(){
 
   // Open Gmail compose with subject and body pre-filled
   // Gmail does not allow pre-filling the To field from external links for security
-  avar authUser = localStorage.getItem('abbss_gmail_authuser') || '0';
+  var authUser = localStorage.getItem('abbss_gmail_authuser') || '0';
       var gmailUrl = 'https://mail.google.com/mail/u/' + authUser + '/?view=cm&fs=1&su=' + subj + '&body=' + body;
       window.open(gmailUrl, '_blank');
 }
