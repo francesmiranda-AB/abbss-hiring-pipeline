@@ -2336,15 +2336,16 @@ function lookupGrit(email){
 }
 
 function lookupValues(email){
-  try{
-    const data=SpreadsheetApp.openById(VALUES_SHEET_ID).getSheets()[0].getDataRange().getValues();
-    const matches=data.filter((r,i)=>i>0&&String(r[1]).trim().toLowerCase()===email.trim().toLowerCase());
-    if(!matches.length)return null;
-    const row=matches[matches.length-1];
-    const res=scoreValues(row);
-    return{...res,name:row[33],timestamp:String(row[0])};
-  }catch(e){return{error:e.message};}
-}
+    try{
+          const sheet=SpreadsheetApp.openById(VALUES_SHEET_ID).getSheetByName('Auto Scores');
+                if(!sheet)return{error:'Auto Scores sheet not found'};
+                      const data=sheet.getDataRange().getValues();
+                            const matches=data.filter((r,i)=>i>0&&String(r[1]).trim().toLowerCase()===email.trim().toLowerCase());
+                                  if(!matches.length)return null;
+                                        const row=matches[matches.length-1];
+                                              return{total:row[4],confScore:row[14],intScore:row[16],name:row[2],timestamp:String(row[0])};
+                                                  }catch(e){return{error:e.message};}
+                                                    }
 
 function saveApplicant(d){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
