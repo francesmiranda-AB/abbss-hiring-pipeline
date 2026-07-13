@@ -491,6 +491,10 @@ tbody tr:last-child td{border-bottom:none}
   </div>
   <div class="stats-grid" id="dashStats"></div>
   <div class="pipeline-grid" id="dashPipeline"></div>
+  <div class="card card-accent-blue" style="margin-bottom:20px">
+    <div class="card-header"><div class="card-title">&#128276; Needs Your Attention</div><button class="btn btn-sm btn-ghost" onclick="showPage('tracker',document.getElementById('nav-tracker'))">View all in Tracker &#8594;</button></div>
+    <div id="dashNeedsAttention"></div>
+  </div>
   <div class="g2">
     <div class="card">
       <div class="card-header"><div class="card-title">Recent Applicants</div><button class="btn btn-sm btn-ghost" onclick="showPage('tracker',document.getElementById('nav-tracker'))">View all &#8594;</button></div>
@@ -522,7 +526,7 @@ tbody tr:last-child td{border-bottom:none}
           <option>Referral</option><option>LinkedIn</option><option>JobStreet</option><option>Indeed</option><option>Walk-in</option><option>Other</option>
         </select>
       </div>
-      <div><label class="lbl">Entered By</label><input class="inp" id="na-enteredby" placeholder="Your name"></div>
+      <div><label class="lbl">Entered By</label><input class="inp" id="na-enteredby" placeholder="Your name" oninput="localStorage.setItem('abbss_entered_by_name', this.value)"><script>document.getElementById('na-enteredby').value = localStorage.getItem('abbss_entered_by_name') || '';</script></div>
     </div>
     <div style="margin-bottom:16px"><label class="lbl">Resume Notes</label><textarea class="inp" id="na-notes" placeholder="Relevant experience, skills noted from resume..."></textarea></div>
     <div style="margin-bottom:16px">
@@ -691,6 +695,23 @@ tbody tr:last-child td{border-bottom:none}
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Guide</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">How the hiring pipeline works and scoring reference</p>
   </div>
+  <div class="card card-glass" style="margin-bottom:20px;border-left:4px solid var(--blue)">
+    <div class="card-header"><div class="card-title-lg">&#128640; Quick Start &mdash; 3 Steps</div></div>
+    <div class="g3">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Add the applicant</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Click <strong>+ New Applicant</strong> in the sidebar and fill in their name, email, and position.</div></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Send &amp; track</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Open <strong>Tracker</strong>, click their name &mdash; a "Next step" banner tells you exactly what to do at every stage.</div></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Decide</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Once assessments, EMM, and interview are done, record the final decision on their <strong>Decision</strong> tab.</div></div>
+      </div>
+    </div>
+  </div>
   <div class="g2" style="margin-bottom:20px">
     <div class="card">
       <div class="card-header"><div class="card-title">Pipeline Stages</div></div>
@@ -749,14 +770,16 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div id="settingsMsg" style="display:none"></div>
   </div>
-  <div class="card" style="max-width:700px">
-    <div class="card-header"><div class="card-title-lg">Setup Guide</div></div>
+  <details class="card" style="max-width:700px">
+    <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">⚙️ Technical Setup (IT / one-time only — click to expand)</summary>
+    <div style="margin-top:16px">
     <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--gray100)"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:4px">Open your master Google Sheet</div><div style="font-size:13px;color:var(--gray600);line-height:1.6"><a href="https://docs.google.com/spreadsheets/d/1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0/edit" target="_blank" style="color:var(--blue);font-weight:600">Click here to open the ABBSS Hiring Pipeline Sheet</a></div></div></div><div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--gray100)"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:4px">Open Apps Script</div><div style="font-size:13px;color:var(--gray600);line-height:1.6">In the Sheet click Extensions then Apps Script. A new tab opens with a code editor.</div></div></div><div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--gray100)"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:4px">Paste the script</div><div style="font-size:13px;color:var(--gray600);line-height:1.6">Select all existing code (Ctrl+A), delete it, click Copy Apps Script Code below, paste it, then save (Ctrl+S).</div></div></div><div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--gray100)"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:4px">Deploy as Web App</div><div style="font-size:13px;color:var(--gray600);line-height:1.6">Click Deploy then New deployment. Type: Web app. Execute as: Me. Who has access: Anyone. Click Deploy and copy the URL.</div></div></div><div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--gray100)"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:4px">Paste URL above and connect</div><div style="font-size:13px;color:var(--gray600);line-height:1.6">Paste the URL in the field above and click Save and Connect. Done.</div></div></div>
     <div style="margin-top:16px;padding:14px 16px;background:var(--gray50);border-radius:var(--radius);border:1px solid var(--gray200);display:flex;align-items:center;gap:12px">
       <button class="btn btn-ghost btn-sm" onclick="copyAppsScript()">Copy Apps Script Code</button>
       <span id="scriptCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600">Copied to clipboard!</span>
     </div>
-  </div>
+    </div>
+  </details>
 </div>
 
 </div>
@@ -1161,11 +1184,41 @@ function filterTracker(){
 
 function closeModal(){document.getElementById('detailModal').classList.remove('open')}
 
+function buildStageStepper(a){
+  var steps=['Applied','Assessments','EMM Test','Interview','Decision'];
+  var status=a.overallStatus;
+  var curStage = status==='Hired' ? 5 : a.stage;
+  return '<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;flex-wrap:wrap">' + steps.map(function(label,i){
+    var n=i+1, bg='#e2e8f0', color='#94a3b8', mark=n;
+    if(status==='Rejected' && n<=curStage){ bg='#fca5a5'; color='#fff'; mark='\u2715'; }
+    else if(n<curStage || (status==='Hired'&&n<=curStage)){ bg='#06d6a0'; color='#fff'; mark='\u2713'; }
+    else if(n===curStage && status==='In Progress'){ bg='#4361ee'; color='#fff'; }
+    return '<div style="display:flex;align-items:center;gap:6px">' +
+      '<div style="width:24px;height:24px;border-radius:50%;background:'+bg+';color:'+color+';font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+mark+'</div>' +
+      '<span style="font-size:11px;font-weight:600;color:var(--gray600)">'+label+'</span>' +
+      (i<steps.length-1?'<span style="color:var(--gray300);margin:0 6px">\u203A</span>':'') +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+function buildNextStepBanner(a){
+  var n=getNextStep(a);
+  var cls = n.tone==='action' ? 'alert-warn' : (n.tone==='waiting' ? 'alert-info' : 'alert-success');
+  return '<div class="alert '+cls+'" style="margin-bottom:16px"><span>'+n.icon+'</span><span><strong>Next step:</strong> '+n.label+'</span></div>';
+}
+
+function refreshModalStageInfo(id){
+  var a=getApplicant(id);
+  var el=document.getElementById('modalStageInfo');
+  if(el && a) el.innerHTML = buildStageStepper(a) + buildNextStepBanner(a);
+}
+
 function buildApplicantDetail(a){
   const gOut=gritOutcome(a.grit&&a.grit.score);
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
 
   return`
+  <div id="modalStageInfo">${buildStageStepper(a)}${buildNextStepBanner(a)}</div>
   <!-- Stage nav -->
   <div class="dtabs" style="margin-bottom:16px">
     <button class="dtab active" onclick="showModalTab('profile',this,${a.id})">Profile</button>
@@ -1223,6 +1276,7 @@ function showModalTab(tab,btn,id){
   }[tab];
   document.getElementById('modalTabContent').innerHTML=content(a);
   if(tab==='assessments')renderGritFocusAreas(a);
+  refreshModalStageInfo(id);
 }
 
 function buildProfileTab(a){
@@ -1503,7 +1557,7 @@ function buildDecisionTab(a){
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
   const iv=a.interview||{};
   const ivQKeys=['q1','q2','q3','q4','q5'];
-  const resKeys=['rq1','rq2'];
+  const resKeys=['r1','r2'];
   const ivFails=ivQKeys.filter(k=>iv[k]==='fail').length;
   const ivDone=ivQKeys.filter(k=>iv[k]).length;
   const resFails=resKeys.filter(k=>iv[k]==='fail').length;
@@ -1651,6 +1705,7 @@ function advanceStage(id,stage){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
   if(a&&a.stage<stage){a.stage=stage;saveApplicants(apps);syncApplicantToSheets(a);}
+  refreshModalStageInfo(id);
   if(a&&a.requiresEmm){
     alert('Stage updated. Go to EMM Grader to upload and grade their assessment.');
   } else {
@@ -1663,6 +1718,7 @@ function setDecision(id,decision){
   const a=apps.find(a=>a.id===id);
   if(a){a.overallStatus=decision;if(decision==='Hired'||decision==='Rejected')a.stage=decision==='Hired'?5:a.stage;saveApplicants(apps);syncApplicantToSheets(a);}
   document.getElementById('modalTabContent').innerHTML=buildDecisionTab(getApplicant(id));
+  refreshModalStageInfo(id);
   renderDashboard();
   updateTrackerBadge();
 }
@@ -2323,7 +2379,7 @@ function exportCSV(){
     a.values&&a.values.score||'',a.values&&a.values.score?valuesOutcome(a.values.score,a.values.confScore||'',a.values.intScore||'').label:'Pending',
     a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?(a.emm.pass?'Pass':'Fail'):'Pending',
     a.interview&&['q1','q2','q3','q4','q5'].some(k=>a.interview[k])?'Yes':'No',
-    a.interview&&['rq1','rq2'].some(k=>a.interview[k])?(['rq1','rq2'].some(k=>a.interview[k]==='fail')?'Fail':['rq1','rq2'].every(k=>a.interview[k])?'Pass':'In Progress'):'Not yet done',
+    a.interview&&['r1','r2'].some(k=>a.interview[k])?(['r1','r2'].some(k=>a.interview[k]==='fail')?'Fail':['r1','r2'].every(k=>a.interview[k])?'Pass':'In Progress'):'Not yet done',
     (()=>{const info=getLastEmailSentInfo(a);return info?(info.label+' — '+new Date(info.date).toLocaleDateString()):'Not sent';})(),
     a.overallStatus||'In Progress',(a.decisionNotes||'').replace(/,/g,';')
   ]);
@@ -2671,7 +2727,8 @@ function renderDashboard() {
   var hired = apps.filter(function(a) { return a.overallStatus === 'Hired'; }).length;
   var inPipeline = apps.filter(function(a) { return a.overallStatus === 'In Progress'; }).length;
   var passing = apps.filter(function(a) { return a.emm && a.emm.pass; }).length;
-  var needsAction = apps.filter(function(a) { return a.stage <= 2 && a.overallStatus === 'In Progress'; }).length;
+  var actionable = apps.filter(function(a) { return getNextStep(a).tone === 'action'; });
+  var needsAction = actionable.length;
 
   document.getElementById('dashStats').innerHTML = [
     ['&#128203;', total, 'Total Applicants', 'blue', 'All time'],
@@ -2715,7 +2772,19 @@ function renderDashboard() {
       '<button class="btn btn-ghost btn-full" onclick="syncFromSheets()">&#11015; Sync from Google Sheets</button>' :
       '<button class="btn btn-ghost btn-full" onclick="showPage(\'settings\',document.getElementById(\'nav-settings\'))">&#9881;&#65039; Connect Google Sheets</button>') +
     '</div>' +
-    (needsAction > 0 ? '<div class="alert alert-warn" style="margin-top:14px"><span>&#9888;&#65039;</span><span><strong>' + needsAction + ' applicant' + (needsAction>1?'s':'') + ' waiting</strong> &mdash; assessments not yet recorded.</span></div>' : '');
+    '';
+
+  document.getElementById('dashNeedsAttention').innerHTML = actionable.length ? actionable.slice().sort(function(a,b){ return new Date(a.createdAt) - new Date(b.createdAt); }).slice(0,8).map(function(a) {
+    var av = getAvatar(a.name);
+    var n = getNextStep(a);
+    var color = n.tone === 'action' ? '#b45309' : '#1e40af';
+    return '<div class="applicant-row" onclick="openApplicant(' + a.id + ')">' +
+      '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
+      '<div class="applicant-info"><div class="applicant-name">' + a.name + '</div>' +
+      '<div class="applicant-meta">' + (a.position||'No position') + '</div></div>' +
+      '<div style="text-align:right;flex-shrink:0;font-size:12px;font-weight:700;color:' + color + '">' + n.icon + ' ' + n.label + '</div></div>';
+  }).join('') :
+  '<div class="empty" style="padding:24px"><div class="empty-icon">&#127881;</div><div class="empty-title">All caught up!</div><div class="empty-sub">No applicants need action right now.</div></div>';
 }
 
 // ============================================================
@@ -2729,6 +2798,37 @@ function stageStatusBadge(a) {
   if (a.emm && a.emm.graded && a.emm.pass) return '<span class="badge badge-pass">&#10003; EMM Passed</span>';
   if (a.stage === 2) return '<span class="badge badge-purple">Assessing</span>';
   return '<span class="badge badge-gray">Applied</span>';
+}
+
+// ============================================================
+// NEXT STEP -- plain-language guidance for what to do right now
+// ============================================================
+function getNextStep(a) {
+  if (a.overallStatus === 'Hired') return { label: 'Hired \u2014 no action needed', tone: 'done', icon: '\uD83C\uDF89' };
+  if (a.overallStatus === 'Rejected') return { label: 'Not moving forward \u2014 no action needed', tone: 'done', icon: '\u2715' };
+  if (a.overallStatus === 'Hold') return { label: 'On hold \u2014 revisit when ready', tone: 'waiting', icon: '\u23F8' };
+
+  var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  if (!emailedAssessment) return { label: 'Send the assessment invite email', tone: 'action', icon: '\u2709\uFE0F' };
+
+  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
+  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
+  if (!hasGrit || !hasValues) return { label: 'Waiting on GRIT/Values form results', tone: 'waiting', icon: '\u23F3' };
+
+  if (a.requiresEmm && !(a.emm && a.emm.graded)) return { label: 'Grade their EMM assessment', tone: 'action', icon: '\u26A1' };
+  if (a.requiresEmm && a.emm && a.emm.graded && a.emm.pass === false) return { label: 'EMM failed \u2014 review and decide next step', tone: 'action', icon: '\u26A0\uFE0F' };
+
+  var ivKeys = ['q1','q2','q3','q4','q5'];
+  var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
+  if (ivDone < 5) return { label: ivDone > 0 ? ('Finish scoring the interview (' + ivDone + '/5)') : 'Schedule and conduct the interview', tone: 'action', icon: '\uD83C\uDFAF' };
+
+  return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
+}
+
+function nextStepCell(a) {
+  var n = getNextStep(a);
+  var color = n.tone === 'action' ? '#b45309' : (n.tone === 'waiting' ? '#1e40af' : '#166534');
+  return '<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:' + color + '"><span>' + n.icon + '</span><span>' + n.label + '</span></div>';
 }
 
 // ============================================================
@@ -2762,6 +2862,7 @@ function renderTrackerTable(apps) {
       '<span class="badge badge-gray" style="font-size:10px">Not sent</span>';
     return '<tr onclick="openApplicant(' + a.id + ')">' +
       '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div><div style="font-weight:700;font-size:13px">' + a.name + '</div><div style="font-size:11px;color:var(--gray400)">' + (a.position||'No position') + '</div></div></div></td>' +
+      '<td>' + nextStepCell(a) + '</td>' +
       '<td><div style="font-size:12px;color:var(--gray700)">' + a.email + '</div><div style="font-size:12px;color:var(--gray500)">' + (a.phone||'No phone') + '</div></td>' +
       '<td><span class="badge badge-stage">Stage ' + a.stage + '</span></td>' +
       '<td>' + grit + '</td><td>' + val + '</td><td>' + emm + '</td><td>' + emailCell + '</td>' +
@@ -2770,7 +2871,7 @@ function renderTrackerTable(apps) {
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Contact</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
+    '<th>Applicant</th><th>Next Step</th><th>Contact</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
