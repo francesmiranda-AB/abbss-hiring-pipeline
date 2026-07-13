@@ -522,6 +522,7 @@ tbody tr:last-child td{border-bottom:none}
           <option>Referral</option><option>LinkedIn</option><option>JobStreet</option><option>Indeed</option><option>Walk-in</option><option>Other</option>
         </select>
       </div>
+      <div><label class="lbl">Entered By</label><input class="inp" id="na-enteredby" placeholder="Your name"></div>
     </div>
     <div style="margin-bottom:16px"><label class="lbl">Resume Notes</label><textarea class="inp" id="na-notes" placeholder="Relevant experience, skills noted from resume..."></textarea></div>
     <div style="margin-bottom:16px">
@@ -668,6 +669,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="email-toolbar">
           <button class="btn btn-success btn-sm" onclick="copyEmail()">&#128203; Copy Email</button>
           <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail</button>
+          <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gray500)" title="If Open in Gmail opens the wrong Google account, set which signed-in account (0=first, 1=second, etc) to use on this device. Check mail.google.com's address bar for /u/N/ to find your number."><label for="gmailAuthUserInput">Acct#</label><input id="gmailAuthUserInput" type="number" min="0" max="9" style="width:34px;padding:2px 4px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" value="0" onchange="localStorage.setItem('abbss_gmail_authuser', this.value)"><script>document.getElementById('gmailAuthUserInput').value = localStorage.getItem('abbss_gmail_authuser') || '0';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
           <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600;margin-left:8px">&#10003; Copied!</span>
@@ -1081,6 +1083,7 @@ async function createApplicant(){
   const id=Date.now();
   apps.push({
     id,name,email,
+    enteredBy:document.getElementById('na-enteredby').value.trim(),
     phone:document.getElementById('na-phone').value.trim(),
     position:document.getElementById('na-position').value.trim(),
     dateReceived:document.getElementById('na-date').value,
@@ -2237,8 +2240,9 @@ function openGmail(){
 
   // Open Gmail compose with subject and body pre-filled
   // Gmail does not allow pre-filling the To field from external links for security
-  var gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + subj + '&body=' + body;
-  window.open(gmailUrl, '_blank');
+  avar authUser = localStorage.getItem('abbss_gmail_authuser') || '0';
+      var gmailUrl = 'https://mail.google.com/mail/u/' + authUser + '/?view=cm&fs=1&su=' + subj + '&body=' + body;
+      window.open(gmailUrl, '_blank');
 }
 
 function openMailto(){
@@ -2318,20 +2322,26 @@ function setupSheet(){
       'EMM Overall%','EMM Category%','EMM Action%','EMM Pass','EMM Graded At',
       'Interview Result','Decision Notes','Resume Notes','Created At',
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
-      'CV URL','CV File ID','CV File Name','CV Uploaded At']);
-    t.getRange(1,1,1,34).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By']);
+    t.getRange(1,1,1,37).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
 }
 
+function scoreGritSub(row, idxs, reverse){
+  const scores=[];
+  idxs.forEach(i=>{const r=parseFloat(row[4+i]);if(isNaN(r))return;scores.push(reverse?6-r:r);});
+  if(!scores.length)return null;
+  return Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100;
+}
 function lookupGrit(email){
   try{
     const data=SpreadsheetApp.openById(GRIT_SHEET_ID).getSheets()[0].getDataRange().getValues();
     const matches=data.filter((r,i)=>i>0&&String(r[1]).trim().toLowerCase()===email.trim().toLowerCase());
     if(!matches.length)return null;
     const row=matches[matches.length-1];
-    return{score:scoreGrit(row),name:row[2],timestamp:String(row[0])};
+    return{score:scoreGrit(row),perseverance:scoreGritSub(row,[1,3,6,7,8,9],false),consistency:scoreGritSub(row,[0,2,4,5],true),name:row[2],timestamp:String(row[0])};
   }catch(e){return{error:e.message};}
 }
 
@@ -2368,7 +2378,7 @@ function saveApplicant(d){
     d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString(),
     d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):'',
     d.emailsSent?JSON.stringify(d.emailsSent):'',
-    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||''];
+    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -2390,7 +2400,8 @@ function getAllApplicants(){
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
-      grit:{score:r[13]||''},
+      grit:{score:r[13]||'',perseverance:r[34]||'',consistency:r[35]||''},
+      enteredBy:r[36]||'',
       values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||''},
       emm:emm,
       interview:interview,decisionNotes:r[25]||'',
@@ -2528,6 +2539,14 @@ async function autoLookupScores(applicantId){
     if(!apps[idx].grit) apps[idx].grit={};
     if(!apps[idx].grit.score){
       apps[idx].grit.score = String(scores.grit.score);
+      updated = true;
+    }
+    if(!apps[idx].grit.perseverance && scores.grit.perseverance!==null && scores.grit.perseverance!==undefined){
+      apps[idx].grit.perseverance = String(scores.grit.perseverance);
+      updated = true;
+    }
+    if(!apps[idx].grit.consistency && scores.grit.consistency!==null && scores.grit.consistency!==undefined){
+      apps[idx].grit.consistency = String(scores.grit.consistency);
       updated = true;
     }
   }
