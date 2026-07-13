@@ -786,7 +786,7 @@ tbody tr:last-child td{border-bottom:none}
 // GOOGLE SHEETS BACKEND
 // ============================================================
 // Paste your Apps Script Web App URL here after deploying
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFDU6dzUpbB_lfW352qUNiM3PeZ6mZXbVJXxfEQ8JWKmWVpcoOK1c5eeah0cI6mDWl/exec';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZDQpLmOfHd2rRAsrMy9WPcVK8-ReqI279-hn_SDjkLLqmC7Ap4AaW4MGI0mlDLPRM/exec';
 let SCRIPT_URL = localStorage.getItem('abbss_script_url') || DEFAULT_SCRIPT_URL;
 
 async function apiGet(action, params={}) {
@@ -1177,6 +1177,39 @@ function buildApplicantDetail(a){
   <div id="modalTabContent">${buildProfileTab(a)}</div>`;
 }
 
+function renderGritFocusAreas(a){
+  const GRIT_ITEM_TIPS=[
+'Ask how they prioritize when a new idea or task competes with something already in progress — watch for follow-through once the interview is over.',
+'Ask for a specific example of a setback and how they recovered; gauge resilience under repeated rejection or difficult situations relevant to this role.',
+'Probe how long they typically stay engaged with a project or role before losing interest; ask what has kept them motivated in their longest-held position.',
+'Ask for concrete examples of high-effort work and cross-check consistency with references or work history.',
+'Ask about their goal-completion track record; probe commitment to seeing long-term targets through rather than switching direction.',
+'Ask about the longest project they\'ve completed and what helped them stay focused — important for roles requiring sustained multi-month effort.',
+'Ask for an example of something they started but didn\'t finish, and why; check for a pattern of incomplete tasks in past roles.',
+'Pose a scenario question: how would they handle a repetitive, frustrating task with no immediate resolution?',
+'Ask directly for their proudest long-term accomplishment and what it took to get there.',
+'Ask them to describe the hardest professional challenge they\'ve faced and how they handled it.'
+  ];
+  const el=document.getElementById('gritFocus_'+a.id);
+  if(!el)return;
+  if(!a||!a.email||!SCRIPT_URL){el.innerHTML='';return;}
+  el.innerHTML='<div style="font-size:11px;color:#888;margin-top:8px">Loading focus areas\u2026</div>';
+  apiGet('lookupGrit',{email:a.email}).then(function(res){
+    const items=res&&res.success&&res.data&&res.data.items;
+    if(!items||!items.length){el.innerHTML='';return;}
+    const low=items.map(function(it,idx){return Object.assign({},it,{idx:idx});}).filter(function(it){return it.score<=2.5;}).sort(function(x,y){return x.score-y.score;});
+    if(!low.length){
+      el.innerHTML='<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534">\u2713 No individual GRIT questions scored low \u2014 no question-level red flags.</div>';
+      return;
+    }
+    el.innerHTML='<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px">\u26A0 Focus Areas for Interview Follow-up</div>'+
+      low.map(function(it){return '<div style="padding:9px 12px;background:#fff1f2;border-left:3px solid #ef476f;border-radius:6px;margin-bottom:6px">'+
+        '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.03em">'+(it.factor==='perseverance'?'Perseverance':'Consistency')+' \u00b7 scored '+it.score+'/5</div>'+
+        '<div style="font-size:12px;color:#555;margin:4px 0;font-style:italic">\u201c'+it.q+'\u201d</div>'+
+        '<div style="font-size:12px;color:#333;margin-top:4px">\u2192 '+(GRIT_ITEM_TIPS[it.idx]||'Ask a follow-up question about this area during the interview.')+'</div>'+
+      '</div>';}).join('')+'</div>';
+  }).catch(function(){el.innerHTML='';});
+}
 function showModalTab(tab,btn,id){
   document.querySelectorAll('#detailModal .dtab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -1189,6 +1222,7 @@ function showModalTab(tab,btn,id){
     decision:buildDecisionTab
   }[tab];
   document.getElementById('modalTabContent').innerHTML=content(a);
+  if(tab==='assessments')renderGritFocusAreas(a);
 }
 
 function buildProfileTab(a){
@@ -1254,7 +1288,9 @@ function buildAssessmentsTab(a){
     </div>
   </div>
 
-  <!-- VALUES -->
+<div id="gritFocus_${a.id}" class="grit-focus-areas"></div>
+
+    <!-- VALUES -->
   <div class="assess-card ${vOut.pass===true?'passed':vOut.pass===false?'failed':'pending'}">
     <div class="assess-header">
       <div class="assess-title">⭐ Value-Integrity Assessment</div>
