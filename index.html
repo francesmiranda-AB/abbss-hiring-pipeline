@@ -669,7 +669,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="email-toolbar">
           <button class="btn btn-success btn-sm" onclick="copyEmail()">&#128203; Copy Email</button>
           <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail</button>
-          <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gray500)" title="If Open in Gmail opens the wrong Google account, set which signed-in account (0=first, 1=second, etc) to use on this device. Check mail.google.com's address bar for /u/N/ to find your number."><label for="gmailAuthUserInput">Acct#</label><input id="gmailAuthUserInput" type="number" min="0" max="9" style="width:34px;padding:2px 4px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" value="0" onchange="localStorage.setItem('abbss_gmail_authuser', this.value)"><script>document.getElementById('gmailAuthUserInput').value = localStorage.getItem('abbss_gmail_authuser') || '0';</script></span>
+          <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Gmail will open using this exact account's inbox (it must already be signed in on this device). Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
           <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600;margin-left:8px">&#10003; Copied!</span>
@@ -2261,6 +2261,15 @@ function copyEmail(){
   });
 }
 
+function validateGmailWorkEmail(el){
+  var v = el.value.trim().toLowerCase();
+  var errEl = document.getElementById('gmailWorkEmailErr');
+  if(v===''){ if(errEl)errEl.style.display='none'; localStorage.removeItem('abbss_gmail_workemail'); return; }
+  var ok = /@(ab-contactsolutions\.com|ab-businesssupport\.com)$/.test(v);
+  if(ok){ if(errEl)errEl.style.display='none'; localStorage.setItem('abbss_gmail_workemail', v); }
+  else { if(errEl)errEl.style.display='inline'; }
+}
+
 function openGmail(){
   var subj = encodeURIComponent(document.getElementById('emailSubject').value || document.getElementById('emailSubject').textContent || '');
   var body = encodeURIComponent(document.getElementById('emailBody').textContent || '');
@@ -2276,9 +2285,12 @@ function openGmail(){
 
   // Open Gmail compose with subject and body pre-filled
   // Gmail does not allow pre-filling the To field from external links for security
-  var authUser = localStorage.getItem('abbss_gmail_authuser') || '0';
-      var gmailUrl = 'https://mail.google.com/mail/u/' + authUser + '/?view=cm&fs=1&su=' + subj + '&body=' + body;
-      window.open(gmailUrl, '_blank');
+  // Route to the sender\'s own validated work account (@ab-contactsolutions.com / @ab-businesssupport.com);
+  // fall back to the legacy numeric account-slot setting, then to slot 0.
+  var workEmail = localStorage.getItem('abbss_gmail_workemail') || '';
+  var authUser = workEmail || localStorage.getItem('abbss_gmail_authuser') || '0';
+  var gmailUrl = 'https://mail.google.com/mail/u/' + encodeURIComponent(authUser) + '/?view=cm&fs=1&su=' + subj + '&body=' + body;
+  window.open(gmailUrl, '_blank');
 }
 
 function openMailto(){
