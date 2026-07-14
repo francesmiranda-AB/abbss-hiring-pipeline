@@ -1234,7 +1234,8 @@ function buildStageStepper(a){
       '<span style="font-size:11px;font-weight:600;color:var(--gray600)">'+label+'</span>' +
       (i<steps.length-1?'<span style="color:var(--gray300);margin:0 6px">\u203A</span>':'') +
     '</div>';
-  }).join('') + '</div>';
+  }).join('') + '</div>' +
+  '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Moves forward automatically as results come in \u2014 nothing to click.</div>';
 }
 
 function buildNextStepBanner(a){
@@ -1807,6 +1808,7 @@ function updateNestedField(id,section,field,value){
     // Debounced sync to sheets
     clearTimeout(a._syncTimer);
     a._syncTimer=setTimeout(()=>syncApplicantToSheets(getApplicant(id)),2000);
+    autoAdvanceIfNeeded(id);
   }
 }
 
@@ -2215,7 +2217,9 @@ function saveGradeToRecord(){
   a.emm={graded:true,overallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
   if(a.stage<3)a.stage=3;
   saveApplicants(apps);
+  syncApplicantToSheets(a);
   updateTrackerBadge();
+  autoAdvanceIfNeeded(a.id);
   alert(`✓ EMM result saved to ${a.name}'s record.
 Score: ${gradeResult.overallPct}% (${gradeResult.pass?'PASS':'FAIL'})`);
 }
@@ -2391,6 +2395,7 @@ function markEmailSent(){
   syncApplicantToSheets(a);
   updateEmailSentStatus();
   showToast('✓ Marked as sent for '+a.name);
+  autoAdvanceIfNeeded(a.id);
 }
 
 function updateEmailSentStatus(){
@@ -2987,6 +2992,43 @@ function getNextStep(a) {
   if (ivDone < 5) return { label: ivDone > 0 ? ('Finish scoring the interview (' + ivDone + '/5)') : 'Schedule and conduct the interview', tone: 'action', icon: '\uD83C\uDFAF' };
 
   return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
+}
+
+function checkAutoAdvance(a){
+  if(!a) return null;
+  if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold') return null;
+  var target = a.stage||1;
+  var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  if(emailedAssessment && target<2) target=2;
+  var hasGrit = a.grit && a.grit.score!=='' && a.grit.score!=null;
+  var hasValues = a.values && a.values.score!=='' && a.values.score!=null;
+  if(emailedAssessment && hasGrit && hasValues){
+    if(a.requiresEmm){ if(target<3) target=3; }
+    else { if(target<4) target=4; }
+  }
+  if(a.requiresEmm && a.emm && a.emm.graded && a.emm.pass===true && target<4) target=4;
+  var ivKeys=['q1','q2','q3','q4','q5'];
+  var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
+  if(ivDone===5 && target<5) target=5;
+  return target>(a.stage||1) ? target : null;
+}
+
+function autoAdvanceIfNeeded(id){
+  var apps=getApplicants();
+  var a=apps.find(function(x){ return x.id===id; });
+  if(!a) return;
+  var newStage=checkAutoAdvance(a);
+  if(newStage){
+    var labels=['','Applied','Assessments','EMM Test','Interview','Decision'];
+    a.stage=newStage;
+    saveApplicants(apps);
+    syncApplicantToSheets(a);
+    showToast('🚀 '+a.name+' auto-moved to '+labels[newStage]);
+    refreshModalStageInfo(id);
+    if(typeof renderDashboard==='function') try{renderDashboard();}catch(e){}
+    if(typeof updateTrackerBadge==='function') try{updateTrackerBadge();}catch(e){}
+    if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{filterTracker();}catch(e){}
+  }
 }
 
 function nextStepCell(a) {
