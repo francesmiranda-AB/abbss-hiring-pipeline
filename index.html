@@ -113,6 +113,8 @@ a{color:var(--blue);text-decoration:none}
   transition:var(--transition);position:relative;overflow:hidden;
 }
 .stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.stat-card{cursor:pointer}
+.stat-card.card-selected{outline:2px solid var(--blue);outline-offset:-2px}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .stat-card.blue::before{background:linear-gradient(90deg,var(--blue),var(--cyan))}
 .stat-card.green::before{background:linear-gradient(90deg,var(--green),#00b894)}
@@ -132,6 +134,8 @@ a{color:var(--blue);text-decoration:none}
   transition:var(--transition);position:relative;cursor:default;
 }
 .pipeline-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.pipeline-card{cursor:pointer}
+.pipeline-card.card-selected{outline:2px solid var(--blue);outline-offset:-2px}
 .pipeline-card.stage-1{background:linear-gradient(135deg,#f0f4ff,#e8eeff);border-color:#c7d2fe}
 .pipeline-card.stage-2{background:linear-gradient(135deg,#fdf4ff,#f5e8ff);border-color:#e9d5ff}
 .pipeline-card.stage-3{background:linear-gradient(135deg,#fff7ed,#ffecd9);border-color:#fed7aa}
@@ -491,6 +495,7 @@ tbody tr:last-child td{border-bottom:none}
   </div>
   <div class="stats-grid" id="dashStats"></div>
   <div class="pipeline-grid" id="dashPipeline"></div>
+  <div class="card" id="dashCardDetail" style="display:none;margin-bottom:20px"></div>
   <div class="card card-accent-blue" style="margin-bottom:20px">
     <div class="card-header"><div class="card-title">&#128276; Needs Your Attention</div><button class="btn btn-sm btn-ghost" onclick="showPage('tracker',document.getElementById('nav-tracker'))">View all in Tracker &#8594;</button></div>
     <div id="dashNeedsAttention"></div>
@@ -577,6 +582,31 @@ tbody tr:last-child td{border-bottom:none}
         <option value="">All Results</option>
         <option value="pass">Passing</option>
         <option value="fail">Failing</option>
+      </select>
+      <select class="filter-inp" id="filterStatus" onchange="filterTracker()">
+        <option value="">All Statuses</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Hired">Hired</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Hold">On Hold</option>
+      </select>
+      <select class="filter-inp" id="filterGrit" onchange="filterTracker()">
+        <option value="">All GRIT Ratings</option>
+        <option value="HIGH GRIT">High GRIT</option>
+        <option value="MODERATE GRIT">Moderate GRIT</option>
+        <option value="LOW GRIT">Low GRIT</option>
+        <option value="VERY LOW GRIT">Very Low GRIT</option>
+        <option value="Not yet scored">Not Yet Scored</option>
+      </select>
+      <select class="filter-inp" id="filterValues" onchange="filterTracker()">
+        <option value="">All Values Ratings</option>
+        <option value="EXCELLENT FIT">Excellent Fit</option>
+        <option value="STRONG FIT">Strong Fit</option>
+        <option value="POTENTIAL FIT">Potential Fit</option>
+        <option value="NEEDS VALIDATION">Needs Validation</option>
+        <option value="NOT RECOMMENDED">Not Recommended</option>
+        <option value="INTEGRITY GATE FAIL">Integrity Gate Fail</option>
+        <option value="Not yet scored">Not Yet Scored</option>
       </select>
       <select class="filter-inp" id="sortBy" onchange="filterTracker()">
         <option value="date">Newest First</option>
@@ -1164,6 +1194,9 @@ function filterTracker(){
   const search=document.getElementById('searchInput').value.toLowerCase();
   const stageF=document.getElementById('filterStage').value;
   const resultF=document.getElementById('filterResult').value;
+  const statusF=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
+  const gritF=document.getElementById('filterGrit')?document.getElementById('filterGrit').value:'';
+  const valuesF=document.getElementById('filterValues')?document.getElementById('filterValues').value:'';
   const sortF=document.getElementById('sortBy').value;
   if(search)apps=apps.filter(a=>a.name.toLowerCase().includes(search)||a.email.toLowerCase().includes(search));
   if(stageF==='hired')apps=apps.filter(a=>a.overallStatus==='Hired');
@@ -1171,6 +1204,9 @@ function filterTracker(){
   else if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF));
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
   if(resultF==='fail')apps=apps.filter(a=>a.emm&&a.emm.pass===false);
+  if(statusF)apps=apps.filter(a=>(a.overallStatus||'In Progress')===statusF);
+  if(gritF)apps=apps.filter(a=>gritOutcome(a.grit&&a.grit.score).label===gritF);
+  if(valuesF)apps=apps.filter(a=>valuesOutcome(a.values&&a.values.score,(a.values&&a.values.confScore)||'',(a.values&&a.values.intScore)||'').label===valuesF);
   if(sortF==='name')apps.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sortF==='stage')apps.sort((a,b)=>b.stage-a.stage);
   else apps.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -2721,6 +2757,48 @@ function showPage(id, btn) {
 // ============================================================
 // OVERRIDE renderDashboard
 // ============================================================
+var CARD_FILTERS = {
+  total: { label:'All Applicants', fn: function(a){ return true; } },
+  inPipeline: { label:'In Pipeline', fn: function(a){ return a.overallStatus === 'In Progress'; } },
+  emmPassed: { label:'EMM Passed', fn: function(a){ return a.emm && a.emm.pass; } },
+  hired: { label:'Hired', fn: function(a){ return a.overallStatus === 'Hired'; } },
+  needsAction: { label:'Needs Action', fn: function(a){ return getNextStep(a).tone === 'action'; } },
+  stage1: { label:'Applied', fn: function(a){ return a.stage === 1; } },
+  stage2: { label:'Assessments', fn: function(a){ return a.stage === 2; } },
+  stage3: { label:'EMM Test', fn: function(a){ return a.stage === 3; } },
+  stage4: { label:'Interview', fn: function(a){ return a.stage === 4; } },
+  stage5: { label:'Hired', fn: function(a){ return a.overallStatus === 'Hired'; } }
+};
+var _activeDashCard = null;
+function showCardApplicants(key){
+  var panel = document.getElementById('dashCardDetail');
+  if(!panel) return;
+  document.querySelectorAll('[data-card-key]').forEach(function(c){ c.classList.remove('card-selected'); });
+  if(_activeDashCard === key){
+    _activeDashCard = null;
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+  _activeDashCard = key;
+  var el = document.querySelector('[data-card-key="' + key + '"]');
+  if(el) el.classList.add('card-selected');
+  var cfg = CARD_FILTERS[key];
+  if(!cfg) return;
+  var list = getApplicants().filter(cfg.fn);
+  var rows = list.length ? list.map(function(a){
+    var av = getAvatar(a.name);
+    return '<div class="applicant-row" onclick="openApplicant(' + a.id + ')">' +
+      '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
+      '<div class="applicant-info"><div class="applicant-name">' + a.name + '</div>' +
+      '<div class="applicant-meta">' + (a.position||'No position') + ' \u00b7 ' + a.email + '</div></div>' +
+      '<div style="text-align:right;flex-shrink:0">' + stageStatusBadge(a) + '</div></div>';
+  }).join('') : '<div class="empty" style="padding:24px"><div class="empty-icon">&#128269;</div><div class="empty-title">No applicants in this group</div></div>';
+  panel.innerHTML = '<div class="card-header"><div class="card-title">' + cfg.label + ' (' + list.length + ')</div><button class="btn btn-sm btn-ghost" onclick="showCardApplicants(\'' + key + '\')">&#10005; Close</button></div>' + rows;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
 function renderDashboard() {
   var apps = getApplicants();
   var total = apps.length;
@@ -2731,24 +2809,24 @@ function renderDashboard() {
   var needsAction = actionable.length;
 
   document.getElementById('dashStats').innerHTML = [
-    ['&#128203;', total, 'Total Applicants', 'blue', 'All time'],
-    ['&#9889;', inPipeline, 'In Pipeline', 'purple', 'Active'],
-    ['&#10003;', passing, 'EMM Passed', 'green', 'Qualified'],
-    ['&#127919;', hired, 'Hired', 'green', 'This cycle'],
-    ['&#9888;&#65039;', needsAction, 'Needs Action', 'amber', 'Awaiting assessment']
+    ['&#128203;', total, 'Total Applicants', 'blue', 'All time', 'total'],
+    ['&#9889;', inPipeline, 'In Pipeline', 'purple', 'Active', 'inPipeline'],
+    ['&#10003;', passing, 'EMM Passed', 'green', 'Qualified', 'emmPassed'],
+    ['&#127919;', hired, 'Hired', 'green', 'This cycle', 'hired'],
+    ['&#9888;&#65039;', needsAction, 'Needs Action', 'amber', 'Awaiting assessment', 'needsAction']
   ].map(function(s) {
-    return '<div class="stat-card ' + s[3] + '"><span class="stat-icon">' + s[0] + '</span><div class="stat-num">' + s[1] + '</div><div class="stat-lbl">' + s[2] + '</div><div class="stat-change">' + s[4] + '</div></div>';
+    return '<div class="stat-card ' + s[3] + '" data-card-key="' + s[5] + '" onclick="showCardApplicants(\'' + s[5] + '\')"><span class="stat-icon">' + s[0] + '</span><div class="stat-num">' + s[1] + '</div><div class="stat-lbl">' + s[2] + '</div><div class="stat-change">' + s[4] + '</div></div>';
   }).join('');
 
   var stages = [
-    { label:'Applied', count:apps.filter(function(a){return a.stage===1;}).length, cls:'stage-1', color:'#4361ee' },
-    { label:'Assessments', count:apps.filter(function(a){return a.stage===2;}).length, cls:'stage-2', color:'#7209b7' },
-    { label:'EMM Test', count:apps.filter(function(a){return a.stage===3;}).length, cls:'stage-3', color:'#d97706' },
-    { label:'Interview', count:apps.filter(function(a){return a.stage===4;}).length, cls:'stage-4', color:'#059669' },
-    { label:'Hired', count:hired, cls:'stage-5', color:'#047857' }
+    { label:'Applied', count:apps.filter(function(a){return a.stage===1;}).length, cls:'stage-1', color:'#4361ee', key:'stage1' },
+    { label:'Assessments', count:apps.filter(function(a){return a.stage===2;}).length, cls:'stage-2', color:'#7209b7', key:'stage2' },
+    { label:'EMM Test', count:apps.filter(function(a){return a.stage===3;}).length, cls:'stage-3', color:'#d97706', key:'stage3' },
+    { label:'Interview', count:apps.filter(function(a){return a.stage===4;}).length, cls:'stage-4', color:'#059669', key:'stage4' },
+    { label:'Hired', count:hired, cls:'stage-5', color:'#047857', key:'stage5' }
   ];
   document.getElementById('dashPipeline').innerHTML = stages.map(function(s, i) {
-    return '<div class="pipeline-card ' + s.cls + '"><div class="pipeline-num" style="color:' + s.color + '">' + s.count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + s.label + '</div>' + (i < 4 ? '<div class="pipeline-arrow">&#8250;</div>' : '<div style="font-size:20px;margin-top:4px">&#127881;</div>') + '</div>';
+    return '<div class="pipeline-card ' + s.cls + '" data-card-key="' + s.key + '" onclick="showCardApplicants(\'' + s.key + '\')"><div class="pipeline-num" style="color:' + s.color + '">' + s.count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + s.label + '</div>' + (i < 4 ? '<div class="pipeline-arrow">&#8250;</div>' : '<div style="font-size:20px;margin-top:4px">&#127881;</div>') + '</div>';
   }).join('');
 
   var recent = apps.slice().sort(function(a,b){ return new Date(b.createdAt)-new Date(a.createdAt); }).slice(0,6);
@@ -2863,6 +2941,7 @@ function renderTrackerTable(apps) {
     return '<tr onclick="openApplicant(' + a.id + ')">' +
       '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div><div style="font-weight:700;font-size:13px">' + a.name + '</div><div style="font-size:11px;color:var(--gray400)">' + (a.position||'No position') + '</div></div></div></td>' +
       '<td>' + nextStepCell(a) + '</td>' +
+      '<td style="font-size:12px;color:var(--gray600)">' + (a.enteredBy||'\u2014') + '</td>' +
       '<td><div style="font-size:12px;color:var(--gray700)">' + a.email + '</div><div style="font-size:12px;color:var(--gray500)">' + (a.phone||'No phone') + '</div></td>' +
       '<td><span class="badge badge-stage">Stage ' + a.stage + '</span></td>' +
       '<td>' + grit + '</td><td>' + val + '</td><td>' + emm + '</td><td>' + emailCell + '</td>' +
@@ -2871,7 +2950,7 @@ function renderTrackerTable(apps) {
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Next Step</th><th>Contact</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
+    '<th>Applicant</th><th>Next Step</th><th>Entered By</th><th>Contact</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
