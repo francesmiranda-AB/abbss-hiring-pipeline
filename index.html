@@ -1072,6 +1072,7 @@ function valuesOutcome(score,confScore,intScore){
   const s=parseFloat(score);
   const cf=confScore!==''&&confScore!=null?parseFloat(confScore):null;
   const it=intScore!==''&&intScore!=null?parseFloat(intScore):null;
+  const pct=s/315*100; // VALUES_MAX_SCORE=315 -- keep in sync with Values sheet's scoreValuesRow()
 
   if((cf!==null&&cf<=2)||(it!==null&&it<=2))
     return{label:'INTEGRITY GATE FAIL',badge:'badge-fail',pass:false,action:'Automatic red flag — Confidentiality or Integrity scored ≤2.',questions:[
@@ -1079,17 +1080,17 @@ function valuesOutcome(score,confScore,intScore){
       'A coworker asks you to share information you know is confidential. Walk me through how you\'d handle it.'
     ]};
 
-  if(s>=255)return{label:'EXCELLENT FIT',badge:'badge-pass',pass:true,action:'Fast-track. Verify in interview.',questions:[
+  if(pct>=85)return{label:'EXCELLENT FIT',badge:'badge-pass',pass:true,action:'Fast-track. Verify in interview.',questions:[
     'What does integrity mean to you in a workplace setting? Give me a real example.',
     'Describe a time you made an unpopular decision because it was the right thing to do.'
   ]};
 
-  if(s>=210)return{label:'STRONG FIT',badge:'badge-pass',pass:true,action:'Proceed to interview.',questions:[
+  if(pct>=70)return{label:'STRONG FIT',badge:'badge-pass',pass:true,action:'Proceed to interview.',questions:[
     'Tell me about a time you noticed a colleague doing something questionable. What did you do?',
     'How do you handle situations where following the rules conflicts with getting the job done quickly?'
   ]};
 
-  if(s>=165){
+  if(pct>=55){
     const confIsLower=cf!==null&&(it===null||cf<=it);
     const targeted=confIsLower?[
       'Walk me through how you\'ve handled sensitive or confidential information in a past role.',
@@ -1101,7 +1102,7 @@ function valuesOutcome(score,confScore,intScore){
     return{label:'POTENTIAL FIT',badge:'badge-warn',pass:true,action:'Interview with targeted questions on low-scoring sections.',questions:targeted};
   }
 
-  if(s>=120)return{label:'NEEDS VALIDATION',badge:'badge-warn',pass:false,action:'Panel interview required. High risk.',questions:[
+  if(pct>=40)return{label:'NEEDS VALIDATION',badge:'badge-warn',pass:false,action:'Panel interview required. High risk.',questions:[
     'Give me a specific, detailed example of a time you upheld a company policy even when it was inconvenient.',
     'Tell me about a time you disagreed with a decision from leadership — what did you do?',
     'How would you handle finding out a close colleague was violating company policy?'
@@ -1389,8 +1390,8 @@ function buildAssessmentsTab(a){
     </div>
     <div class="g3" style="margin-bottom:10px">
       <div>
-        <label class="lbl">Total Score (out of 300)</label>
-        <input type="number" min="0" max="300" value="${a.values&&a.values.score||''}" placeholder="e.g. 220" onchange="updateNestedField(${a.id},'values','score',this.value)">
+        <label class="lbl">Total Score (out of 315)</label>
+        <input type="number" min="0" max="315" value="${a.values&&a.values.score||''}" placeholder="e.g. 220" onchange="updateNestedField(${a.id},'values','score',this.value)">
       </div>
       <div>
         <label class="lbl">Confidentiality Score</label>
@@ -3055,7 +3056,7 @@ function renderTrackerTable(apps) {
       '<span class="badge ' + gOut.badge + '" style="font-size:10px">' + gOut.label + '</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + a.grit.score + '/5</div>' :
       '<span class="badge badge-gray" style="font-size:10px">Pending</span>';
     var val = a.values && a.values.score ?
-      '<span class="badge ' + vOut.badge + '" style="font-size:10px">' + vOut.label + '</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + a.values.score + '/300</div>' :
+      '<span class="badge ' + vOut.badge + '" style="font-size:10px">' + vOut.label + '</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + a.values.score + '/315</div>' :
       '<span class="badge badge-gray" style="font-size:10px">Pending</span>';
     var emm = a.requiresEmm ?
       (a.emm && a.emm.graded ?
