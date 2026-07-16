@@ -3237,7 +3237,23 @@ document.getElementById('scriptUrlInput').value = SCRIPT_URL;
 document.getElementById('connectionStatus').className = 'badge badge-pass';
 document.getElementById('connectionStatus').textContent = '✓ Connected';
 updateSyncStatus(true);
-loadFromSheets().then(function(loaded) { if (loaded) { renderDashboard(); updateTrackerBadge(); } });
+(async function(){
+  var loaded = await loadFromSheets();
+  if(!loaded && savedUrl && savedUrl !== DEFAULT_SCRIPT_URL){
+    // This device's saved connection is stale/broken (points at an old, no-longer-working
+    // Apps Script deployment) — fall back to the current shared default automatically so
+    // nobody has to know to go into Settings and fix this by hand.
+    localStorage.removeItem('abbss_script_url');
+    SCRIPT_URL = DEFAULT_SCRIPT_URL;
+    var urlEl = document.getElementById('scriptUrlInput');
+    if(urlEl) urlEl.value = DEFAULT_SCRIPT_URL;
+    loaded = await loadFromSheets();
+    if(loaded){
+      showToast('🔧 Reconnected automatically — your saved sheet connection was out of date.');
+    }
+  }
+  if(loaded){ renderDashboard(); updateTrackerBadge(); }
+})();
 var nd = document.getElementById('na-date');
 if (nd) nd.value = new Date().toISOString().slice(0,10);
 
