@@ -2647,8 +2647,9 @@ function getAllApplicants(){
 function getGritLabel(s){if(s>=4)return'HIGH GRIT';if(s>=3)return'MODERATE GRIT';if(s>=2)return'LOW GRIT';return'VERY LOW GRIT';}
 function getValuesLabel(s,c,i){
   if((c>0&&c<=2)||(i>0&&i<=2))return'INTEGRITY GATE FAIL';
-  if(s>=255)return'EXCELLENT FIT';if(s>=210)return'STRONG FIT';
-  if(s>=165)return'POTENTIAL FIT';if(s>=120)return'NEEDS VALIDATION';return'NOT RECOMMENDED';
+  var pct=s/315*100; // VALUES_MAX_SCORE=315 -- keep in sync with Values sheet's scoreValuesRow()
+  if(pct>=85)return'EXCELLENT FIT';if(pct>=70)return'STRONG FIT';
+  if(pct>=55)return'POTENTIAL FIT';if(pct>=40)return'NEEDS VALIDATION';return'NOT RECOMMENDED';
 }
 
 function getOrCreateCVFolder(){
