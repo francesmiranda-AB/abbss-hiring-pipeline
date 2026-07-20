@@ -2847,6 +2847,12 @@ function sendApplicantEmail(data){
   }
 }
 
+function authorizeMailSending(){
+  var me = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail(me, 'ABBSS Hiring Pipeline - Authorization Test', 'This is a one-time test to authorize automatic email sending (assessment invites, reminders, and the Send Automatically button). You can ignore or delete this message.');
+  return 'Authorization test email sent to ' + me + '. Automatic sending should now work.';
+}
+
 function checkAssessmentCompliance(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');
@@ -3227,6 +3233,39 @@ function nextStepCell(a) {
 }
 
 // ============================================================
+// SLA / 24-HOUR DEADLINE STATUS -- mirrors the server-side
+// checkAssessmentCompliance() 12h reminder / 24h archive logic
+// ============================================================
+function getSlaStatus(a){
+  if(!a || (a.overallStatus && a.overallStatus!=='In Progress')) return null;
+  var invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  if(!invitedAt) return null;
+  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
+  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
+  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
+  if(hasGrit && hasValues && emmDone) return null;
+  var reminderSent = a.emailsSent && (a.emailsSent.autoReminder || a.emailsSent.reminder);
+  var hoursElapsed = (Date.now() - new Date(invitedAt).getTime()) / 3600000;
+  if(hoursElapsed >= 24) return { label: '⛔ Overdue — will be archived soon', tone: '#b52a2a' };
+  if(reminderSent){
+    var left = Math.max(0, Math.ceil(24 - hoursElapsed));
+    return { label: '✉️ Reminder sent · ' + left + 'h to deadline', tone: '#b45309' };
+  }
+  if(hoursElapsed >= 12){
+    var left2 = Math.max(0, Math.ceil(24 - hoursElapsed));
+    return { label: '⏳ ' + left2 + 'h left — reminder due soon', tone: '#b45309' };
+  }
+  var leftReminder = Math.max(0, Math.ceil(12 - hoursElapsed));
+  return { label: '⏱️ ' + leftReminder + 'h until auto-reminder', tone: '#1e40af' };
+}
+
+function miniAssessBadge(letter, state, title){
+  var bg = state==='pass' ? '#e8f5e9' : state==='fail' ? '#fdecea' : state==='na' ? '#f1f1f4' : '#f1f1f4';
+  var fg = state==='pass' ? '#166534' : state==='fail' ? '#b52a2a' : state==='na' ? '#bbb' : '#888';
+  return '<span title="' + title.replace(/"/g,'&quot;') + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:' + bg + ';color:' + fg + ';font-size:11px;font-weight:800;margin-right:4px">' + letter + '</span>';
+}
+
+// ============================================================
 // OVERRIDE renderTrackerTable
 // ============================================================
 function renderTrackerTable(apps) {
@@ -3240,42 +3279,36 @@ function renderTrackerTable(apps) {
     var av = getAvatar(a.name);
     var gOut = gritOutcome(a.grit && a.grit.score);
     var vOut = valuesOutcome(a.values && a.values.score, (a.values && a.values.confScore)||'', (a.values && a.values.intScore)||'');
-    var grit = a.grit && a.grit.score ?
-      '<span class="badge ' + gOut.badge + '" style="font-size:10px">' + gOut.label + '</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + a.grit.score + '/5</div>' :
-      '<span class="badge badge-gray" style="font-size:10px">Pending</span>';
-    var val = a.values && a.values.score ?
-      '<span class="badge ' + vOut.badge + '" style="font-size:10px">' + vOut.label + '</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + a.values.score + '/315</div>' :
-      '<span class="badge badge-gray" style="font-size:10px">Pending</span>';
-    var emm = a.requiresEmm ?
-      (a.emm && a.emm.graded ?
-        '<div style="font-weight:800;font-size:15px;color:' + (a.emm.pass?'#166534':'#991b1b') + '">' + a.emm.overallPct + '%</div><span class="badge ' + (a.emm.pass?'badge-pass':'badge-fail') + '" style="font-size:10px">' + (a.emm.pass?'PASS':'FAIL') + '</span>' :
-        '<span class="badge badge-gray" style="font-size:10px">Not graded</span>') :
-      '<span class="badge badge-gray" style="font-size:10px">N/A</span>';
-    var emailInfo = getLastEmailSentInfo(a);
-    var emailCell = emailInfo ?
-      '<span class="badge badge-pass" style="font-size:10px">✓ Sent</span><div style="font-size:11px;color:var(--gray400);margin-top:2px">' + new Date(emailInfo.date).toLocaleDateString() + '</div>' :
-      '<span class="badge badge-gray" style="font-size:10px">Not sent</span>';
+    var gState = !(a.grit && a.grit.score) ? 'pending' : (gOut.pass===true?'pass':gOut.pass===false?'fail':'pending');
+    var gTitle = a.grit && a.grit.score ? ('GRIT: ' + gOut.label + ' (' + a.grit.score + '/5)') : 'GRIT: not yet scored';
+    var vState = !(a.values && a.values.score) ? 'pending' : (vOut.pass===true?'pass':vOut.pass===false?'fail':'pending');
+    var vTitle = a.values && a.values.score ? ('Values: ' + vOut.label + ' (' + a.values.score + '/315)') : 'Values: not yet scored';
+    var eState = !a.requiresEmm ? 'na' : (a.emm && a.emm.graded ? (a.emm.pass?'pass':'fail') : 'pending');
+    var eTitle = !a.requiresEmm ? 'EMM: not required for this role' : (a.emm && a.emm.graded ? ('EMM: ' + (a.emm.pass?'PASS':'FAIL') + ' (' + a.emm.overallPct + '%)') : 'EMM: not yet graded');
+    var assessCell = miniAssessBadge('G', gState, gTitle) + miniAssessBadge('V', vState, vTitle) + miniAssessBadge('E', eState, eTitle);
+    var isResolved = a.overallStatus && a.overallStatus !== 'In Progress';
+    var sla = getSlaStatus(a);
+    var statusCell = (isResolved ? stageStatusBadge(a) : nextStepCell(a)) +
+      (sla ? '<div style="font-size:10px;color:' + sla.tone + ';margin-top:4px;font-weight:600">' + sla.label + '</div>' : '');
+    var notesCell = (function(){
+      var raw=(a.resumeNotes||'').trim();
+      if(!raw) return '<span style="font-size:11px;color:var(--gray300)">—</span>';
+      var esc=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      var preview=raw.length>40?raw.slice(0,40)+'…':raw;
+      var previewEsc=preview.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return '<span title="'+esc+'" style="font-size:11px;color:var(--gray600);display:block;white-space:normal;line-height:1.4">'+previewEsc+'</span>';
+    })();
     return '<tr onclick="openApplicant(' + a.id + ')">' +
       '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div><div style="font-weight:700;font-size:13px">' + a.name + '</div><div style="font-size:11px;color:var(--gray400)">' + (a.position||'No position') + '</div></div></div></td>' +
-      '<td>' + nextStepCell(a) + '</td>' +
-      '<td style="font-size:12px;color:var(--gray600)">' + (a.enteredBy||'\u2014') + '</td>' +
-      '<td><div style="font-size:12px;color:var(--gray700)">' + a.email + '</div><div style="font-size:12px;color:var(--gray500)">' + (a.phone||'No phone') + '</div></td>' +
-      '<td style="max-width:160px">' + (function(){
-        var raw=(a.resumeNotes||'').trim();
-        if(!raw) return '<span style="font-size:11px;color:var(--gray300)">—</span>';
-        var esc=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        var preview=raw.length>48?raw.slice(0,48)+'…':raw;
-        var previewEsc=preview.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        return '<span title="'+esc+'" style="font-size:11px;color:var(--gray600);display:block;white-space:normal;line-height:1.4">'+previewEsc+'</span>';
-      })() + '</td>' +
+      '<td style="max-width:150px">' + notesCell + '</td>' +
       '<td><span class="badge badge-stage">Stage ' + a.stage + '</span><div style="font-size:10px;color:var(--gray400);margin-top:2px">' + (STAGE_LABELS[a.stage-1]||'') + '</div></td>' +
-      '<td>' + grit + '</td><td>' + val + '</td><td>' + emm + '</td><td>' + emailCell + '</td>' +
-      '<td>' + stageStatusBadge(a) + '</td>' +
+      '<td style="min-width:170px">' + statusCell + '</td>' +
+      '<td style="white-space:nowrap">' + assessCell + '</td>' +
       '<td style="color:var(--gray400);font-size:11px">' + (a.dateReceived||new Date(a.createdAt).toLocaleDateString()) + '</td></tr>';
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Next Step</th><th>Entered By</th><th>Contact</th><th>Notes</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
+    '<th>Applicant</th><th>Notes</th><th>Stage</th><th>Status &amp; Deadline</th><th>Assessments</th><th>Date</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
