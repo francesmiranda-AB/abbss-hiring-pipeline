@@ -495,10 +495,16 @@ tbody tr:last-child td{border-bottom:none}
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Overview of your hiring pipeline</p>
   </div>
   <div class="stats-grid" id="dashStats"></div>
-  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">By Stage</div>
-  <div class="pipeline-grid" id="dashPipeline"></div>
-  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">By Status</div>
-  <div class="pipeline-grid" id="dashStatusGrid"></div>
+  <div class="g2" style="gap:24px;align-items:start">
+    <div>
+      <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Internal &mdash; Active Pipeline</div>
+      <div class="pipeline-grid" id="dashPipeline"></div>
+    </div>
+    <div>
+      <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Outcomes</div>
+      <div class="pipeline-grid" id="dashStatusGrid"></div>
+    </div>
+  </div>
   <div class="card" id="dashCardDetail" style="display:none;margin-bottom:20px"></div>
   <div class="card" style="max-width:360px">
     <div class="card-header"><div class="card-title">Quick Actions</div></div>
@@ -518,6 +524,12 @@ tbody tr:last-child td{border-bottom:none}
       <div><label class="lbl">Email Address *</label><input class="inp" id="na-email" type="email" placeholder="juan@email.com"></div>
       <div><label class="lbl">Phone Number</label><input class="inp" id="na-phone" placeholder="+63 9xx xxx xxxx"></div>
       <div><label class="lbl">Position Applied For</label><input class="inp" id="na-position" placeholder="AR Specialist"></div>
+      <div><label class="lbl">Department</label>
+        <select class="inp" id="na-department">
+          <option value="">Select department</option>
+          <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
+        </select>
+      </div>
       <div><label class="lbl">Date Received</label><input class="inp" id="na-date" type="date"></div>
       <div><label class="lbl">Source</label>
         <select class="inp" id="na-source">
@@ -560,14 +572,17 @@ tbody tr:last-child td{border-bottom:none}
   <div class="card" style="padding:0;overflow:hidden">
     <div class="filters">
       <input class="filter-inp" id="searchInput" placeholder="Search name or email..." oninput="filterTracker()" style="width:220px">
+      <select class="filter-inp" id="filterDept" onchange="filterTracker()">
+        <option value="">All Departments</option>
+        <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
+      </select>
+      <input class="filter-inp" id="filterPosition" placeholder="Filter by position..." oninput="filterTracker()" style="width:160px">
       <select class="filter-inp" id="filterStage" onchange="filterTracker()">
         <option value="">All Stages</option>
-        <option value="1">Stage 1 - Application Received</option>
-        <option value="2">Stage 2 - Initial Screening</option>
-        <option value="3">Stage 3 - Submitted Assessments</option>
-        <option value="4">Stage 4 - Endorsed to Preliminary Interview</option>
-        <option value="5">Stage 5 - Interviewed</option>
-        <option value="6">Stage 6 - Endorsed to Client</option>
+        <option value="1">Stage 1 - Submitted Assessments</option>
+        <option value="2">Stage 2 - Endorsed to Preliminary Interview</option>
+        <option value="3">Stage 3 - Interviewed</option>
+        <option value="4">Stage 4 - Endorsed to Client</option>
       </select>
       <select class="filter-inp" id="filterResult" onchange="filterTracker()">
         <option value="">All Results</option>
@@ -694,7 +709,8 @@ tbody tr:last-child td{border-bottom:none}
       <div class="email-composer">
         <div class="email-toolbar">
           <button class="btn btn-success btn-sm" onclick="copyEmail()">&#128203; Copy Email</button>
-          <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail</button>
+          <button class="btn btn-sm" id="sendAutoBtn" style="background:#0f9d58;color:#fff;font-weight:700" onclick="sendEmailAutomatically()">&#9993; Send Automatically</button>
+          <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail (manual)</button>
           <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Gmail will open using this exact account's inbox (it must already be signed in on this device). Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
@@ -737,7 +753,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="g2" style="margin-bottom:20px">
     <div class="card">
       <div class="card-header"><div class="card-title">Pipeline Stages</div></div>
-      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Resume comes in. HR creates applicant record and reviews for basic fit.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">One email with GRIT form + Values form + blank EMM file (if the role requires it).</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Results Recorded</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR pastes GRIT/Values scores, or they're auto-pulled from Google Sheets if connected.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">EMM Grading</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Upload applicant xlsx, auto-grade, review integrity flags. Pass threshold is 75%.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Live validation scorecard (5 EMM questions) plus a separate Resilience &amp; Adaptability Check (2 questions). Final hiring decision recorded.</div></div></div>
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Submitted Assessments</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Add the applicant (already screened by the time they're entered). GRIT + Values + EMM (Operations roles only) send automatically, and scores auto-populate here as they come in.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Endorsed to Preliminary Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Once GRIT, Values (and EMM, if required) are complete, click Endorse to move them forward.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Interviewed</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Live validation scorecard (5 questions) plus Resilience &amp; Adaptability Check (2 questions). Auto-advances once all 5 are scored.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Endorsed to Client</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Available once the interview is fully scored. Record the final Hired/Rejected/Hold decision here.</div></div></div>
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Assessment Thresholds</div></div>
@@ -1132,10 +1148,11 @@ async function createApplicant(){
     enteredBy:document.getElementById('na-enteredby').value.trim(),
     phone:document.getElementById('na-phone').value.trim(),
     position:document.getElementById('na-position').value.trim(),
+    department:document.getElementById('na-department').value,
     dateReceived:document.getElementById('na-date').value,
     source:document.getElementById('na-source').value,
     resumeNotes:document.getElementById('na-notes').value.trim(),
-    requiresEmm: true,
+    requiresEmm: document.getElementById('na-department').value==='Operations',
     stage:1,status:'Applied',createdAt:new Date().toISOString(),
     stageDates:{1:new Date().toISOString()},
     grit:{score:'',outcome:'',notes:''},
@@ -1150,6 +1167,7 @@ async function createApplicant(){
   // Reset form and toggle
   ['na-name','na-email','na-phone','na-position','na-date','na-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('na-source').value='';
+  document.getElementById('na-department').value='';
   naEmmRequired=false;
   var emmT=document.getElementById('na-emmToggle');
   if(emmT) emmT.className='toggle-track';
@@ -1186,6 +1204,8 @@ function renderTracker(){
 function filterTracker(){
   let apps=getApplicants();
   const search=document.getElementById('searchInput').value.toLowerCase();
+  const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
+  const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
   const stageF=document.getElementById('filterStage').value;
   const resultF=document.getElementById('filterResult').value;
   const statusF=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
@@ -1193,6 +1213,8 @@ function filterTracker(){
   const valuesF=document.getElementById('filterValues')?document.getElementById('filterValues').value:'';
   const sortF=document.getElementById('sortBy').value;
   if(search)apps=apps.filter(a=>a.name.toLowerCase().includes(search)||a.email.toLowerCase().includes(search));
+  if(deptF)apps=apps.filter(a=>a.department===deptF);
+  if(posF)apps=apps.filter(a=>(a.position||'').toLowerCase().includes(posF));
   if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF));
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
   if(resultF==='fail')apps=apps.filter(a=>a.emm&&a.emm.pass===false);
@@ -1215,7 +1237,7 @@ function closeModal(){document.getElementById('detailModal').classList.remove('o
 function buildStageStepper(a){
   var steps=STAGE_LABELS;
   var status=a.overallStatus;
-  var curStage = status==='Hired' ? 6 : a.stage;
+  var curStage = status==='Hired' ? 4 : a.stage;
   return '<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;flex-wrap:wrap">' + steps.map(function(label,i){
     var n=i+1, bg='#e2e8f0', color='#94a3b8', mark=n;
     if(status==='Rejected' && n<=curStage){ bg='#fca5a5'; color='#fff'; mark='\u2715'; }
@@ -1227,7 +1249,7 @@ function buildStageStepper(a){
       (i<steps.length-1?'<span style="color:var(--gray300);margin:0 6px">\u203A</span>':'') +
     '</div>';
   }).join('') + '</div>' +
-  '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Moves forward automatically as results come in \u2014 nothing to click.</div>';
+  '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Interview stage auto-advances once fully scored \u2014 use the Endorse buttons to move to Preliminary Interview or Client.</div>';
 }
 
 function buildNextStepBanner(a){
@@ -1311,7 +1333,7 @@ function showModalTab(tab,btn,id){
 function buildStageHistory(a){
   var entries=[{n:1,at:a.createdAt}];
   if(a.stageDates){
-    for(var n=2;n<=6;n++){
+    for(var n=2;n<=4;n++){
       if(a.stageDates[n]) entries.push({n:n,at:a.stageDates[n]});
     }
   }
@@ -1435,7 +1457,7 @@ function buildAssessmentsTab(a){
     </label>
   </div>
 
-  ${a.stage<4 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},4)">✓ Assessments recorded — Endorse to Preliminary Interview</button>` : ''}`;
+  ${a.stage<2 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},2)">✓ Assessments recorded — Endorse to Preliminary Interview</button>` : ''}`;
 }
 
 function buildEmmTab(a){
@@ -1728,15 +1750,16 @@ function buildDecisionTab(a){
       </div>
       <div style="font-size:12px;color:#666;margin-top:4px">${anyFail?'One or more assessments did not meet the required threshold.':allPass?'All four screening assessments passed. Proceed to offer or final panel.':'Complete all assessments before making a hiring decision.'}</div>
     </div>
-    ${a.stage<6 ? `<div style="margin-bottom:12px">
-      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},6)" ${a.stage<5?'disabled':''}>➡️ Endorse to Client</button>
-      ${a.stage<5 ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">Available once the interview is fully scored.</div>' : ''}
+    ${a.stage<4 ? `<div style="margin-bottom:12px">
+      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},4)" ${a.stage<3?'disabled':''}>➡️ Endorse to Client</button>
+      ${a.stage<3 ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">Available once the interview is fully scored.</div>' : ''}
     </div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm btn-green" onclick="setDecision(${a.id},'Hired')">✅ Mark as Hired</button>
-      <button class="btn-sm btn-red" onclick="setDecision(${a.id},'Rejected')">✗ Mark as Rejected</button>
+      <button class="btn-sm btn-red" onclick="if(confirm('Mark '+${JSON.stringify(a.name)}+' as Rejected?'))setDecision(${a.id},'Rejected')">✗ Mark as Rejected</button>
       <button class="btn-sm btn-amber" onclick="setDecision(${a.id},'Hold')">⏸ Put on Hold</button>
-      <button class="btn-sm" style="background:#6b7280;color:#fff;border:none" onclick="setDecision(${a.id},'NonCompliant')">⛔ Non Compliant/Archive</button>
+      <button class="btn-sm" style="background:#6b7280;color:#fff;border:none" onclick="if(confirm('Mark '+${JSON.stringify(a.name)}+' as Non Compliant/Archive?'))setDecision(${a.id},'NonCompliant')">⛔ Non Compliant/Archive</button>
+      ${a.overallStatus && a.overallStatus!=='In Progress' ? `<button class="btn-sm" style="background:#e2e8f0;color:#334155;border:none" onclick="setDecision(${a.id},'In Progress')">&#8630; Undo / Back to In Progress</button>` : ''}
     </div>
     <div style="margin-top:12px">
       <label class="lbl">Final Decision Notes</label>
@@ -1861,7 +1884,7 @@ function advanceStage(id,stage){
 function setDecision(id,decision){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a){a.overallStatus=decision;if(decision==='Hired')a.stage=6;saveApplicants(apps);syncApplicantToSheets(a);}
+  if(a){a.overallStatus=decision;if(decision==='Hired')a.stage=4;saveApplicants(apps);syncApplicantToSheets(a);}
   document.getElementById('modalTabContent').innerHTML=buildDecisionTab(getApplicant(id));
   refreshModalStageInfo(id);
   renderDashboard();
@@ -2236,7 +2259,6 @@ function saveGradeToRecord(){
   const a=apps.find(a=>a.id===parseInt(selId));
   if(!a){alert('Applicant not found.');return;}
   a.emm={graded:true,overallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
-  if(a.stage<3)a.stage=3;
   saveApplicants(apps);
   syncApplicantToSheets(a);
   updateTrackerBadge();
@@ -2400,6 +2422,28 @@ function getLastEmailSentInfo(a){
   }
   if(!latestKey) return null;
   return{label:EMAIL_TEMPLATE_LABELS[latestKey]||latestKey,date:a.emailsSent[latestKey]};
+}
+
+async function sendEmailAutomatically(){
+  if(!currentEmailApplicantId){
+    alert("This email isn't linked to a specific applicant. Open it from that applicant's Profile tab (Generate Assessment Email) so it can be sent and tracked correctly.");
+    return;
+  }
+  var to=document.getElementById('et-email').value.trim();
+  if(!to){ alert("Enter the applicant's email address first."); return; }
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script, so automatic sending is unavailable right now. Use "Open in Gmail" instead.'); return; }
+  var subject=document.getElementById('emailSubject').value || '';
+  var body=document.getElementById('emailBody').innerText || document.getElementById('emailBody').textContent || '';
+  var btn=document.getElementById('sendAutoBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Sending...'; }
+  var res=await apiPost('sendEmail', {to:to, subject:subject, body:body});
+  if(btn){ btn.disabled=false; btn.innerHTML='&#9993; Send Automatically'; }
+  if(res && res.success){
+    markEmailSent();
+    showToast('✓ Email sent automatically to '+to);
+  } else {
+    alert('Could not send automatically (' + (res && res.error || 'unknown error') + '). Use "Open in Gmail" instead.');
+  }
 }
 
 function markEmailSent(){
@@ -2574,8 +2618,8 @@ function setupSheet(){
       'EMM Overall%','EMM Category%','EMM Action%','EMM Pass','EMM Graded At',
       'Interview Result','Decision Notes','Resume Notes','Created At',
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
-      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At']);
-    t.getRange(1,1,1,39).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department']);
+    t.getRange(1,1,1,40).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -2630,7 +2674,7 @@ function saveApplicant(d){
     d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString(),
     d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):'',
     d.emailsSent?JSON.stringify(d.emailsSent):'',
-    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||''];
+    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||'',d.department||''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -2652,15 +2696,15 @@ function getAllApplicants(){
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
-      grit:{score:r[13]||'',perseverance:r[34]||'',consistency:r[35]||''},
-      enteredBy:r[36]||'',
+      grit:{score:r[13]||'',perseverance:r[35]||'',consistency:r[36]||''},
+      enteredBy:r[37]||'',
       values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||''},
       emm:emm,
       interview:interview,decisionNotes:r[25]||'',
       resumeNotes:r[26]||'',createdAt:r[27]||'',
       emailsSent:emailsSent,
       cvUrl:r[31]||'',cvFileId:r[32]||'',cvFileName:r[33]||'',cvUploadedAt:r[34]||'',
-      emmReceivedAt:r[38]||''
+      emmReceivedAt:r[38]||'',department:r[39]||''
     };
   });
 }
@@ -2710,6 +2754,7 @@ function doPost(e){
     const p=JSON.parse(e.postData.contents);let out={};
     if(p.action==='saveApplicant')out=saveApplicant(p.data);
     else if(p.action==='uploadCV')out=uploadCV(p.data);
+    else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -2728,6 +2773,55 @@ function addEmmReceivedColumn(){
   }
   Logger.log('EMM Received At column already present at column '+(header.indexOf('EMM Received At')+1));
   return 'EMM Received At column already present';
+}
+
+function addDepartmentColumn(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return 'Applicants sheet not found';
+  const lastCol=t.getLastColumn();
+  const header=t.getRange(1,1,1,lastCol).getValues()[0];
+  if(header.indexOf('Department')===-1){
+    t.getRange(1,lastCol+1).setValue('Department');
+    Logger.log('Added Department at column '+(lastCol+1));
+    return 'Added Department at column '+(lastCol+1);
+  }
+  return 'Department column already present at column '+(header.indexOf('Department')+1);
+}
+
+function migrateToFourStagePipeline(){
+  const props=PropertiesService.getScriptProperties();
+  if(props.getProperty('stageMigrationV1Done')==='true') return 'Migration already run \u2014 skipping.';
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return 'Applicants sheet not found';
+  const header=t.getRange(1,1,1,t.getLastColumn()).getValues()[0];
+  const stageCol=header.indexOf('Stage')+1;
+  if(stageCol<1) return 'Stage column not found';
+  const lastRow=t.getLastRow();
+  if(lastRow<2){ props.setProperty('stageMigrationV1Done','true'); return 'No data rows.'; }
+  const range=t.getRange(2,stageCol,lastRow-1,1);
+  const vals=range.getValues();
+  let changed=0;
+  for(let i=0;i<vals.length;i++){
+    const old=parseInt(vals[i][0])||1;
+    const next = old<=3 ? 1 : (old-2);
+    if(next!==old){ vals[i][0]=next; changed++; }
+  }
+  range.setValues(vals);
+  props.setProperty('stageMigrationV1Done','true');
+  Logger.log('Stage migration complete. Rows updated: '+changed);
+  return 'Stage migration complete. Rows updated: '+changed;
+}
+
+function sendApplicantEmail(data){
+  if(!data || !data.to) return {success:false, error:'Missing recipient email address.'};
+  try{
+    MailApp.sendEmail(data.to, data.subject||'', data.body||'');
+    return {success:true};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
 }
 
 function checkAssessmentCompliance(){
@@ -2949,15 +3043,13 @@ function showPage(id, btn) {
 // ============================================================
 // OVERRIDE renderDashboard
 // ============================================================
-var STAGE_LABELS = ['Application Received','Initial Screening','Submitted Assessments','Endorsed to Preliminary Interview','Interviewed','Endorsed to Client'];
+var STAGE_LABELS = ['Submitted Assessments','Endorsed to Preliminary Interview','Interviewed','Endorsed to Client'];
 var CARD_FILTERS = {
   total: { label:'All Applicants', fn: function(a){ return true; } },
   stage1: { label: STAGE_LABELS[0], fn: function(a){ return a.stage === 1; } },
   stage2: { label: STAGE_LABELS[1], fn: function(a){ return a.stage === 2; } },
   stage3: { label: STAGE_LABELS[2], fn: function(a){ return a.stage === 3; } },
   stage4: { label: STAGE_LABELS[3], fn: function(a){ return a.stage === 4; } },
-  stage5: { label: STAGE_LABELS[4], fn: function(a){ return a.stage === 5; } },
-  stage6: { label: STAGE_LABELS[5], fn: function(a){ return a.stage === 6; } },
   statusInProgress: { label:'In Progress', fn: function(a){ return (a.overallStatus||'In Progress') === 'In Progress'; } },
   statusHired: { label:'Hired', fn: function(a){ return a.overallStatus === 'Hired'; } },
   statusRejected: { label:'Rejected', fn: function(a){ return a.overallStatus === 'Rejected'; } },
@@ -3002,8 +3094,7 @@ function renderDashboard() {
     '<div class="stat-card blue" data-card-key="total" onclick="showCardApplicants(\'total\')"><span class="stat-icon">&#128203;</span><div class="stat-num">' + total + '</div><div class="stat-lbl">Total Applicants</div><div class="stat-change">All time</div></div>';
 
   var stageDefs = [
-    { n:1, color:'#4361ee' }, { n:2, color:'#7209b7' }, { n:3, color:'#d97706' },
-    { n:4, color:'#0891b2' }, { n:5, color:'#059669' }, { n:6, color:'#047857' }
+    { n:1, color:'#d97706' }, { n:2, color:'#0891b2' }, { n:3, color:'#059669' }, { n:4, color:'#047857' }
   ];
   document.getElementById('dashPipeline').innerHTML = stageDefs.map(function(s, i) {
     var count = apps.filter(function(a){ return a.stage === s.n; }).length;
@@ -3012,11 +3103,10 @@ function renderDashboard() {
   }).join('');
 
   var statusDefs = [
-    { key:'statusInProgress', label:'In Progress', color:'#4361ee', fn: function(a){ return (a.overallStatus||'In Progress')==='In Progress'; } },
     { key:'statusHired', label:'Hired', color:'#059669', fn: function(a){ return a.overallStatus==='Hired'; } },
     { key:'statusRejected', label:'Rejected', color:'#dc2626', fn: function(a){ return a.overallStatus==='Rejected'; } },
     { key:'statusHold', label:'On Hold', color:'#d97706', fn: function(a){ return a.overallStatus==='Hold'; } },
-    { key:'statusNonCompliant', label:'Non Compliant / Archive', color:'#6b7280', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
+    { key:'statusNonCompliant', label:'Non Compliant', color:'#6b7280', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
   ];
   document.getElementById('dashStatusGrid').innerHTML = statusDefs.map(function(s) {
     var count = apps.filter(s.fn).length;
@@ -3044,7 +3134,7 @@ function stageStatusBadge(a) {
   if (a.overallStatus === 'NonCompliant') return '<span class="badge badge-fail">&#9940; Non Compliant</span>';
   if (a.emm && a.emm.graded && a.emm.pass === false) return '<span class="badge badge-fail">&#10007; EMM Failed</span>';
   if (a.emm && a.emm.graded && a.emm.pass) return '<span class="badge badge-pass">&#10003; EMM Passed</span>';
-  if (a.stage === 2) return '<span class="badge badge-purple">Assessing</span>';
+  if (a.stage === 1) return '<span class="badge badge-purple">Assessing</span>';
   return '<span class="badge badge-gray">Applied</span>';
 }
 
@@ -3067,13 +3157,13 @@ function getNextStep(a) {
   if (a.requiresEmm && !(a.emm && a.emm.graded)) return { label: 'Grade their EMM assessment', tone: 'action', icon: '\u26A1' };
   if (a.requiresEmm && a.emm && a.emm.graded && a.emm.pass === false) return { label: 'EMM failed \u2014 review and decide next step', tone: 'action', icon: '\u26A0\uFE0F' };
 
-  if (a.stage < 4) return { label: 'Endorse to Preliminary Interview', tone: 'action', icon: '\u27A1\uFE0F' };
+  if (a.stage < 2) return { label: 'Endorse to Preliminary Interview', tone: 'action', icon: '\u27A1\uFE0F' };
 
   var ivKeys = ['q1','q2','q3','q4','q5'];
   var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
   if (ivDone < 5) return { label: ivDone > 0 ? ('Finish scoring the interview (' + ivDone + '/5)') : 'Schedule and conduct the interview', tone: 'action', icon: '\uD83C\uDFAF' };
 
-  if (a.stage < 6) return { label: 'Endorse to Client', tone: 'action', icon: '\u27A1\uFE0F' };
+  if (a.stage < 4) return { label: 'Endorse to Client', tone: 'action', icon: '\u27A1\uFE0F' };
 
   return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
 }
@@ -3082,15 +3172,9 @@ function checkAutoAdvance(a){
   if(!a) return null;
   if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold'||a.overallStatus==='NonCompliant') return null;
   var target = a.stage||1;
-  var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
-  if(emailedAssessment && target<2) target=2;
-  var hasGrit = a.grit && a.grit.score!=='' && a.grit.score!=null;
-  var hasValues = a.values && a.values.score!=='' && a.values.score!=null;
-  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
-  if(emailedAssessment && hasGrit && hasValues && emmDone && target<3) target=3;
   var ivKeys=['q1','q2','q3','q4','q5'];
   var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
-  if(ivDone===5 && (a.stage||1)>=4 && target<5) target=5;
+  if(ivDone===5 && (a.stage||1)>=2 && target<3) target=3;
   return target>(a.stage||1) ? target : null;
 }
 
