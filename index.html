@@ -894,7 +894,9 @@ async function loadFromSheets() {
       if (sheetA && localA) {
         return {...localA, ...sheetA,
           interview: localA.interview || sheetA.interview,
-          emm: localA.emm?.fullResult ? localA.emm : sheetA.emm
+          emm: localA.emm?.fullResult ? localA.emm : sheetA.emm,
+          resumeNotes: (localA.resumeNotes || sheetA.resumeNotes || ''),
+          decisionNotes: (localA.decisionNotes || sheetA.decisionNotes || '')
         };
       }
       if (sheetA) return sheetA;
@@ -1358,7 +1360,11 @@ function buildProfileTab(a){
   </div>
   <div style="margin-bottom:12px">
     <label class="lbl">Resume Notes</label>
-    <textarea onchange="updateField(${a.id},'resumeNotes',this.value)" style="min-height:60px">${a.resumeNotes||''}</textarea>
+    <textarea id="resumeNotesInput_${a.id}" onchange="updateField(${a.id},'resumeNotes',this.value)" style="min-height:60px">${a.resumeNotes||''}</textarea>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:6px;margin-bottom:16px">
+      <button class="btn-sm btn-primary" onclick="saveResumeNotesNow(${a.id})">💾 Save Notes Now</button>
+      <span id="resumeNotesSavedMsg_${a.id}" style="font-size:12px;color:#166534;display:none">✓ Saved</span>
+    </div>
   </div>
   <div style="margin-bottom:12px">
     <label class="lbl">Resume / CV File</label>
@@ -1770,6 +1776,23 @@ function buildDecisionTab(a){
 // ============================================================
 // FIELD UPDATES
 // ============================================================
+async function saveResumeNotesNow(id){
+  var ta=document.getElementById('resumeNotesInput_'+id);
+  if(!ta) return;
+  var apps=getApplicants();
+  var a=apps.find(function(x){ return x.id===id; });
+  if(!a) return;
+  clearTimeout(a._syncTimer);
+  a.resumeNotes=ta.value;
+  saveApplicants(apps);
+  if(SCRIPT_URL){
+    try{ await syncApplicantToSheets(a); }catch(e){}
+  }
+  var msg=document.getElementById('resumeNotesSavedMsg_'+id);
+  if(msg){ msg.style.display='inline'; setTimeout(function(){ if(msg) msg.style.display='none'; },3000); }
+  showToast('✓ Notes saved for '+a.name);
+}
+
 function updateField(id,field,value){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
@@ -3237,6 +3260,14 @@ function renderTrackerTable(apps) {
       '<td>' + nextStepCell(a) + '</td>' +
       '<td style="font-size:12px;color:var(--gray600)">' + (a.enteredBy||'\u2014') + '</td>' +
       '<td><div style="font-size:12px;color:var(--gray700)">' + a.email + '</div><div style="font-size:12px;color:var(--gray500)">' + (a.phone||'No phone') + '</div></td>' +
+      '<td style="max-width:160px">' + (function(){
+        var raw=(a.resumeNotes||'').trim();
+        if(!raw) return '<span style="font-size:11px;color:var(--gray300)">—</span>';
+        var esc=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        var preview=raw.length>48?raw.slice(0,48)+'…':raw;
+        var previewEsc=preview.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return '<span title="'+esc+'" style="font-size:11px;color:var(--gray600);display:block;white-space:normal;line-height:1.4">'+previewEsc+'</span>';
+      })() + '</td>' +
       '<td><span class="badge badge-stage">Stage ' + a.stage + '</span><div style="font-size:10px;color:var(--gray400);margin-top:2px">' + (STAGE_LABELS[a.stage-1]||'') + '</div></td>' +
       '<td>' + grit + '</td><td>' + val + '</td><td>' + emm + '</td><td>' + emailCell + '</td>' +
       '<td>' + stageStatusBadge(a) + '</td>' +
@@ -3244,7 +3275,7 @@ function renderTrackerTable(apps) {
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Next Step</th><th>Entered By</th><th>Contact</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
+    '<th>Applicant</th><th>Next Step</th><th>Entered By</th><th>Contact</th><th>Notes</th><th>Stage</th><th>GRIT</th><th>Values</th><th>EMM</th><th>Email</th><th>Status</th><th>Date</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
