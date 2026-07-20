@@ -707,7 +707,7 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-success btn-sm" onclick="copyEmail()">&#128203; Copy Email</button>
           <button class="btn btn-sm" id="sendAutoBtn" style="background:#0f9d58;color:#fff;font-weight:700" onclick="sendEmailAutomatically()">&#9993; Send Automatically</button>
           <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail (manual)</button>
-          <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Gmail will open using this exact account's inbox (it must already be signed in on this device). Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
+          <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Used for two things: (1) Gmail opens using this account's inbox for manual sends, and (2) automated sends use it as the Reply-To, so candidate replies land in YOUR inbox, not whoever authorized the system. Leave blank and replies go to the shared operations@ab-businesssupport.com inbox instead. Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
           <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600;margin-left:8px">&#10003; Copied!</span>
@@ -2497,9 +2497,10 @@ async function sendEmailAutomatically(){
   if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script, so automatic sending is unavailable right now. Use "Open in Gmail" instead.'); return; }
   var subject=document.getElementById('emailSubject').value || '';
   var body=document.getElementById('emailBody').innerText || document.getElementById('emailBody').textContent || '';
+  var replyTo=(document.getElementById('gmailWorkEmailInput') && document.getElementById('gmailWorkEmailInput').value.trim()) || '';
   var btn=document.getElementById('sendAutoBtn');
   if(btn){ btn.disabled=true; btn.textContent='Sending...'; }
-  var res=await apiPost('sendEmail', {data:{to:to, subject:subject, body:body}});
+  var res=await apiPost('sendEmail', {data:{to:to, subject:subject, body:body, replyTo:replyTo}});
   if(btn){ btn.disabled=false; btn.innerHTML='&#9993; Send Automatically'; }
   if(res && res.success){
     markEmailSent();
@@ -2878,10 +2879,13 @@ function migrateToFourStagePipeline(){
   return 'Stage migration complete. Rows updated: '+changed;
 }
 
+var DEFAULT_REPLY_TO = 'operations@ab-businesssupport.com';
+
 function sendApplicantEmail(data){
   if(!data || !data.to) return {success:false, error:'Missing recipient email address.'};
   try{
-    MailApp.sendEmail(data.to, data.subject||'', data.body||'');
+    var replyTo = (data.replyTo && String(data.replyTo).trim()) || DEFAULT_REPLY_TO;
+    MailApp.sendEmail(data.to, data.subject||'', data.body||'', {replyTo: replyTo});
     return {success:true};
   }catch(e){
     return {success:false, error:e.message};
@@ -2974,7 +2978,10 @@ function sendComplianceReminderEmail(email,name,position){
     +'If we do not receive all of the above within the 24-hour window, your application will be marked as Non-Compliant and archived.\n\n'
     +'If you have already submitted these, please disregard this message.\n\n'
     +'Warm regards,\nHR Team\nABBSS';
-  MailApp.sendEmail(email,subject,body);
+  // This is a fully automated, system-triggered reminder (no one clicked send) --
+  // route any reply to the shared team inbox rather than whichever account is
+  // authorized to run the script, so the whole team can see and act on responses.
+  MailApp.sendEmail(email,subject,body,{replyTo: DEFAULT_REPLY_TO});
 }
 
 function installComplianceTrigger(){
