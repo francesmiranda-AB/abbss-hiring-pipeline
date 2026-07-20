@@ -1201,7 +1201,7 @@ function filterTracker(){
   if(search)apps=apps.filter(a=>a.name.toLowerCase().includes(search)||a.email.toLowerCase().includes(search));
   if(deptF)apps=apps.filter(a=>a.department===deptF);
   if(posF)apps=apps.filter(a=>(a.position||'').toLowerCase().includes(posF));
-  if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF));
+  if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF) && (a.overallStatus||'In Progress')==='In Progress');
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
   if(resultF==='fail')apps=apps.filter(a=>a.emm&&a.emm.pass===false);
   if(statusF)apps=apps.filter(a=>(a.overallStatus||'In Progress')===statusF);
@@ -3210,14 +3210,8 @@ function renderDashboard() {
 // OVERRIDE stageStatusBadge
 // ============================================================
 function stageStatusBadge(a) {
-  if (a.overallStatus === 'Hired') return '<span class="badge badge-pass">&#10003; Hired</span>';
-  if (a.overallStatus === 'Rejected') return '<span class="badge badge-fail">&#10007; Rejected</span>';
-  if (a.overallStatus === 'Hold') return '<span class="badge badge-gray">&#9208; On Hold</span>';
-  if (a.overallStatus === 'NonCompliant') return '<span class="badge badge-fail">&#9940; Non Compliant</span>';
-  if (a.emm && a.emm.graded && a.emm.pass === false) return '<span class="badge badge-fail">&#10007; EMM Failed</span>';
-  if (a.emm && a.emm.graded && a.emm.pass) return '<span class="badge badge-pass">&#10003; EMM Passed</span>';
-  if (a.stage === 1) return '<span class="badge badge-purple">Assessing</span>';
-  return '<span class="badge badge-gray">Applied</span>';
+  var st = getApplicantStatusLine(a);
+  return '<span class="badge" style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700">' + st.label + '</span>';
 }
 
 // ============================================================
