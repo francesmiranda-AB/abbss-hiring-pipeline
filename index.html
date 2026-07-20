@@ -3364,6 +3364,19 @@ function getApplicantStatusLine(a){
   return { label:'In progress', tone:'#888', bg:'#f1f1f4' };
 }
 
+async function updateFieldImmediate(id, field, value){
+  var apps = getApplicants();
+  var a = apps.find(function(x){ return x.id===id; });
+  if(!a) return;
+  clearTimeout(a._syncTimer);
+  a[field] = value;
+  saveApplicants(apps);
+  if(SCRIPT_URL){
+    try{ await syncApplicantToSheets(a); }catch(e){}
+  }
+  showToast('✓ Note saved for ' + a.name);
+}
+
 function renderTrackerTable(apps) {
   var sub = document.getElementById('trackerSubtitle');
   if (sub) sub.textContent = apps.length + ' applicant' + (apps.length!==1?'s':'') + ' shown';
@@ -3375,28 +3388,26 @@ function renderTrackerTable(apps) {
     var av = getAvatar(a.name);
     var st = getApplicantStatusLine(a);
     var sla = getSlaStatus(a);
-    var stageStatusCell =
-      '<div><span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700;font-size:11px;padding:3px 8px;border-radius:6px">Stage ' + a.stage + '</span> <span style="font-size:11px;color:var(--gray400)">' + (STAGE_LABELS[a.stage-1]||'') + '</span></div>' +
-      '<div style="margin-top:5px;font-size:12px;font-weight:600;color:' + st.tone + '">' + st.label + '</div>' +
-      (sla ? '<div style="font-size:10px;color:' + sla.tone + ';margin-top:3px;font-weight:600">' + sla.label + '</div>' : '');
-    var notesCell = (function(){
-      var raw=(a.resumeNotes||'').trim();
-      if(!raw) return '<span style="font-size:11px;color:var(--gray300)">—</span>';
-      var esc=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      var preview=raw.length>40?raw.slice(0,40)+'…':raw;
-      var previewEsc=preview.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      return '<span title="'+esc+'" style="font-size:11px;color:var(--gray600);display:block;white-space:normal;line-height:1.4">'+previewEsc+'</span>';
-    })();
+    var isResolved = a.overallStatus && a.overallStatus !== 'In Progress';
+    var stageStatusCell = isResolved ?
+      '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block">' + st.label + '</span>' :
+      ('<div><span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700;font-size:11px;padding:3px 8px;border-radius:6px">Stage ' + a.stage + '</span> <span style="font-size:11px;color:var(--gray400)">' + (STAGE_LABELS[a.stage-1]||'') + '</span></div>' +
+       '<div style="margin-top:5px;font-size:12px;font-weight:600;color:' + st.tone + '">' + st.label + '</div>' +
+       (sla ? '<div style="font-size:10px;color:' + sla.tone + ';margin-top:3px;font-weight:600">' + sla.label + '</div>' : ''));
+    var rawNote = (a.resumeNotes||'');
+    var escNote = rawNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var notesCell = '<textarea onchange="updateFieldImmediate(' + a.id + ',\'resumeNotes\',this.value)" onclick="event.stopPropagation()" placeholder="Add a note..." style="width:100%;min-height:34px;font-size:11px;border:1px solid var(--gray200);border-radius:6px;padding:5px 7px;resize:vertical;font-family:inherit">' + escNote + '</textarea>';
     return '<tr onclick="openApplicant(' + a.id + ')">' +
       '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:13px">' + a.name + '</div></div></td>' +
       '<td style="font-size:12px;color:var(--gray700)">' + (a.department||'—') + '</td>' +
       '<td style="font-size:12px;color:var(--gray700)">' + (a.position||'—') + '</td>' +
+      '<td style="font-size:12px;color:var(--gray600)">' + (a.enteredBy||'—') + '</td>' +
       '<td style="min-width:190px">' + stageStatusCell + '</td>' +
-      '<td style="max-width:150px">' + notesCell + '</td></tr>';
+      '<td style="min-width:160px" onclick="event.stopPropagation()">' + notesCell + '</td></tr>';
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Department</th><th>Position</th><th>Current Stage &amp; Status</th><th>Notes</th>' +
+    '<th>Applicant</th><th>Department</th><th>Position</th><th>Entered By</th><th>Current Stage &amp; Status</th><th>Notes</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
