@@ -1439,7 +1439,14 @@ function buildAssessmentsTab(a){
 }
 
 function buildEmmTab(a){
-  if(!a.emm||!a.emm.graded)return`
+  const receivedBlock=`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${a.emmReceivedAt?'#e8f5e9':'#fff8e1'};border:1px solid ${a.emmReceivedAt?'#a5d6a7':'#ffe082'};border-radius:8px;margin-bottom:14px">
+      <input type="checkbox" ${a.emmReceivedAt?'checked':''} onchange="toggleEmmReceived(${a.id})" style="width:18px;height:18px;flex-shrink:0;cursor:pointer">
+      <div style="font-size:13px;line-height:1.4">
+        <strong>EMM file received</strong>${a.emmReceivedAt?' — '+new Date(a.emmReceivedAt).toLocaleString():' — tick as soon as the candidate\'s completed Excel file arrives (before grading). This is what the 24-hour compliance check looks for.'}
+      </div>
+    </div>`;
+  if(!a.emm||!a.emm.graded)return receivedBlock+`
     <div style="text-align:center;padding:24px;color:#888">
       <div style="font-size:32px;margin-bottom:12px">⚡</div>
       <p style="margin-bottom:16px;font-size:14px">No EMM result recorded yet.</p>
@@ -1463,7 +1470,7 @@ function buildEmmTab(a){
     <label class="lbl">HR Notes on EMM</label>
     <textarea onchange="updateNestedField(${a.id},'emm','notes',this.value)" style="min-height:60px" placeholder="Observations, integrity flags, recommendations...">${a.emm.notes||''}</textarea>`;
   if(!g||!g.catByCat){
-    return banner+`<div class="alert alert-info" style="margin-bottom:14px"><span>&#8505;&#65039;</span><span>Detailed category/flag breakdown isn't available for this result \u2014 it was likely graded before the detailed report feature was added.</span></div>`+notesBlock;
+    return receivedBlock+banner+`<div class="alert alert-info" style="margin-bottom:14px"><span>&#8505;&#65039;</span><span>Detailed category/flag breakdown isn't available for this result \u2014 it was likely graded before the detailed report feature was added.</span></div>`+notesBlock;
   }
   const catRows=CAT_ORDER.map(cat=>{
     const d=g.catByCat[cat]||{correct:0,wrong:0};
@@ -1474,7 +1481,7 @@ function buildEmmTab(a){
   const flColor=l=>l==='high'?'#b52a2a':l==='medium'?'#b07d0c':l==='pass'?'#1a7a4a':'#3b3f8c';
   const flBg=l=>l==='high'?'#fdecea':l==='medium'?'#fdf6e3':l==='pass'?'#eaf7f0':'#f0f0f8';
   const flags=(g.flags||[]).map(f=>`<div class="flag-card" style="background:${flBg(f.level)};border:1px solid ${flColor(f.level)}33"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span class="badge" style="background:${flBg(f.level)};color:${flColor(f.level)};border:1px solid ${flColor(f.level)}33">${f.level==='high'?'⚠ HIGH':f.level==='medium'?'⚠ MEDIUM':'✓ CLEAR'}</span><strong style="color:${flColor(f.level)}">${f.title}</strong></div><div style="font-size:13px;color:#444;margin-bottom:8px">${f.desc}</div><div class="flag-action">💬 ${f.action}</div></div>`).join('');
-  return `
+  return receivedBlock+`
     <div id="emmDetail_${a.id}">
       ${banner}
       <table style="margin-bottom:16px"><thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Total</th></tr></thead><tbody>
@@ -2248,7 +2255,7 @@ const EMAIL_TEMPLATES={
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 3 business days:
+Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
 1. GRIT Assessment (approx. 5 minutes)
    Link: https://forms.gle/JwGGt8UWnR6NgFga8
@@ -2262,7 +2269,7 @@ Please complete all of the following assessments and submit them within 3 busine
    → Please find the assessment file attached to this email.
    Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
    Format: Save your completed file as AR_Assessment_{name}.xlsx, then reply to this email with it attached.
-   Deadline: Kindly return the completed file by {deadline}, or at your earliest convenience.
+   Deadline: Please return the completed file within 24 hours of this invitation, or as soon as possible.
 
 We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
 
@@ -2281,7 +2288,7 @@ As a reminder, please submit:
 • Value-Integrity form (online submission)
 • Completed AR EMM Excel assessment
 
-The deadline is 3 business days from the original invitation. If you need an extension or have encountered any difficulties, please let us know.
+The deadline is 24 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
 
 Warm regards,
 HR Team
@@ -2325,7 +2332,7 @@ ABBSS`
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 3 business days:
+Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
 1. GRIT Assessment (approx. 5 minutes)
    Link: https://forms.gle/JwGGt8UWnR6NgFga8
@@ -2335,7 +2342,7 @@ Please complete all of the following assessments and submit them within 3 busine
    Link: https://forms.gle/RH5HGDDvPL9H5YvRA
    → Your results will be recorded automatically.
 
-Please complete both forms within 3 business days — your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
+Please complete both forms within 24 hours of this invitation — your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
 
 We look forward to reviewing your results.
 
@@ -2567,8 +2574,8 @@ function setupSheet(){
       'EMM Overall%','EMM Category%','EMM Action%','EMM Pass','EMM Graded At',
       'Interview Result','Decision Notes','Resume Notes','Created At',
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
-      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By']);
-    t.getRange(1,1,1,37).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At']);
+    t.getRange(1,1,1,39).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -2623,7 +2630,7 @@ function saveApplicant(d){
     d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString(),
     d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):'',
     d.emailsSent?JSON.stringify(d.emailsSent):'',
-    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||''];
+    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -2652,7 +2659,8 @@ function getAllApplicants(){
       interview:interview,decisionNotes:r[25]||'',
       resumeNotes:r[26]||'',createdAt:r[27]||'',
       emailsSent:emailsSent,
-      cvUrl:r[31]||'',cvFileId:r[32]||'',cvFileName:r[33]||'',cvUploadedAt:r[34]||''
+      cvUrl:r[31]||'',cvFileId:r[32]||'',cvFileName:r[33]||'',cvUploadedAt:r[34]||'',
+      emmReceivedAt:r[38]||''
     };
   });
 }
@@ -2705,7 +2713,85 @@ function doPost(e){
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
-}`;
+
+
+function addEmmReceivedColumn(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return 'Applicants sheet not found';
+  const lastCol=t.getLastColumn();
+  const header=t.getRange(1,1,1,lastCol).getValues()[0];
+  if(header.indexOf('EMM Received At')===-1){
+    t.getRange(1,lastCol+1).setValue('EMM Received At');
+    Logger.log('Added EMM Received At at column '+(lastCol+1));
+    return 'Added EMM Received At at column '+(lastCol+1);
+  }
+  Logger.log('EMM Received At column already present at column '+(header.indexOf('EMM Received At')+1));
+  return 'EMM Received At column already present';
+}
+
+function checkAssessmentCompliance(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return;
+  const data=t.getDataRange().getValues();
+  const now=new Date();
+  const REMINDER_HOURS=12, ARCHIVE_HOURS=24;
+  const resolvedStatuses=['Hired','Rejected','Hold','NonCompliant'];
+  let reminders=0, archived=0;
+  for(let i=1;i<data.length;i++){
+    const r=data[i];
+    const id=r[0]; if(!id) continue;
+    const status=r[9]||'In Progress';
+    if(resolvedStatuses.indexOf(status)!==-1) continue;
+    let emailsSent={};
+    try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
+    const inviteSentAt=emailsSent.assessment||emailsSent.assessment_no_emm;
+    if(!inviteSentAt) continue;
+    const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
+    const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+    const emmReceived=!!r[38];
+    if(hasGrit&&hasValues&&emmReceived) continue;
+    const hoursElapsed=(now.getTime()-new Date(inviteSentAt).getTime())/3600000;
+    if(hoursElapsed>=ARCHIVE_HOURS){
+      t.getRange(i+1,10).setValue('NonCompliant');
+      archived++;
+      continue;
+    }
+    if(hoursElapsed>=REMINDER_HOURS && !emailsSent.autoReminder && !emailsSent.reminder){
+      try{
+        sendComplianceReminderEmail(r[2],r[1],r[4]);
+        emailsSent.autoReminder=now.toISOString();
+        t.getRange(i+1,31).setValue(JSON.stringify(emailsSent));
+        reminders++;
+      }catch(e){ Logger.log('Reminder send failed for row '+(i+1)+': '+e.message); }
+    }
+  }
+  Logger.log('Compliance check complete. Reminders sent: '+reminders+', Archived: '+archived);
+}
+
+function sendComplianceReminderEmail(email,name,position){
+  if(!email) return;
+  const subject='[ABBSS] Reminder: Assessment Deadline Approaching \u2014 '+(position||'Your Application');
+  const body='Dear '+(name||'Applicant')+',\n\n'
+    +'This is a reminder that we have not yet received your completed assessments for the '+(position||'')+' role.\n\n'
+    +'Please complete and submit the following within 24 hours of your original invitation:\n'
+    +'1. GRIT Assessment: https://forms.gle/JwGGt8UWnR6NgFga8\n'
+    +'2. Value-Integrity Assessment: https://forms.gle/RH5HGDDvPL9H5YvRA\n'
+    +'3. AR EMM Cognitive Assessment (reply to your invitation email with the completed Excel file)\n\n'
+    +'If we do not receive all of the above within the 24-hour window, your application will be marked as Non-Compliant and archived.\n\n'
+    +'If you have already submitted these, please disregard this message.\n\n'
+    +'Warm regards,\nHR Team\nABBSS';
+  MailApp.sendEmail(email,subject,body);
+}
+
+function installComplianceTrigger(){
+  const triggers=ScriptApp.getProjectTriggers();
+  triggers.forEach(function(t){ if(t.getHandlerFunction()==='checkAssessmentCompliance') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('checkAssessmentCompliance').timeBased().everyHours(1).create();
+  return 'Compliance trigger installed (runs hourly)';
+}
+`;
 
 function saveScriptUrl(){
   const url = document.getElementById('scriptUrlInput').value.trim();
@@ -3119,6 +3205,19 @@ function toggleApplicantEmm(id) {
   var t = document.getElementById('emmToggle_' + id);
   if (t) t.className = 'toggle-track' + (a.requiresEmm ? ' on' : '');
   document.getElementById('modalTabContent').innerHTML = buildAssessmentsTab(getApplicant(id));
+}
+
+function toggleEmmReceived(id) {
+  var apps = getApplicants();
+  var a = apps.find(function(x) { return x.id === id; });
+  if (!a) return;
+  a.emmReceivedAt = a.emmReceivedAt ? '' : new Date().toISOString();
+  saveApplicants(apps);
+  syncApplicantToSheets(a);
+  autoAdvanceIfNeeded(id);
+  var fresh = getApplicant(id);
+  if (document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML = buildEmmTab(fresh);
+  showToast(a.emmReceivedAt ? ('✓ EMM marked received for ' + a.name) : ('EMM received flag cleared for ' + a.name));
 }
 
 // ============================================================
