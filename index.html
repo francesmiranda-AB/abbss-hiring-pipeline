@@ -1254,10 +1254,43 @@ function buildStageStepper(a){
   '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Interview stage auto-advances once fully scored \u2014 use the Endorse buttons to move to Preliminary Interview or Client.</div>';
 }
 
+function jumpToModalTab(tab, id){
+  var btn = document.getElementById('dtab-' + tab);
+  if(btn) showModalTab(tab, btn, id);
+}
+
+function getNextStepActionAttr(a, n){
+  if (n.label === 'Send the assessment invite email') {
+    return "setEmailAndSwitch('" + String(a.name).replace(/'/g,"\\'") + "','" + String(a.position||'').replace(/'/g,"\\'") + "'," + (a.requiresEmm?'true':'false') + ",'" + a.email + "'," + a.id + ")";
+  }
+  if (n.label === 'Grade their EMM assessment' || n.label.indexOf('EMM failed')===0) {
+    return "jumpToModalTab('emm'," + a.id + ")";
+  }
+  if (n.label === 'Endorse to Preliminary Interview') {
+    return "advanceStage(" + a.id + ",2)";
+  }
+  if (n.label.indexOf('Finish scoring the interview')===0 || n.label === 'Schedule and conduct the interview') {
+    return "jumpToModalTab('interview'," + a.id + ")";
+  }
+  if (n.label === 'Endorse to Client') {
+    return "advanceStage(" + a.id + ",4)";
+  }
+  if (n.label === 'Ready \u2014 record the final hiring decision') {
+    return "jumpToModalTab('decision'," + a.id + ")";
+  }
+  return null;
+}
+
 function buildNextStepBanner(a){
   var n=getNextStep(a);
   var cls = n.tone==='action' ? 'alert-warn' : (n.tone==='waiting' ? 'alert-info' : 'alert-success');
-  return '<div class="alert '+cls+'" style="margin-bottom:16px"><span>'+n.icon+'</span><span><strong>Next step:</strong> '+n.label+'</span></div>';
+  var action = getNextStepActionAttr(a, n);
+  if(action){
+    return '<div class="alert '+cls+'" style="margin-bottom:16px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="'+action+'" title="Click to do this now">' +
+      '<span>'+n.icon+'</span><span style="flex:1"><strong>Next step:</strong> '+n.label+'</span>' +
+      '<span style="font-weight:800;font-size:16px">&#8250;</span></div>';
+  }
+  return '<div class="alert '+cls+'" style="margin-bottom:16px;display:flex;align-items:center;gap:8px"><span>'+n.icon+'</span><span><strong>Next step:</strong> '+n.label+'</span></div>';
 }
 
 function refreshModalStageInfo(id){
@@ -1274,11 +1307,11 @@ function buildApplicantDetail(a){
   <div id="modalStageInfo">${buildStageStepper(a)}${buildNextStepBanner(a)}</div>
   <!-- Stage nav -->
   <div class="dtabs" style="margin-bottom:16px">
-    <button class="dtab active" onclick="showModalTab('profile',this,${a.id})">Profile</button>
-    <button class="dtab" onclick="showModalTab('assessments',this,${a.id})">Assessments</button>
-    <button class="dtab" onclick="showModalTab('emm',this,${a.id})">EMM</button>
-    <button class="dtab" onclick="showModalTab('interview',this,${a.id})">Interview</button>
-    <button class="dtab" onclick="showModalTab('decision',this,${a.id})">Decision</button>
+    <button class="dtab active" id="dtab-profile" onclick="showModalTab('profile',this,${a.id})">Profile</button>
+    <button class="dtab" id="dtab-assessments" onclick="showModalTab('assessments',this,${a.id})">Assessments</button>
+    <button class="dtab" id="dtab-emm" onclick="showModalTab('emm',this,${a.id})">EMM</button>
+    <button class="dtab" id="dtab-interview" onclick="showModalTab('interview',this,${a.id})">Interview</button>
+    <button class="dtab" id="dtab-decision" onclick="showModalTab('decision',this,${a.id})">Decision</button>
   </div>
   <div id="modalTabContent">${buildProfileTab(a)}</div>`;
 }
@@ -3010,11 +3043,21 @@ async function autoLookupScores(applicantId){
   if(!a||!a.email||!SCRIPT_URL) return;
   const scores = await lookupAssessmentScores(a.email);
   if(!scores) return;
+  // Guard against attaching a *stale* form response from a previous, unrelated
+  // application that happened to reuse the same email address — only accept a
+  // response if it was submitted on/after this applicant's invite was sent (or
+  // if we have no invite timestamp to compare against, e.g. legacy records).
+  const invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  function isFreshEnough(ts){
+    if(!invitedAt || !ts) return true;
+    const t = new Date(ts).getTime();
+    return isNaN(t) ? true : t >= new Date(invitedAt).getTime();
+  }
   const apps = getApplicants();
   const idx = apps.findIndex(x=>x.id===applicantId);
   if(idx<0) return;
   let updated = false;
-  if(scores.grit&&scores.grit.score!==null&&scores.grit.score!==undefined){
+  if(scores.grit && scores.grit.score!==null && scores.grit.score!==undefined && isFreshEnough(scores.grit.timestamp)){
     if(!apps[idx].grit) apps[idx].grit={};
     if(!apps[idx].grit.score){
       apps[idx].grit.score = String(scores.grit.score);
@@ -3029,7 +3072,7 @@ async function autoLookupScores(applicantId){
       updated = true;
     }
   }
-  if(scores.values&&scores.values.total){
+  if(scores.values && scores.values.total && isFreshEnough(scores.values.timestamp)){
     if(!apps[idx].values) apps[idx].values={};
     if(!apps[idx].values.score){
       apps[idx].values.score = String(scores.values.total);
