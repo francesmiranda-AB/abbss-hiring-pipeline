@@ -2930,8 +2930,10 @@ function checkAssessmentCompliance(){
     if(!inviteSentAt) continue;
     const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+    const requiresEmm=r[7]==='Yes';
     const emmReceived=!!r[38];
-    if(hasGrit&&hasValues&&emmReceived) continue;
+    const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?emmReceived:true);
+    if(assessmentsComplete) continue;
     const hoursElapsed=(now.getTime()-new Date(inviteSentAt).getTime())/3600000;
     if(hoursElapsed>=ARCHIVE_HOURS){
       t.getRange(i+1,10).setValue('NonCompliant');
@@ -2948,6 +2950,32 @@ function checkAssessmentCompliance(){
     }
   }
   Logger.log('Compliance check complete. Reminders sent: '+reminders+', Archived: '+archived);
+}
+
+function restoreCompliantApplicants(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return 'Applicants sheet not found';
+  const data=t.getDataRange().getValues();
+  let restored=0;
+  const names=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i];
+    const id=r[0]; if(!id) continue;
+    if(r[9]!=='NonCompliant') continue;
+    const requiresEmm=r[7]==='Yes';
+    const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
+    const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+    const emmReceived=!!r[38];
+    const complete=hasGrit&&hasValues&&(requiresEmm?emmReceived:true);
+    if(complete){
+      t.getRange(i+1,10).setValue('In Progress');
+      restored++;
+      names.push(r[1]);
+    }
+  }
+  Logger.log('Restored '+restored+' applicant(s) to In Progress: '+names.join(', '));
+  return 'Restored '+restored+' applicant(s): '+names.join(', ');
 }
 
 function sendComplianceReminderEmail(email,name,position){
@@ -3335,6 +3363,69 @@ function miniAssessBadge(letter, state, title){
 // ============================================================
 // OVERRIDE renderTrackerTable
 // ============================================================
+function getStageProgressBar(a, size){
+  var n = STAGE_LABELS.length;
+  var current = a.stage||1;
+  var isRejectedOrNC = a.overallStatus==='Rejected' || a.overallStatus==='NonCompliant';
+  var isDoneGreen = a.overallStatus==='Hired' || (!a.overallStatus || a.overallStatus==='In Progress');
+  var segH = size==='large' ? 12 : 7;
+  var gap = size==='large' ? 8 : 4;
+  var segs = '';
+  for(var i=1;i<=n;i++){
+    var color;
+    if(isRejectedOrNC){
+      color = (i<=current) ? (a.overallStatus==='Rejected' ? '#f3a5a5' : '#c7cad1') : '#e2e8f0';
+    } else if(i < current || (a.overallStatus==='Hired' && i<=current)){
+      color = '#06d6a0';
+    } else if(i === current){
+      color = '#4361ee';
+    } else {
+      color = '#e2e8f0';
+    }
+    segs += '<div style="flex:1;height:'+segH+'px;background:'+color+';border-radius:5px" title="'+(size==='large'?'':STAGE_LABELS[i-1])+'"></div>';
+    if(i<n) segs += '<div style="width:'+gap+'px"></div>';
+  }
+  var bar = '<div style="display:flex;align-items:center">' + segs + '</div>';
+  if(size==='large'){
+    var labels = '<div style="display:flex;margin-top:8px;font-size:13px;color:#666;font-weight:600">' + STAGE_LABELS.map(function(l,i){
+      var align = i===0 ? 'left' : (i===n-1 ? 'right' : 'center');
+      var wt = (i+1===current && !isRejectedOrNC) ? '800' : '600';
+      var col = (i+1===current && !isRejectedOrNC) ? '#4361ee' : '#888';
+      return '<span style="flex:1;text-align:'+align+';font-weight:'+wt+';color:'+col+'">'+l+'</span>';
+    }).join('') + '</div>';
+    return bar + labels;
+  }
+  return bar;
+}
+
+function buildQuickStatusView(a){
+  var st = getApplicantStatusLine(a);
+  var sla = getSlaStatus(a);
+  var av = getAvatar(a.name);
+  return '<div style="text-align:center;padding:10px 6px 24px">' +
+    '<div class="avatar" style="width:64px;height:64px;font-size:24px;background:'+av.gradient+';margin:0 auto 14px">'+av.initials+'</div>' +
+    '<div style="font-size:26px;font-weight:800;color:var(--gray900)">'+a.name+'</div>' +
+    '<div style="font-size:16px;color:#888;margin-top:4px;margin-bottom:24px">'+(a.position||'No position')+(a.department?' &middot; '+a.department:'')+'</div>' +
+    getStageProgressBar(a,'large') +
+    '<div style="font-size:22px;font-weight:800;margin:22px 0 6px;color:'+st.tone+'">'+st.label+'</div>' +
+    (sla ? '<div style="font-size:16px;font-weight:700;color:'+sla.tone+';margin-bottom:10px">'+sla.label+'</div>' : '') +
+    '<button class="btn btn-primary" style="font-size:15px;padding:12px 26px;margin-top:16px" onclick="openApplicant('+a.id+')">View Full Profile &#8594;</button>' +
+    '</div>';
+}
+
+function openStatusQuickView(id, evt){
+  if(evt) evt.stopPropagation();
+  var a = getApplicant(id);
+  if(!a) return;
+  var av = getAvatar(a.name);
+  document.getElementById('modalAvatar').style.background = av.gradient;
+  document.getElementById('modalAvatar').textContent = av.initials;
+  document.getElementById('modalTitle').textContent = a.name;
+  document.getElementById('modalSubtitle').textContent = (a.position||'No position') + ' \u00b7 ' + a.email;
+  document.getElementById('modalContent').innerHTML = buildQuickStatusView(a);
+  document.getElementById('detailModal').classList.add('open');
+}
+
 function getApplicantStatusLine(a){
   if(a.overallStatus==='Hired') return { label:'Hired', tone:'#166534', bg:'#e8f5e9' };
   if(a.overallStatus==='Rejected') return { label:'Rejected', tone:'#b52a2a', bg:'#fdecea' };
@@ -3389,20 +3480,23 @@ function renderTrackerTable(apps) {
     var st = getApplicantStatusLine(a);
     var sla = getSlaStatus(a);
     var isResolved = a.overallStatus && a.overallStatus !== 'In Progress';
-    var stageStatusCell = isResolved ?
-      '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block">' + st.label + '</span>' :
-      ('<div><span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700;font-size:11px;padding:3px 8px;border-radius:6px">Stage ' + a.stage + '</span> <span style="font-size:11px;color:var(--gray400)">' + (STAGE_LABELS[a.stage-1]||'') + '</span></div>' +
-       '<div style="margin-top:5px;font-size:12px;font-weight:600;color:' + st.tone + '">' + st.label + '</div>' +
-       (sla ? '<div style="font-size:10px;color:' + sla.tone + ';margin-top:3px;font-weight:600">' + sla.label + '</div>' : ''));
+    var barMini = isResolved ? '' : getStageProgressBar(a,'mini');
+    var stageStatusInner = isResolved ?
+      '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">' + st.label + '</span>' :
+      ('<div style="margin-bottom:6px">' + barMini + '</div>' +
+       '<div style="font-size:11px;color:var(--gray400);font-weight:600">Stage ' + a.stage + ' &middot; ' + (STAGE_LABELS[a.stage-1]||'') + '</div>' +
+       '<div style="margin-top:4px;font-size:13px;font-weight:700;color:' + st.tone + '">' + st.label + '</div>' +
+       (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:3px;font-weight:700">' + sla.label + '</div>' : ''));
+    var stageStatusCell = '<div onclick="openStatusQuickView(' + a.id + ', event)" style="cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px" title="Click for a larger view">' + stageStatusInner + '</div>';
     var rawNote = (a.resumeNotes||'');
     var escNote = rawNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    var notesCell = '<textarea onchange="updateFieldImmediate(' + a.id + ',\'resumeNotes\',this.value)" onclick="event.stopPropagation()" placeholder="Add a note..." style="width:100%;min-height:34px;font-size:11px;border:1px solid var(--gray200);border-radius:6px;padding:5px 7px;resize:vertical;font-family:inherit">' + escNote + '</textarea>';
+    var notesCell = '<textarea onchange="updateFieldImmediate(' + a.id + ',\'resumeNotes\',this.value)" onclick="event.stopPropagation()" placeholder="Add a note..." style="width:100%;min-height:34px;font-size:12px;border:1px solid var(--gray200);border-radius:6px;padding:5px 7px;resize:vertical;font-family:inherit">' + escNote + '</textarea>';
     return '<tr onclick="openApplicant(' + a.id + ')">' +
-      '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:13px">' + a.name + '</div></div></td>' +
-      '<td style="font-size:12px;color:var(--gray700)">' + (a.department||'—') + '</td>' +
-      '<td style="font-size:12px;color:var(--gray700)">' + (a.position||'—') + '</td>' +
-      '<td style="font-size:12px;color:var(--gray600)">' + (a.enteredBy||'—') + '</td>' +
-      '<td style="min-width:190px">' + stageStatusCell + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:14px">' + a.name + '</div></div></td>' +
+      '<td style="font-size:13px;color:var(--gray700)">' + (a.department||'—') + '</td>' +
+      '<td style="font-size:13px;color:var(--gray700)">' + (a.position||'—') + '</td>' +
+      '<td style="font-size:13px;color:var(--gray600)">' + (a.enteredBy||'—') + '</td>' +
+      '<td style="min-width:200px">' + stageStatusCell + '</td>' +
       '<td style="min-width:160px" onclick="event.stopPropagation()">' + notesCell + '</td></tr>';
   }).join('');
   document.getElementById('trackerTable').innerHTML =
