@@ -3268,6 +3268,35 @@ function miniAssessBadge(letter, state, title){
 // ============================================================
 // OVERRIDE renderTrackerTable
 // ============================================================
+function getApplicantStatusLine(a){
+  if(a.overallStatus==='Hired') return { label:'Hired', tone:'#166534', bg:'#e8f5e9' };
+  if(a.overallStatus==='Rejected') return { label:'Rejected', tone:'#b52a2a', bg:'#fdecea' };
+  if(a.overallStatus==='Hold') return { label:'On Hold', tone:'#b45309', bg:'#fff8e1' };
+  if(a.overallStatus==='NonCompliant') return { label:'Non Compliant', tone:'#6b7280', bg:'#f1f1f4' };
+
+  var invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
+  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
+  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
+
+  if(a.stage===1){
+    if(!invitedAt) return { label:'Not yet invited', tone:'#888', bg:'#f1f1f4' };
+    if(!hasGrit && !hasValues) return { label:'Assessment sent — awaiting response', tone:'#1e40af', bg:'#eef2ff' };
+    if(!(hasGrit && hasValues && emmDone)) return { label:'Partially submitted', tone:'#b45309', bg:'#fff8e1' };
+    return { label:'Assessments complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
+  }
+  if(a.stage===2){
+    var ivKeys=['q1','q2','q3','q4','q5'];
+    var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
+    if(ivDone===0) return { label:'Awaiting interview', tone:'#1e40af', bg:'#eef2ff' };
+    if(ivDone<5) return { label:'Interview in progress (' + ivDone + '/5)', tone:'#b45309', bg:'#fff8e1' };
+    return { label:'Interview complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
+  }
+  if(a.stage===3) return { label:'Interviewed — ready to endorse to client', tone:'#166534', bg:'#e8f5e9' };
+  if(a.stage===4) return { label:'Endorsed to client', tone:'#166534', bg:'#e8f5e9' };
+  return { label:'In progress', tone:'#888', bg:'#f1f1f4' };
+}
+
 function renderTrackerTable(apps) {
   var sub = document.getElementById('trackerSubtitle');
   if (sub) sub.textContent = apps.length + ' applicant' + (apps.length!==1?'s':'') + ' shown';
@@ -3277,19 +3306,12 @@ function renderTrackerTable(apps) {
   }
   var rows = apps.map(function(a) {
     var av = getAvatar(a.name);
-    var gOut = gritOutcome(a.grit && a.grit.score);
-    var vOut = valuesOutcome(a.values && a.values.score, (a.values && a.values.confScore)||'', (a.values && a.values.intScore)||'');
-    var gState = !(a.grit && a.grit.score) ? 'pending' : (gOut.pass===true?'pass':gOut.pass===false?'fail':'pending');
-    var gTitle = a.grit && a.grit.score ? ('GRIT: ' + gOut.label + ' (' + a.grit.score + '/5)') : 'GRIT: not yet scored';
-    var vState = !(a.values && a.values.score) ? 'pending' : (vOut.pass===true?'pass':vOut.pass===false?'fail':'pending');
-    var vTitle = a.values && a.values.score ? ('Values: ' + vOut.label + ' (' + a.values.score + '/315)') : 'Values: not yet scored';
-    var eState = !a.requiresEmm ? 'na' : (a.emm && a.emm.graded ? (a.emm.pass?'pass':'fail') : 'pending');
-    var eTitle = !a.requiresEmm ? 'EMM: not required for this role' : (a.emm && a.emm.graded ? ('EMM: ' + (a.emm.pass?'PASS':'FAIL') + ' (' + a.emm.overallPct + '%)') : 'EMM: not yet graded');
-    var assessCell = miniAssessBadge('G', gState, gTitle) + miniAssessBadge('V', vState, vTitle) + miniAssessBadge('E', eState, eTitle);
-    var isResolved = a.overallStatus && a.overallStatus !== 'In Progress';
+    var st = getApplicantStatusLine(a);
     var sla = getSlaStatus(a);
-    var statusCell = (isResolved ? stageStatusBadge(a) : nextStepCell(a)) +
-      (sla ? '<div style="font-size:10px;color:' + sla.tone + ';margin-top:4px;font-weight:600">' + sla.label + '</div>' : '');
+    var stageStatusCell =
+      '<div><span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700;font-size:11px;padding:3px 8px;border-radius:6px">Stage ' + a.stage + '</span> <span style="font-size:11px;color:var(--gray400)">' + (STAGE_LABELS[a.stage-1]||'') + '</span></div>' +
+      '<div style="margin-top:5px;font-size:12px;font-weight:600;color:' + st.tone + '">' + st.label + '</div>' +
+      (sla ? '<div style="font-size:10px;color:' + sla.tone + ';margin-top:3px;font-weight:600">' + sla.label + '</div>' : '');
     var notesCell = (function(){
       var raw=(a.resumeNotes||'').trim();
       if(!raw) return '<span style="font-size:11px;color:var(--gray300)">—</span>';
@@ -3299,16 +3321,15 @@ function renderTrackerTable(apps) {
       return '<span title="'+esc+'" style="font-size:11px;color:var(--gray600);display:block;white-space:normal;line-height:1.4">'+previewEsc+'</span>';
     })();
     return '<tr onclick="openApplicant(' + a.id + ')">' +
-      '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div><div style="font-weight:700;font-size:13px">' + a.name + '</div><div style="font-size:11px;color:var(--gray400)">' + (a.position||'No position') + '</div></div></div></td>' +
-      '<td style="max-width:150px">' + notesCell + '</td>' +
-      '<td><span class="badge badge-stage">Stage ' + a.stage + '</span><div style="font-size:10px;color:var(--gray400);margin-top:2px">' + (STAGE_LABELS[a.stage-1]||'') + '</div></td>' +
-      '<td style="min-width:170px">' + statusCell + '</td>' +
-      '<td style="white-space:nowrap">' + assessCell + '</td>' +
-      '<td style="color:var(--gray400);font-size:11px">' + (a.dateReceived||new Date(a.createdAt).toLocaleDateString()) + '</td></tr>';
+      '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:13px">' + a.name + '</div></div></td>' +
+      '<td style="font-size:12px;color:var(--gray700)">' + (a.department||'—') + '</td>' +
+      '<td style="font-size:12px;color:var(--gray700)">' + (a.position||'—') + '</td>' +
+      '<td style="min-width:190px">' + stageStatusCell + '</td>' +
+      '<td style="max-width:150px">' + notesCell + '</td></tr>';
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Notes</th><th>Stage</th><th>Status &amp; Deadline</th><th>Assessments</th><th>Date</th>' +
+    '<th>Applicant</th><th>Department</th><th>Position</th><th>Current Stage &amp; Status</th><th>Notes</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
