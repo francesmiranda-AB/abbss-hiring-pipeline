@@ -2459,7 +2459,7 @@ async function sendEmailAutomatically(){
   var body=document.getElementById('emailBody').innerText || document.getElementById('emailBody').textContent || '';
   var btn=document.getElementById('sendAutoBtn');
   if(btn){ btn.disabled=true; btn.textContent='Sending...'; }
-  var res=await apiPost('sendEmail', {to:to, subject:subject, body:body});
+  var res=await apiPost('sendEmail', {data:{to:to, subject:subject, body:body}});
   if(btn){ btn.disabled=false; btn.innerHTML='&#9993; Send Automatically'; }
   if(res && res.success){
     markEmailSent();
