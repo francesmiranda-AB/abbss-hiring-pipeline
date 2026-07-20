@@ -602,17 +602,13 @@ tbody tr:last-child td{border-bottom:none}
         <option value="HIGH GRIT">High GRIT</option>
         <option value="MODERATE GRIT">Moderate GRIT</option>
         <option value="LOW GRIT">Low GRIT</option>
-        <option value="VERY LOW GRIT">Very Low GRIT</option>
         <option value="Not yet scored">Not Yet Scored</option>
       </select>
       <select class="filter-inp" id="filterValues" onchange="filterTracker()">
         <option value="">All Values Ratings</option>
-        <option value="EXCELLENT FIT">Excellent Fit</option>
         <option value="STRONG FIT">Strong Fit</option>
         <option value="POTENTIAL FIT">Potential Fit</option>
-        <option value="NEEDS VALIDATION">Needs Validation</option>
         <option value="NOT RECOMMENDED">Not Recommended</option>
-        <option value="INTEGRITY GATE FAIL">Integrity Gate Fail</option>
         <option value="Not yet scored">Not Yet Scored</option>
       </select>
       <select class="filter-inp" id="sortBy" onchange="filterTracker()">
@@ -761,10 +757,9 @@ tbody tr:last-child td{border-bottom:none}
         <tr><td><strong>GRIT</strong></td><td>4.0+</td><td><span class="badge badge-pass">HIGH GRIT</span></td></tr>
         <tr><td></td><td>3.0-3.9</td><td><span class="badge badge-warn">MODERATE</span></td></tr>
         <tr><td></td><td>Below 3.0</td><td><span class="badge badge-fail">LOW GRIT</span></td></tr>
-        <tr><td><strong>Values</strong></td><td>255+</td><td><span class="badge badge-pass">EXCELLENT FIT</span></td></tr>
-        <tr><td></td><td>210-254</td><td><span class="badge badge-pass">STRONG FIT</span></td></tr>
-        <tr><td></td><td>165-209</td><td><span class="badge badge-warn">POTENTIAL FIT</span></td></tr>
-        <tr><td></td><td>Below 165</td><td><span class="badge badge-fail">NOT RECOMMENDED</span></td></tr>
+        <tr><td><strong>Values</strong></td><td>221+</td><td><span class="badge badge-pass">STRONG FIT</span></td></tr>
+        <tr><td></td><td>126-220</td><td><span class="badge badge-warn">POTENTIAL FIT</span></td></tr>
+        <tr><td></td><td>Below 126</td><td><span class="badge badge-fail">NOT RECOMMENDED</span></td></tr>
         <tr><td><strong>EMM</strong></td><td>75%+</td><td><span class="badge badge-pass">PASS</span></td></tr>
         <tr><td></td><td>Below 75%</td><td><span class="badge badge-fail">FAIL</span></td></tr>
       </tbody></table>
@@ -1066,13 +1061,11 @@ function gritOutcome(score){
     'Describe a project that took longer than expected — how did you stay motivated?',
     'What\'s the biggest setback you\'ve faced at work, and how did you recover?'
   ]};
-  if(s>=2.0)return{label:'LOW GRIT',badge:'badge-warn',pass:false,action:'Flag. Only if role is not high-pressure.',questions:[
+  return{label:'LOW GRIT',badge:'badge-fail',pass:false,action:'Flag \u2014 proceed with caution, and only if the role isn\'t high-pressure.',questions:[
     'Describe a time you gave up on a goal. What led to that decision?',
     'How do you typically respond when a task becomes repetitive or frustrating?',
-    'Tell me about a deadline you missed — what happened?'
-  ]};
-  return{label:'VERY LOW GRIT',badge:'badge-fail',pass:false,action:'Do not advance.',questions:[
-    'If proceeding despite the score, ask them to walk through their longest-running commitment (job, project, hobby) and what sustained it.'
+    'Tell me about a deadline you missed — what happened?',
+    'Ask them to walk through their longest-running commitment (job, project, hobby) and what sustained it.'
   ]};
 }
 
@@ -1085,22 +1078,18 @@ function valuesOutcome(score,confScore,intScore){
   const pct=s/315*100; // VALUES_MAX_SCORE=315 -- keep in sync with Values sheet's scoreValuesRow()
 
   if((cf!==null&&cf<=2)||(it!==null&&it<=2))
-    return{label:'INTEGRITY GATE FAIL',badge:'badge-fail',pass:false,action:'Automatic red flag — Confidentiality or Integrity scored ≤2.',questions:[
+    return{label:'NOT RECOMMENDED',badge:'badge-fail',pass:false,action:'Automatic red flag — Confidentiality or Integrity scored ≤2. Do not advance.',questions:[
       'Describe a real situation where you had access to confidential company or client data — what did you do with it?',
       'A coworker asks you to share information you know is confidential. Walk me through how you\'d handle it.'
     ]};
 
-  if(pct>=85)return{label:'EXCELLENT FIT',badge:'badge-pass',pass:true,action:'Fast-track. Verify in interview.',questions:[
-    'What does integrity mean to you in a workplace setting? Give me a real example.',
-    'Describe a time you made an unpopular decision because it was the right thing to do.'
-  ]};
-
   if(pct>=70)return{label:'STRONG FIT',badge:'badge-pass',pass:true,action:'Proceed to interview.',questions:[
+    'What does integrity mean to you in a workplace setting? Give me a real example.',
     'Tell me about a time you noticed a colleague doing something questionable. What did you do?',
     'How do you handle situations where following the rules conflicts with getting the job done quickly?'
   ]};
 
-  if(pct>=55){
+  if(pct>=40){
     const confIsLower=cf!==null&&(it===null||cf<=it);
     const targeted=confIsLower?[
       'Walk me through how you\'ve handled sensitive or confidential information in a past role.',
@@ -1111,12 +1100,6 @@ function valuesOutcome(score,confScore,intScore){
     ];
     return{label:'POTENTIAL FIT',badge:'badge-warn',pass:true,action:'Interview with targeted questions on low-scoring sections.',questions:targeted};
   }
-
-  if(pct>=40)return{label:'NEEDS VALIDATION',badge:'badge-warn',pass:false,action:'Panel interview required. High risk.',questions:[
-    'Give me a specific, detailed example of a time you upheld a company policy even when it was inconvenient.',
-    'Tell me about a time you disagreed with a decision from leadership — what did you do?',
-    'How would you handle finding out a close colleague was violating company policy?'
-  ]};
 
   return{label:'NOT RECOMMENDED',badge:'badge-fail',pass:false,action:'Do not advance.',questions:[]};
 }
@@ -2789,12 +2772,13 @@ function getAllApplicants(){
   });
 }
 
-function getGritLabel(s){if(s>=4)return'HIGH GRIT';if(s>=3)return'MODERATE GRIT';if(s>=2)return'LOW GRIT';return'VERY LOW GRIT';}
+function getGritLabel(s){if(s>=4)return'HIGH GRIT';if(s>=3)return'MODERATE GRIT';return'LOW GRIT';}
 function getValuesLabel(s,c,i){
-  if((c>0&&c<=2)||(i>0&&i<=2))return'INTEGRITY GATE FAIL';
+  if((c>0&&c<=2)||(i>0&&i<=2))return'NOT RECOMMENDED';
   var pct=s/315*100; // VALUES_MAX_SCORE=315 -- keep in sync with Values sheet's scoreValuesRow()
-  if(pct>=85)return'EXCELLENT FIT';if(pct>=70)return'STRONG FIT';
-  if(pct>=55)return'POTENTIAL FIT';if(pct>=40)return'NEEDS VALIDATION';return'NOT RECOMMENDED';
+  if(pct>=70)return'STRONG FIT';
+  if(pct>=40)return'POTENTIAL FIT';
+  return'NOT RECOMMENDED';
 }
 
 function getOrCreateCVFolder(){
@@ -2963,12 +2947,12 @@ function restoreCompliantApplicants(){
     const r=data[i];
     const id=r[0]; if(!id) continue;
     if(r[9]!=='NonCompliant') continue;
-    const requiresEmm=r[7]==='Yes';
+    // Lenient check: if there's ANY evidence they actually answered (a GRIT score
+    // or a Values score on file), they shouldn't be sitting in Non Compliant —
+    // that status is meant for candidates who never responded at all.
     const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-    const emmReceived=!!r[38];
-    const complete=hasGrit&&hasValues&&(requiresEmm?emmReceived:true);
-    if(complete){
+    if(hasGrit||hasValues){
       t.getRange(i+1,10).setValue('In Progress');
       restored++;
       names.push(r[1]);
