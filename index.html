@@ -1631,39 +1631,6 @@ function buildInterviewTab(a){
      note:'Separates candidates with real AR experience from those who only completed the exercise.'}
   ];
 
-  const qCards=questions.map(q=>{
-    const val=iv['q'+q.num.slice(1)]||null;
-    return`<div class="q-card">
-      <div class="q-header" style="background:${q.color}">
-        <span>${q.num} — ${q.skill}</span>
-        ${val?`<span class="badge ${val==='pass'?'badge-pass':val==='cond'?'badge-warn':'badge-fail'}">${val==='pass'?'✓ Pass':val==='cond'?'~ Conditional':'✗ Fail'}</span>`:'<span style="font-size:11px;color:#ffffff88">Not yet scored</span>'}
-      </div>
-      <div class="q-body">
-        <div class="q-ask">Ask: ${q.ask}</div>
-        <div style="font-size:12px;color:#666;margin-bottom:10px">
-          <strong>Pass:</strong> ${q.pass}<br>
-          <strong>Concern:</strong> ${q.fail}<br>
-          <em style="color:#888">Note: ${q.note}</em>
-        </div>
-        <div class="q-options">
-          <div class="q-opt pass ${val==='pass'?'selected':''}" onclick="setInterviewQ(${a.id},'q${q.num.slice(1)}','pass',this)">✓ Pass</div>
-          <div class="q-opt cond ${val==='cond'?'selected':''}" onclick="setInterviewQ(${a.id},'q${q.num.slice(1)}','cond',this)">~ Conditional</div>
-          <div class="q-opt fail ${val==='fail'?'selected':''}" onclick="setInterviewQ(${a.id},'q${q.num.slice(1)}','fail',this)">✗ Fail</div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  const allScored=questions.every(q=>iv['q'+q.num.slice(1)]);
-  const fails=questions.filter(q=>iv['q'+q.num.slice(1)]==='fail').length;
-  const passes=questions.filter(q=>iv['q'+q.num.slice(1)]==='pass').length;
-  let recLabel='',recBadge='';
-  if(allScored){
-    if(fails===0&&passes>=4){recLabel='Strong Pass — Proceed';recBadge='badge-pass';}
-    else if(fails<=1){recLabel='Conditional Pass — Note gaps';recBadge='badge-warn';}
-    else{recLabel='Fail — Do not proceed';recBadge='badge-fail';}
-  }
-
   const resQuestions=[
     {num:'RQ1',skill:'Perseverance Under Pressure',color:'#7209b7',
      ask:'Tell me about a specific time — at this job or another — when you seriously considered giving up on a task or role. Walk me through exactly what happened and what you did next.',
@@ -1677,62 +1644,51 @@ function buildInterviewTab(a){
      note:'Watch for answers that amount to "I\'d just figure it out" with no actual process described.'}
   ];
 
-  const resCards=resQuestions.map(q=>{
-    const val=iv['r'+q.num.slice(2)]||null;
-    return`<div class="q-card">
+  const guideCard=(q)=>`<div class="q-card">
       <div class="q-header" style="background:${q.color}">
         <span>${q.num} — ${q.skill}</span>
-        ${val?`<span class="badge ${val==='pass'?'badge-pass':val==='cond'?'badge-warn':'badge-fail'}">${val==='pass'?'✓ Pass':val==='cond'?'~ Conditional':'✗ Fail'}</span>`:'<span style="font-size:11px;color:#ffffff88">Not yet scored</span>'}
       </div>
       <div class="q-body">
         <div class="q-ask">Ask: ${q.ask}</div>
-        <div style="font-size:12px;color:#666;margin-bottom:10px">
-          <strong>Pass:</strong> ${q.pass}<br>
-          <strong>Concern:</strong> ${q.fail}<br>
+        <div style="font-size:12px;color:#666">
+          <strong>Look for:</strong> ${q.pass}<br>
+          <strong>Watch out for:</strong> ${q.fail}<br>
           <em style="color:#888">Note: ${q.note}</em>
-        </div>
-        <div class="q-options">
-          <div class="q-opt pass ${val==='pass'?'selected':''}" onclick="setInterviewQ(${a.id},'r${q.num.slice(2)}','pass',this)">✓ Pass</div>
-          <div class="q-opt cond ${val==='cond'?'selected':''}" onclick="setInterviewQ(${a.id},'r${q.num.slice(2)}','cond',this)">~ Conditional</div>
-          <div class="q-opt fail ${val==='fail'?'selected':''}" onclick="setInterviewQ(${a.id},'r${q.num.slice(2)}','fail',this)">✗ Fail</div>
         </div>
       </div>
     </div>`;
-  }).join('');
 
-  const allResScored=resQuestions.every(q=>iv['r'+q.num.slice(2)]);
-  const resFails=resQuestions.filter(q=>iv['r'+q.num.slice(2)]==='fail').length;
-  const resPasses=resQuestions.filter(q=>iv['r'+q.num.slice(2)]==='pass').length;
-  let resLabel='',resBadge='';
-  if(allResScored){
-    if(resFails===0){resLabel='Pass — Shows real resilience';resBadge='badge-pass';}
-    else if(resFails===1){resLabel='Conditional — One area of concern';resBadge='badge-warn';}
-    else{resLabel='Fail — Do not proceed';resBadge='badge-fail';}
-  }
+  const qCards=questions.map(guideCard).join('');
+  const resCards=resQuestions.map(guideCard).join('');
+
+  const result=iv.result||null;
+  const resultBanner=result?`<div style="margin-top:10px;padding:10px;border-radius:8px;background:${result==='pass'?'#eaf7f0':'#fdecea'};border:1.5px solid ${result==='pass'?'#a3d9bc':'#f5b8b8'}">
+      <span class="badge ${result==='pass'?'badge-pass':'badge-fail'}">${result==='pass'?'✓ Interview Passed':'✗ Interview Failed'}</span>
+    </div>`:`<div style="margin-top:10px;font-size:12px;color:var(--gray400)">Not yet recorded — pick a result once the interview is done.</div>`;
 
   return`
+    <div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:2px">🎯 Interview Guide Questions</div>
+    <div style="font-size:12px;color:var(--gray500);margin-bottom:10px">Reference for the interviewer — no need to score each one. Use these to guide the conversation, then write your overall notes and pick a result below.</div>
     ${qCards}
-    <div class="assess-card" style="margin-top:14px">
-      <label class="lbl">Interview Notes</label>
-      <textarea onchange="updateNestedField(${a.id},'interview','notes',this.value)" style="min-height:80px" placeholder="Overall observations, verbal answers, body language, red flags...">${iv.notes||''}</textarea>
-      ${allScored?`<div style="margin-top:10px;padding:10px;background:#f4f4f8;border-radius:8px">
-        <span class="badge ${recBadge}">${recLabel}</span>
-        <span style="font-size:12px;color:#666;margin-left:8px">${passes}/5 pass, ${fails}/5 fail, ${questions.filter(q=>iv['q'+q.num.slice(1)]==='cond').length}/5 conditional</span>
-      </div>`:''}
-    </div>
 
     <div style="margin:24px 0 14px;padding-top:14px;border-top:2px solid var(--gray200)">
       <div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:2px">🧗 Resilience &amp; Adaptability Check</div>
-      <div style="font-size:12px;color:var(--gray500)">Separate from the EMM validation above — scored on its own, to catch candidates who look fine on paper but struggle once real friction shows up.</div>
+      <div style="font-size:12px;color:var(--gray500)">Optional follow-up prompts — use if you want to probe further on how they handle pressure or sudden change.</div>
     </div>
     ${resCards}
+
     <div class="assess-card" style="margin-top:14px">
-      <label class="lbl">Resilience Notes</label>
-      <textarea onchange="updateNestedField(${a.id},'interview','resilienceNotes',this.value)" style="min-height:80px" placeholder="Specific examples given, how concrete vs. vague, follow-up answers...">${iv.resilienceNotes||''}</textarea>
-      ${allResScored?`<div style="margin-top:10px;padding:10px;background:#f4f4f8;border-radius:8px">
-        <span class="badge ${resBadge}">${resLabel}</span>
-        <span style="font-size:12px;color:#666;margin-left:8px">${resPasses}/2 pass, ${resFails}/2 fail</span>
-      </div>`:''}
+      <label class="lbl">Interview Notes</label>
+      <textarea onchange="updateNestedField(${a.id},'interview','notes',this.value)" style="min-height:120px" placeholder="Overall observations, answers, red flags, resilience/adaptability examples...">${iv.notes||''}</textarea>
+    </div>
+
+    <div class="assess-card" style="margin-top:14px">
+      <label class="lbl">Interview Result</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-sm btn-green" onclick="setInterviewResult(${a.id},'pass')">✓ Pass</button>
+        <button class="btn-sm btn-red" onclick="setInterviewResult(${a.id},'fail')">✗ Fail</button>
+      </div>
+      ${resultBanner}
     </div>`;
 }
 
@@ -1740,30 +1696,32 @@ function buildDecisionTab(a){
   const gOut=gritOutcome(a.grit&&a.grit.score);
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
   const iv=a.interview||{};
-  const ivQKeys=['q1','q2','q3','q4','q5'];
-  const resKeys=['r1','r2'];
-  const ivFails=ivQKeys.filter(k=>iv[k]==='fail').length;
-  const ivDone=ivQKeys.filter(k=>iv[k]).length;
-  const resFails=resKeys.filter(k=>iv[k]==='fail').length;
-  const resDone=resKeys.filter(k=>iv[k]).length;
+  const ivResult=iv.result||null;
 
   const checks=[
     ['GRIT',gOut.pass===true?'pass':gOut.pass===false?'fail':'pending',gOut.label],
     ['Value-Integrity',vOut.pass===true?'pass':vOut.pass===false?'fail':'pending',vOut.label],
     ...(a.requiresEmm?[['EMM Cognitive',a.emm&&a.emm.pass===true?'pass':a.emm&&a.emm.pass===false?'fail':'pending',a.emm&&a.emm.graded?a.emm.overallPct+'%':'Not graded']]:[['EMM Cognitive','skipped','Not required for this role']]),
-    ['Live Interview',ivFails===0&&ivDone>=5?'pass':ivFails>1?'fail':'pending',ivDone===0?'Not yet done':ivFails>0?ivFails+' failed':'All passed'],
-    ['Resilience Check',resFails===0&&resDone>=2?'pass':resFails>0?'fail':'pending',resDone===0?'Not yet done':resFails>0?resFails+' failed':'All passed'],
+    ['Live Interview',ivResult==='pass'?'pass':ivResult==='fail'?'fail':'pending',ivResult==='pass'?'Passed':ivResult==='fail'?'Failed':'Not yet done'],
   ];
 
   const coreChecks = checks.filter(c=>c[1]!=='skipped');
-  const allPass=coreChecks.slice(0,a.requiresEmm?3:2).every(c=>c[1]==='pass');
+  const allPass=coreChecks.every(c=>c[1]==='pass');
   const anyFail=checks.some(c=>c[1]==='fail');
 
-  const checkRows=checks.map(([label,status,detail])=>`<tr>
+  // Map each row to the tab it's scored on, so a Pending/Fail row can be clicked
+  // straight there instead of leaving David (or whoever) stuck on this tab with no
+  // visible way to act on it.
+  const rowTabMap={'EMM Cognitive':'emm','Live Interview':'interview'};
+  const checkRows=checks.map(([label,status,detail])=>{
+    const targetTab=(status==='pending'||status==='fail')?rowTabMap[label]:null;
+    const clickAttr=targetTab?` style="cursor:pointer" onclick="jumpToModalTab('${targetTab}',${a.id})" title="Click to go score this"`:'';
+    return `<tr${clickAttr}>
     <td><strong>${label}</strong></td>
     <td>${status==='pass'?'<span class="badge badge-pass">✓ Pass</span>':status==='fail'?'<span class="badge badge-fail">✗ Fail</span>':status==='skipped'?'<span class="badge badge-gray">N/A</span>':'<span class="badge badge-gray">Pending</span>'}</td>
-    <td style="font-size:13px;color:#666">${detail}</td>
-  </tr>`).join('');
+    <td style="font-size:13px;color:#666">${detail}${targetTab?' &nbsp;→ click to score':''}</td>
+  </tr>`;
+  }).join('');
 
   return`
     <table style="margin-bottom:16px"><thead><tr><th>Assessment</th><th>Result</th><th>Detail</th></tr></thead><tbody>${checkRows}</tbody></table>
@@ -1771,7 +1729,7 @@ function buildDecisionTab(a){
       <div style="font-weight:700;font-size:14px;color:${anyFail?'#b52a2a':allPass?'#1a7a4a':'#555'}">
         ${anyFail?'✗ Not recommended for advancement':allPass?'✓ All assessments passed — Ready for final decision':'⏳ Assessment incomplete — do not finalise yet'}
       </div>
-      <div style="font-size:12px;color:#666;margin-top:4px">${anyFail?'One or more assessments did not meet the required threshold.':allPass?'All four screening assessments passed. Proceed to offer or final panel.':'Complete all assessments before making a hiring decision.'}</div>
+      <div style="font-size:12px;color:#666;margin-top:4px">${anyFail?'One or more assessments did not meet the required threshold.':allPass?'All screening assessments passed. Proceed to offer or final panel.':'Complete all assessments before making a hiring decision.'}</div>
     </div>
     ${a.stage<4 ? `<div style="margin-bottom:12px">
       <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},4)" ${a.stage<3?'disabled':''}>➡️ Endorse to Client</button>
@@ -1896,16 +1854,12 @@ function updateNestedField(id,section,field,value){
   }
 }
 
-function setInterviewQ(id,qKey,value,el){
-  updateNestedField(id,'interview',qKey,value);
-  // Update UI
-  el.closest('.q-options').querySelectorAll('.q-opt').forEach(o=>o.classList.remove('selected'));
-  el.classList.add('selected');
-  // Update header badge
-  const header=el.closest('.q-card').querySelector('.q-header span:last-child');
-  header.removeAttribute('style');
-  header.className='badge '+(value==='pass'?'badge-pass':value==='cond'?'badge-warn':'badge-fail');
-  header.textContent=value==='pass'?'✓ Pass':value==='cond'?'~ Conditional':'✗ Fail';
+function setInterviewResult(id,result){
+  updateNestedField(id,'interview','result',result);
+  showToast(result==='pass' ? '✓ Interview marked as Passed' : '✗ Interview marked as Failed');
+  var content=document.getElementById('modalTabContent');
+  if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
+  refreshModalStageInfo(id);
 }
 
 
@@ -2631,14 +2585,13 @@ function setEmailAndSwitch(name,position,requiresEmm,email,applicantId){
 function exportCSV(){
   const apps=getApplicants();
   if(!apps.length){alert('No records to export.');return;}
-  const hdrs=['Name','Email','Phone','Position','Source','Date Received','Stage','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Pass','Interview Done','Resilience Check','Last Email Sent','Overall Status','Decision Notes'];
+  const hdrs=['Name','Email','Phone','Position','Source','Date Received','Stage','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Pass','Interview Result','Last Email Sent','Overall Status','Decision Notes'];
   const rows=apps.map(a=>[
     a.name,a.email,a.phone||'',a.position||'',a.source||'',a.dateReceived||'',a.stage,
     a.grit&&a.grit.score||'',a.grit&&a.grit.score?gritOutcome(a.grit.score).label:'Pending',
     a.values&&a.values.score||'',a.values&&a.values.score?valuesOutcome(a.values.score,a.values.confScore||'',a.values.intScore||'').label:'Pending',
     a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?(a.emm.pass?'Pass':'Fail'):'Pending',
-    a.interview&&['q1','q2','q3','q4','q5'].some(k=>a.interview[k])?'Yes':'No',
-    a.interview&&['r1','r2'].some(k=>a.interview[k])?(['r1','r2'].some(k=>a.interview[k]==='fail')?'Fail':['r1','r2'].every(k=>a.interview[k])?'Pass':'In Progress'):'Not yet done',
+    a.interview&&a.interview.result?(a.interview.result==='pass'?'Pass':'Fail'):'Not yet done',
     (()=>{const info=getLastEmailSentInfo(a);return info?(info.label+' — '+new Date(info.date).toLocaleDateString()):'Not sent';})(),
     a.overallStatus||'In Progress',(a.decisionNotes||'').replace(/,/g,';')
   ]);
@@ -3288,9 +3241,7 @@ function getNextStep(a) {
 
   if (a.stage < 2) return { label: 'Endorse to Preliminary Interview', tone: 'action', icon: '\u27A1\uFE0F' };
 
-  var ivKeys = ['q1','q2','q3','q4','q5'];
-  var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
-  if (ivDone < 5) return { label: ivDone > 0 ? ('Finish scoring the interview (' + ivDone + '/5)') : 'Schedule and conduct the interview', tone: 'action', icon: '\uD83C\uDFAF' };
+  if (!(a.interview && a.interview.result)) return { label: 'Schedule and conduct the interview', tone: 'action', icon: '\uD83C\uDFAF' };
 
   if (a.stage < 4) return { label: 'Endorse to Client', tone: 'action', icon: '\u27A1\uFE0F' };
 
@@ -3301,9 +3252,7 @@ function checkAutoAdvance(a){
   if(!a) return null;
   if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold'||a.overallStatus==='NonCompliant') return null;
   var target = a.stage||1;
-  var ivKeys=['q1','q2','q3','q4','q5'];
-  var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
-  if(ivDone===5 && (a.stage||1)>=2 && target<3) target=3;
+  if(a.interview && a.interview.result && (a.stage||1)>=2 && target<3) target=3;
   return target>(a.stage||1) ? target : null;
 }
 
@@ -3449,10 +3398,9 @@ function getApplicantStatusLine(a){
     return { label:'Assessments complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
   }
   if(a.stage===2){
-    var ivKeys=['q1','q2','q3','q4','q5'];
-    var ivDone = a.interview ? ivKeys.filter(function(k){ return a.interview[k]; }).length : 0;
-    if(ivDone===0) return { label:'Awaiting interview', tone:'#1e40af', bg:'#eef2ff' };
-    if(ivDone<5) return { label:'Interview in progress (' + ivDone + '/5)', tone:'#b45309', bg:'#fff8e1' };
+    var ivResult = a.interview && a.interview.result;
+    if(!ivResult) return { label:'Awaiting interview', tone:'#1e40af', bg:'#eef2ff' };
+    if(ivResult==='fail') return { label:'Interviewed — did not pass', tone:'#b52a2a', bg:'#fdecea' };
     return { label:'Interview complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
   }
   if(a.stage===3) return { label:'Interviewed — ready to endorse to client', tone:'#166534', bg:'#e8f5e9' };
