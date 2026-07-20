@@ -1892,10 +1892,34 @@ function setInterviewQ(id,qKey,value,el){
 }
 
 
+var PRELIM_INTERVIEW_NOTIFY_RECIPIENTS = [
+  'frances.miranda@ab-businesssupport.com',
+  'operations@ab-businesssupport.com',
+  'wennielyn.pungasi@ab-businesssupport.com'
+];
+
+async function notifyPreliminaryInterviewEndorsement(a){
+  if(!SCRIPT_URL || !a) return;
+  var subject = '[ABBSS] ' + a.name + ' endorsed to Preliminary Interview';
+  var body = 'Hi team,\n\n' + a.name + ' (' + (a.position||'No position') + (a.department ? ' \u2014 ' + a.department : '') + ') has been endorsed to the Preliminary Interview stage.\n\n' +
+    'GRIT: ' + (a.grit && a.grit.score ? a.grit.score + '/5' : 'N/A') + '\n' +
+    'Values: ' + (a.values && a.values.score ? a.values.score + '/315' : 'N/A') + '\n' +
+    (a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? (a.emm.pass ? 'PASS' : 'FAIL') + ' (' + a.emm.overallPct + '%)' : 'Not graded') + '\n') : '') +
+    '\nPlease coordinate scheduling the preliminary interview.\n\nABBSS Hiring Pipeline';
+  try{
+    await apiPost('sendEmail', {data:{to: PRELIM_INTERVIEW_NOTIFY_RECIPIENTS.join(','), subject: subject, body: body}});
+  }catch(e){ console.warn('Preliminary interview notification failed:', e); }
+}
+
 function advanceStage(id,stage){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a&&a.stage<stage){a.stage=stage;saveApplicants(apps);syncApplicantToSheets(a);}
+  if(a&&a.stage<stage){
+    a.stage=stage;
+    saveApplicants(apps);
+    syncApplicantToSheets(a);
+    if(stage===2) notifyPreliminaryInterviewEndorsement(a);
+  }
   refreshModalStageInfo(id);
   if(a&&a.requiresEmm){
     alert('Stage updated. Go to EMM Grader to upload and grade their assessment.');
