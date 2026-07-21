@@ -3668,9 +3668,15 @@ function getPipelineStep(a){
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
   var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
   var emmPendingGrading = a.requiresEmm && a.emmReceivedAt && !(a.emm && a.emm.graded);
+  // "invitedAt" only reflects the app's own Send Automatically flag -- it says
+  // nothing about invites sent manually via Gmail/Outlook, or scores typed in
+  // directly. Any of those leave a real trace (a GRIT/Values score, an EMM
+  // submission, an EMM grade) even though that flag was never set. Someone is
+  // only genuinely "Not Yet Invited" if NONE of that evidence exists.
+  var hasAnyAssessmentActivity = invitedAt || hasGrit || hasValues || !!a.emmReceivedAt || (a.emm && a.emm.graded);
 
   if(a.stage===1){
-    if(!invitedAt) return { key:'pl_not_invited', label:'Not Yet Invited', tone:'#888', bg:'#f1f1f4' };
+    if(!hasAnyAssessmentActivity) return { key:'pl_not_invited', label:'Not Yet Invited', tone:'#888', bg:'#f1f1f4' };
     if(!hasGrit && !hasValues) return { key:'pl_sent', label:'Sent Assessment Email', tone:'#1e40af', bg:'#eef2ff' };
     if(hasGrit && hasValues && emmPendingGrading) return { key:'pl_pending_grading', label:'Submitted — Pending EMM Grading', tone:'#6d28d9', bg:'#f3e8ff' };
     if(!(hasGrit && hasValues && emmDone)) return { key:'pl_partial', label:'Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
