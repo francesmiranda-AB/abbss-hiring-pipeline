@@ -2520,18 +2520,18 @@ function updateEmail(){
   const deadlineEl=document.getElementById('et-deadline');
   const deadline=(deadlineEl&&deadlineEl.value)||'[DEADLINE]';
   const t=EMAIL_TEMPLATES[currentTemplate];
-  document.getElementById('emailSubject').textContent=t.subject.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
+  document.getElementById('emailSubject').value=t.subject.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
   document.getElementById('emailBody').textContent=t.body.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
 }
 
 function openOutlook(){
-  const subj=encodeURIComponent(document.getElementById('emailSubject').textContent);
+  const subj=encodeURIComponent(document.getElementById('emailSubject').value);
   const body=encodeURIComponent(document.getElementById('emailBody').textContent);
   window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${subj}&body=${body}`,'_blank');
 }
 
 function copyEmail(){
-  const subj=document.getElementById('emailSubject').textContent;
+  const subj=document.getElementById('emailSubject').value;
   const body=document.getElementById('emailBody').textContent;
   navigator.clipboard.writeText('Subject: '+subj+'\n\n'+body).then(()=>{
     document.getElementById('emailCopyMsg').style.display='block';
@@ -2549,7 +2549,7 @@ function validateGmailWorkEmail(el){
 }
 
 function openGmail(){
-  var subj = encodeURIComponent(document.getElementById('emailSubject').value || document.getElementById('emailSubject').textContent || '');
+  var subj = encodeURIComponent(document.getElementById('emailSubject').value || '');
   var body = encodeURIComponent(document.getElementById('emailBody').textContent || '');
   var applicantEmail = document.getElementById('et-email') ? document.getElementById('et-email').value.trim() : '';
 
