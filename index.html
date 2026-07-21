@@ -2834,7 +2834,19 @@ function getAllApplicants(){
     if(r[28]){ try{ interview=JSON.parse(r[28]); }catch(e){} }
     let emm={graded:!!r[19],overallPct:r[19]||null,catPct:r[20]||null,actPct:r[21]||null,
       pass:r[22]==='PASS'?true:r[22]==='FAIL'?false:null,gradedAt:r[23]||''};
-    if(r[29]){ try{ emm=JSON.parse(r[29]); }catch(e){} }
+    // Columns 19-23 are the authoritative grade fields -- they're what
+    // checkAssessmentCompliance()/restoreCompliantApplicants() read too. Only pull
+    // extra descriptive detail (notes/fullResult/catWrong) from the col 29 JSON blob;
+    // never let a stale blob resurrect a "not graded" state the flat columns disagree with.
+    if(r[29]){
+      try{
+        const parsed=JSON.parse(r[29]);
+        emm.notes=parsed.notes||'';
+        emm.fullResult=parsed.fullResult||'';
+        if(parsed.catWrong) emm.catWrong=parsed.catWrong;
+        if(parsed.catWrongTruncated) emm.catWrongTruncated=parsed.catWrongTruncated;
+      }catch(e){}
+    }
     let emailsSent={};
     if(r[30]){ try{ emailsSent=JSON.parse(r[30]); }catch(e){} }
     return{
