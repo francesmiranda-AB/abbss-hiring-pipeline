@@ -627,6 +627,7 @@ tbody tr:last-child td{border-bottom:none}
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">EMM Grader</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Upload an applicant assessment file to auto-grade in seconds</p>
   </div>
+  <div id="pendingGradingCard" class="card" style="max-width:780px"></div>
   <div class="card card-accent-blue" style="max-width:780px">
     <div class="card-header"><div class="card-title-lg">Grade Assessment</div></div>
     <div class="g2" style="margin-bottom:16px">
@@ -1488,15 +1489,21 @@ function buildEmmTab(a){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${a.emmReceivedAt?'#e8f5e9':'#fff8e1'};border:1px solid ${a.emmReceivedAt?'#a5d6a7':'#ffe082'};border-radius:8px;margin-bottom:14px">
       <input type="checkbox" ${a.emmReceivedAt?'checked':''} onchange="toggleEmmReceived(${a.id})" style="width:18px;height:18px;flex-shrink:0;cursor:pointer">
       <div style="font-size:13px;line-height:1.4">
-        <strong>EMM file received</strong>${a.emmReceivedAt?' — '+new Date(a.emmReceivedAt).toLocaleString():' — tick as soon as the candidate\'s completed Excel file arrives (before grading). This is what the 24-hour compliance check looks for.'}
+        <strong>EMM file received</strong>${a.emmReceivedAt?' — '+new Date(a.emmReceivedAt).toLocaleString()+(a.emmFileUrl?' (auto-detected from the submission form)':''):' — auto-detected once the candidate submits via the shared submission form. Tick manually only if a file arrived some other way.'}
       </div>
+      ${a.emmFileUrl?`<a href="${a.emmFileUrl}" target="_blank" class="btn-sm btn-blue" style="text-decoration:none;white-space:nowrap">View File ↗</a>`:''}
     </div>`;
-  if(!a.emm||!a.emm.graded)return receivedBlock+`
+  if(!a.emm||!a.emm.graded)return receivedBlock+(a.emmFileUrl?`
     <div style="text-align:center;padding:24px;color:#888">
       <div style="font-size:32px;margin-bottom:12px">⚡</div>
-      <p style="margin-bottom:16px;font-size:14px">No EMM result recorded yet.</p>
+      <p style="margin-bottom:16px;font-size:14px">Their file has been submitted and is ready to grade.</p>
+      <button class="btn btn-primary" onclick="closeModal();showPage('grade',document.querySelector('.nav-item:nth-child(4)'));loadEmmFromDrive(${a.id})">Grade Now (auto-load from Drive) →</button>
+    </div>`:`
+    <div style="text-align:center;padding:24px;color:#888">
+      <div style="font-size:32px;margin-bottom:12px">⏳</div>
+      <p style="margin-bottom:16px;font-size:14px">${a.requiresEmm?'Still waiting on their EMM file — nothing to grade yet.':'No EMM result recorded yet.'}</p>
       <button class="btn btn-primary" onclick="closeModal();showPage('grade',document.querySelector('.nav-item:nth-child(4)'))">Go to EMM Grader →</button>
-    </div>`;
+    </div>`);
   const g=JSON.parse(a.emm.fullResult||'{}');
   const banner=`
     <div class="score-banner" style="background:${scBg(a.emm.overallPct)};border:1.5px solid ${scBorder(a.emm.overallPct)};margin-bottom:14px">
@@ -1701,7 +1708,7 @@ function buildDecisionTab(a){
   const checks=[
     ['GRIT',gOut.pass===true?'pass':gOut.pass===false?'fail':'pending',gOut.label],
     ['Value-Integrity',vOut.pass===true?'pass':vOut.pass===false?'fail':'pending',vOut.label],
-    ...(a.requiresEmm?[['EMM Cognitive',a.emm&&a.emm.pass===true?'pass':a.emm&&a.emm.pass===false?'fail':'pending',a.emm&&a.emm.graded?a.emm.overallPct+'%':'Not graded']]:[['EMM Cognitive','skipped','Not required for this role']]),
+    ...(a.requiresEmm?[['EMM Cognitive',a.emm&&a.emm.pass===true?'pass':a.emm&&a.emm.pass===false?'fail':'pending',a.emm&&a.emm.graded?a.emm.overallPct+'%':(a.emmReceivedAt?'Submitted — pending grading':'Not yet submitted')]]:[['EMM Cognitive','skipped','Not required for this role']]),
     ['Live Interview',ivResult==='pass'?'pass':ivResult==='fail'?'fail':'pending',ivResult==='pass'?'Passed':ivResult==='fail'?'Failed':'Not yet done'],
   ];
 
@@ -1875,7 +1882,7 @@ async function notifyPreliminaryInterviewEndorsement(a){
   var body = 'Hi team,\n\n' + a.name + ' (' + (a.position||'No position') + (a.department ? ' \u2014 ' + a.department : '') + ') has been endorsed to the Preliminary Interview stage.\n\n' +
     'GRIT: ' + (a.grit && a.grit.score ? a.grit.score + '/5' : 'N/A') + '\n' +
     'Values: ' + (a.values && a.values.score ? a.values.score + '/315' : 'N/A') + '\n' +
-    (a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? (a.emm.pass ? 'PASS' : 'FAIL') + ' (' + a.emm.overallPct + '%)' : 'Not graded') + '\n') : '') +
+    (a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? (a.emm.pass ? 'PASS' : 'FAIL') + ' (' + a.emm.overallPct + '%)' : (a.emmReceivedAt ? 'Submitted — pending grading' : 'Not yet submitted')) + '\n') : '') +
     '\nPlease coordinate scheduling the preliminary interview.\n\nABBSS Hiring Pipeline';
   try{
     await apiPost('sendEmail', {data:{to: PRELIM_INTERVIEW_NOTIFY_RECIPIENTS.join(','), subject: subject, body: body}});
@@ -1928,6 +1935,77 @@ function populateApplicantSelect(){
   if(!sel)return;
   const apps=getApplicants();
   sel.innerHTML='<option value="">— Grade standalone —</option>'+apps.map(a=>`<option value="${a.id}">${a.name} (${a.position||'no position'})</option>`).join('');
+}
+
+// ============================================================
+// PENDING GRADING QUEUE -- candidates who submitted their EMM file through the
+// shared-Drive Google Form but haven't been graded yet. Lets staff grade
+// straight from the queue instead of hunting through the Tracker for who's
+// waiting, and pulls the file from Drive automatically (no manual
+// download/upload round-trip).
+// ============================================================
+function extractDriveFileId(url){
+  if(!url) return '';
+  const m=String(url).match(/[-\w]{25,}/);
+  return m?m[0]:'';
+}
+
+function renderPendingGradingQueue(){
+  const el=document.getElementById('pendingGradingCard');
+  if(!el) return;
+  const pending=getApplicants().filter(a=>a.requiresEmm && a.emmFileUrl && !(a.emm&&a.emm.graded));
+  if(!pending.length){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML=`
+    <div class="card-header"><div class="card-title-lg">📥 Pending Grading (${pending.length})</div></div>
+    <div style="font-size:13px;color:#666;margin-bottom:12px">These candidates submitted their EMM file through the shared-Drive form and are ready to grade.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${pending.map(a=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e8e8f0;border-radius:8px;background:#fafafa;flex-wrap:wrap">
+          <div>
+            <div style="font-weight:700;font-size:13px">${a.name}</div>
+            <div style="font-size:12px;color:#888">${a.position||'No position'}${a.emmReceivedAt?' · submitted '+new Date(a.emmReceivedAt).toLocaleString():''}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <a href="${a.emmFileUrl}" target="_blank" class="btn-sm btn-ghost" style="text-decoration:none">View File ↗</a>
+            <button class="btn-sm btn-primary" onclick="loadEmmFromDrive(${a.id})">⚡ Grade Now</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function loadEmmFromDrive(applicantId){
+  const a=getApplicant(applicantId);
+  if(!a || !a.emmFileUrl){ alert('No submitted file found for this applicant yet.'); return; }
+  const fileId=extractDriveFileId(a.emmFileUrl);
+  if(!fileId){ alert('Could not read the Drive file ID from the stored link.'); return; }
+  const nameEl=document.getElementById('gradeFileName');
+  const dz=document.getElementById('gradeDropzone');
+  const btn=document.getElementById('gradeBtn');
+  if(nameEl) nameEl.textContent='⏳ Loading '+a.name+"'s submitted file from Drive…";
+  if(dz) dz.classList.remove('ready');
+  if(btn) btn.disabled=true;
+  document.getElementById('gradeResults').style.display='none';
+  document.getElementById('gradeError').style.display='none';
+  const res=await apiPost('fetchDriveFile',{data:{fileId:fileId}});
+  if(!res || !res.success){
+    alert('Could not load the file from Drive: '+(res&&res.error||'unknown error — check that the Apps Script is redeployed with the fetchDriveFile action.'));
+    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
+    return;
+  }
+  const byteChars=atob(res.base64);
+  const byteNumbers=new Array(byteChars.length);
+  for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+  const byteArray=new Uint8Array(byteNumbers);
+  gradeFile={name:res.filename||(a.name+'.xlsx'),data:byteArray.buffer};
+  if(nameEl) nameEl.textContent=gradeFile.name+' (from Drive)';
+  const subEl=document.getElementById('gradeFileSub');
+  if(subEl) subEl.style.display='block';
+  if(dz) dz.classList.add('ready');
+  if(btn) btn.disabled=false;
+  const sel=document.getElementById('gradeApplicantSelect');
+  if(sel) sel.value=String(applicantId);
+  showToast('✓ Loaded '+a.name+"'s file from Drive — click Grade & Analyse.");
 }
 
 // ============================================================
@@ -2281,6 +2359,7 @@ function saveGradeToRecord(){
   syncApplicantToSheets(a);
   updateTrackerBadge();
   autoAdvanceIfNeeded(a.id);
+  renderPendingGradingQueue();
   alert(`✓ EMM result saved to ${a.name}'s record.
 Score: ${gradeResult.overallPct}% (${gradeResult.pass?'PASS':'FAIL'})`);
 }
@@ -2306,10 +2385,11 @@ Please complete all of the following assessments and submit them within 24 hours
    → Your results will be recorded automatically.
 
 3. AR EMM Cognitive Assessment (approx. 30–45 minutes)
-   → Please find the assessment file attached to this email.
+   → Please find the blank assessment file attached to this email.
    Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
-   Format: Save your completed file as AR_Assessment_{name}.xlsx, then reply to this email with it attached.
-   Deadline: Please return the completed file within 24 hours of this invitation, or as soon as possible.
+   Format: Save your completed file as AR_Assessment_{name}.xlsx.
+   Submit here (do not reply to this email with the file): https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform
+   Deadline: Please submit the completed file within 24 hours of this invitation, or as soon as possible.
 
 We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
 
@@ -2326,7 +2406,7 @@ This is a friendly reminder that we have not yet received your completed assessm
 As a reminder, please submit:
 • GRIT form (online submission)
 • Value-Integrity form (online submission)
-• Completed AR EMM Excel assessment
+• Completed AR EMM Excel assessment — submit here: https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform
 
 The deadline is 24 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
 
@@ -2619,6 +2699,8 @@ const APPS_SCRIPT_CODE = `// ABBSS Hiring Pipeline - Google Apps Script Backend
 const MASTER_SHEET_ID = '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0';
 const GRIT_SHEET_ID   = '1sU7HPe9Nn69RdHyuCrpisCKdGTDHNO3c0furVEqgfFk';
 const VALUES_SHEET_ID = '16jRYZIFG_5O2Dh-7Wvj4MKVfsDV9FsOIXKPJiTFYCbc';
+const EMM_FORM_SHEET_ID = '1ZTh5NtZtxvcFfx1kmiW40s4jRyAZdz9T3sNhoZB3SEI';
+const EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 
 function scoreGrit(row){
   const rev=[0,2,4,5];const scores=[];
@@ -2647,8 +2729,8 @@ function setupSheet(){
       'EMM Overall%','EMM Category%','EMM Action%','EMM Pass','EMM Graded At',
       'Interview Result','Decision Notes','Resume Notes','Created At',
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
-      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department']);
-    t.getRange(1,1,1,40).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL']);
+    t.getRange(1,1,1,41).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -2682,6 +2764,23 @@ function lookupValues(email){
                                                   }catch(e){return{error:e.message};}
                                                     }
 
+function lookupEmmSubmission(email){
+  try{
+    const sheet=SpreadsheetApp.openById(EMM_FORM_SHEET_ID).getSheets()[0];
+    const data=sheet.getDataRange().getValues();
+    const norm=String(email).trim().toLowerCase();
+    const matches=data.filter((r,i)=>i>0 && (
+      String(r[1]).trim().toLowerCase()===norm || String(r[3]).trim().toLowerCase()===norm
+    ));
+    if(!matches.length) return null;
+    const row=matches[matches.length-1]; // latest submission if they resubmitted
+    const fileCell=String(row[4]||'').trim();
+    if(!fileCell) return null;
+    const fileUrl=fileCell.split(',')[0].trim(); // form caps uploads at 1 file, but be defensive
+    return{name:row[2]||'',email:row[3]||row[1]||'',fileUrl:fileUrl,timestamp:String(row[0])};
+  }catch(e){ return {error:e.message}; }
+}
+
 function saveApplicant(d){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   let t=ss.getSheetByName('Applicants');if(!t){setupSheet();t=ss.getSheetByName('Applicants');}
@@ -2703,7 +2802,7 @@ function saveApplicant(d){
     d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString(),
     d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):'',
     d.emailsSent?JSON.stringify(d.emailsSent):'',
-    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||'',d.department||''];
+    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||'',d.department||'',d.emmFileUrl||''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -2733,7 +2832,7 @@ function getAllApplicants(){
       resumeNotes:r[26]||'',createdAt:r[27]||'',
       emailsSent:emailsSent,
       cvUrl:r[31]||'',cvFileId:r[32]||'',cvFileName:r[33]||'',cvUploadedAt:r[34]||'',
-      emmReceivedAt:r[38]||'',department:r[39]||''
+      emmReceivedAt:r[38]||'',department:r[39]||'',emmFileUrl:r[40]||''
     };
   });
 }
@@ -2774,6 +2873,7 @@ function doGet(e){
     else if(a==='getAll')out={success:true,data:getAllApplicants()};
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
+    else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -2785,6 +2885,7 @@ function doPost(e){
     if(p.action==='saveApplicant')out=saveApplicant(p.data);
     else if(p.action==='uploadCV')out=uploadCV(p.data);
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
+    else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -2817,6 +2918,31 @@ function addDepartmentColumn(){
     return 'Added Department at column '+(lastCol+1);
   }
   return 'Department column already present at column '+(header.indexOf('Department')+1);
+}
+
+function addEmmFileUrlColumn(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return 'Applicants sheet not found';
+  const lastCol=t.getLastColumn();
+  const header=t.getRange(1,1,1,lastCol).getValues()[0];
+  if(header.indexOf('EMM File URL')===-1){
+    t.getRange(1,lastCol+1).setValue('EMM File URL');
+    Logger.log('Added EMM File URL at column '+(lastCol+1));
+    return 'Added EMM File URL at column '+(lastCol+1);
+  }
+  return 'EMM File URL column already present at column '+(header.indexOf('EMM File URL')+1);
+}
+
+function fetchDriveFile(fileId){
+  try{
+    if(!fileId) return {success:false, error:'Missing fileId.'};
+    const file=DriveApp.getFileById(fileId);
+    const blob=file.getBlob();
+    return {success:true, base64:Utilities.base64Encode(blob.getBytes()), filename:file.getName(), mimeType:blob.getContentType()};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
 }
 
 function migrateToFourStagePipeline(){
@@ -2884,7 +3010,7 @@ function checkAssessmentCompliance(){
   const data=t.getDataRange().getValues();
   const now=new Date();
   const REMINDER_HOURS=12, ARCHIVE_HOURS=24;
-  let reminders=0, archived=0, healed=0, attached=0;
+  let reminders=0, archived=0, healed=0, attached=0, emmDetected=0;
   for(let i=1;i<data.length;i++){
     const r=data[i];
     const id=r[0]; if(!id) continue;
@@ -2899,6 +3025,8 @@ function checkAssessmentCompliance(){
 
     let hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     let hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+    const requiresEmm=r[7]==='Yes';
+    let emmReceived=!!r[38];
 
     // Proactively pull in any GRIT/Values scores that have arrived since the
     // last check. Previously this ONLY happened when a staff member happened to
@@ -2907,36 +3035,59 @@ function checkAssessmentCompliance(){
     // auto-archived, or stay archived) if nobody opened their page. Now every
     // scheduled run checks for a matching, sufficiently-recent form response itself.
     const email=r[2];
+    const inviteTime=inviteSentAt?new Date(inviteSentAt).getTime():null;
     if(email && inviteSentAt && (!hasGrit||!hasValues)){
-      function isFreshEnough(ts){
-        if(!ts) return true;
-        const tm=new Date(ts).getTime();
-        return isNaN(tm) ? true : tm >= new Date(inviteSentAt).getTime();
-      }
       if(!hasGrit){
         try{
           const g=lookupGrit(email);
-          if(g && !g.error && g.score!==null && g.score!==undefined && isFreshEnough(g.timestamp)){
-            t.getRange(i+1,14).setValue(g.score);
-            t.getRange(i+1,15).setValue(getGritLabel(parseFloat(g.score)));
-            if(g.perseverance!==null && g.perseverance!==undefined) t.getRange(i+1,36).setValue(g.perseverance);
-            if(g.consistency!==null && g.consistency!==undefined) t.getRange(i+1,37).setValue(g.consistency);
-            hasGrit=true; attached++;
+          if(g && !g.error && g.score!==null && g.score!==undefined){
+            const gTime=new Date(g.timestamp).getTime();
+            if(isNaN(gTime) || gTime>=inviteTime){
+              t.getRange(i+1,14).setValue(g.score);
+              t.getRange(i+1,15).setValue(getGritLabel(parseFloat(g.score)));
+              if(g.perseverance!==null && g.perseverance!==undefined) t.getRange(i+1,36).setValue(g.perseverance);
+              if(g.consistency!==null && g.consistency!==undefined) t.getRange(i+1,37).setValue(g.consistency);
+              hasGrit=true; attached++;
+            }
           }
         }catch(e){ Logger.log('GRIT lookup failed for row '+(i+1)+': '+e.message); }
       }
       if(!hasValues){
         try{
           const v=lookupValues(email);
-          if(v && !v.error && v.total!==null && v.total!==undefined && isFreshEnough(v.timestamp)){
-            t.getRange(i+1,16).setValue(v.total);
-            t.getRange(i+1,17).setValue(v.confScore||'');
-            t.getRange(i+1,18).setValue(v.intScore||'');
-            t.getRange(i+1,19).setValue(getValuesLabel(parseFloat(v.total),parseFloat(v.confScore||0),parseFloat(v.intScore||0)));
-            hasValues=true; attached++;
+          if(v && !v.error && v.total!==null && v.total!==undefined){
+            const vTime=new Date(v.timestamp).getTime();
+            if(isNaN(vTime) || vTime>=inviteTime){
+              t.getRange(i+1,16).setValue(v.total);
+              t.getRange(i+1,17).setValue(v.confScore||'');
+              t.getRange(i+1,18).setValue(v.intScore||'');
+              t.getRange(i+1,19).setValue(getValuesLabel(parseFloat(v.total),parseFloat(v.confScore||0),parseFloat(v.intScore||0)));
+              hasValues=true; attached++;
+            }
           }
         }catch(e){ Logger.log('Values lookup failed for row '+(i+1)+': '+e.message); }
       }
+    }
+
+    // Proactively detect a completed EMM file submitted through the shared-Drive
+    // Google Form (replaces the old "reply to this email with the file" flow --
+    // that left files scattered across whoever's inbox got the reply, and nothing
+    // ever checked for them automatically). Every run checks the form's response
+    // sheet for a matching, sufficiently-recent submission and records both the
+    // receipt time and a link to the file in the shared Drive folder.
+    if(email && requiresEmm && !emmReceived){
+      try{
+        const sub=lookupEmmSubmission(email);
+        if(sub && !sub.error && sub.fileUrl){
+          const subTime=new Date(sub.timestamp).getTime();
+          if(!inviteTime || isNaN(subTime) || subTime>=inviteTime){
+            t.getRange(i+1,39).setValue(sub.timestamp||now.toISOString());
+            t.getRange(i+1,41).setValue(sub.fileUrl);
+            emmReceived=true;
+            emmDetected++;
+          }
+        }
+      }catch(e){ Logger.log('EMM submission lookup failed for row '+(i+1)+': '+e.message); }
     }
 
     // Self-heal: someone may have been archived as Non Compliant, then their
@@ -2955,8 +3106,6 @@ function checkAssessmentCompliance(){
     }
 
     if(!inviteSentAt) continue;
-    const requiresEmm=r[7]==='Yes';
-    const emmReceived=!!r[38];
     const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?emmReceived:true);
     if(assessmentsComplete) continue;
     const hoursElapsed=(now.getTime()-new Date(inviteSentAt).getTime())/3600000;
@@ -2974,7 +3123,7 @@ function checkAssessmentCompliance(){
       }catch(e){ Logger.log('Reminder send failed for row '+(i+1)+': '+e.message); }
     }
   }
-  Logger.log('Compliance check complete. Scores auto-attached: '+attached+', Reminders sent: '+reminders+', Archived: '+archived+', Auto-healed back to In Progress: '+healed);
+  Logger.log('Compliance check complete. Scores auto-attached: '+attached+', EMM submissions detected: '+emmDetected+', Reminders sent: '+reminders+', Archived: '+archived+', Auto-healed back to In Progress: '+healed);
 }
 
 function restoreCompliantApplicants(){
@@ -3011,7 +3160,7 @@ function sendComplianceReminderEmail(email,name,position,enteredBy){
     +'Please complete and submit the following within 24 hours of your original invitation:\n'
     +'1. GRIT Assessment: https://forms.gle/JwGGt8UWnR6NgFga8\n'
     +'2. Value-Integrity Assessment: https://forms.gle/RH5HGDDvPL9H5YvRA\n'
-    +'3. AR EMM Cognitive Assessment (reply to your invitation email with the completed Excel file)\n\n'
+    +'3. AR EMM Cognitive Assessment: complete the attached Excel file, then submit it here: '+EMM_RESPONDER_LINK+'\n\n'
     +'If we do not receive all of the above within the 24-hour window, your application will be marked as Non-Compliant and archived.\n\n'
     +'If you have already submitted these, please disregard this message.\n\n'
     +'Warm regards,\nHR Team\nABBSS';
@@ -3193,7 +3342,7 @@ function showPage(id, btn) {
   if (navBtn) navBtn.classList.add('active');
   if (id === 'dashboard') renderDashboard();
   if (id === 'tracker') renderTracker();
-  if (id === 'grade') populateApplicantSelect();
+  if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); }
 }
 
 // ============================================================
@@ -3205,6 +3354,7 @@ var TEAM_DIRECTORY = {
   'Wennielyn Pungasi': 'wennielyn.pungasi@ab-businesssupport.com',
   'David Latimer': 'operations@ab-businesssupport.com'
 };
+var EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 var CARD_FILTERS = {
   total: { label:'All Applicants', fn: function(a){ return true; } },
   stage1: { label: STAGE_LABELS[0], fn: function(a){ return a.stage === 1; } },
@@ -3309,7 +3459,10 @@ function getNextStep(a) {
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
   if (!hasGrit || !hasValues) return { label: 'Waiting on GRIT/Values form results', tone: 'waiting', icon: '\u23F3' };
 
-  if (a.requiresEmm && !(a.emm && a.emm.graded)) return { label: 'Grade their EMM assessment', tone: 'action', icon: '\u26A1' };
+  if (a.requiresEmm && !(a.emm && a.emm.graded)) {
+    if (a.emmReceivedAt) return { label: 'Grade their EMM assessment \u2014 file received', tone: 'action', icon: '\u26A1' };
+    return { label: 'Waiting on EMM submission', tone: 'waiting', icon: '\u23F3' };
+  }
   if (a.requiresEmm && a.emm && a.emm.graded && a.emm.pass === false) return { label: 'EMM failed \u2014 review and decide next step', tone: 'action', icon: '\u26A0\uFE0F' };
 
   if (a.stage < 2) return { label: 'Endorse to Preliminary Interview', tone: 'action', icon: '\u27A1\uFE0F' };
@@ -3467,6 +3620,7 @@ function getApplicantStatusLine(a){
   if(a.stage===1){
     if(!invitedAt) return { label:'Not yet invited', tone:'#888', bg:'#f1f1f4' };
     if(!hasGrit && !hasValues) return { label:'Assessment sent — awaiting response', tone:'#1e40af', bg:'#eef2ff' };
+    if(hasGrit && hasValues && a.requiresEmm && a.emmReceivedAt && !emmDone) return { label:'EMM submitted — pending grading', tone:'#6d28d9', bg:'#f3e8ff' };
     if(!(hasGrit && hasValues && emmDone)) return { label:'Partially submitted', tone:'#b45309', bg:'#fff8e1' };
     return { label:'Assessments complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
   }
