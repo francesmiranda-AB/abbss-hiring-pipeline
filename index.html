@@ -2885,11 +2885,27 @@ function checkAssessmentCompliance(){
   const now=new Date();
   const REMINDER_HOURS=12, ARCHIVE_HOURS=24;
   const resolvedStatuses=['Hired','Rejected','Hold','NonCompliant'];
-  let reminders=0, archived=0;
+  let reminders=0, archived=0, healed=0;
   for(let i=1;i<data.length;i++){
     const r=data[i];
     const id=r[0]; if(!id) continue;
     const status=r[9]||'In Progress';
+
+    // Self-heal: someone may have been archived as Non Compliant, then their
+    // GRIT/Values score arrived shortly after (they did respond, just close to
+    // the cutoff, or the score attached a bit late) -- put them back to In
+    // Progress automatically instead of leaving them stuck until someone
+    // remembers to run restoreCompliantApplicants() by hand.
+    if(status==='NonCompliant'){
+      const hasGritH=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
+      const hasValuesH=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+      if(hasGritH||hasValuesH){
+        t.getRange(i+1,10).setValue('In Progress');
+        healed++;
+      }
+      continue;
+    }
+
     if(resolvedStatuses.indexOf(status)!==-1) continue;
     let emailsSent={};
     try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
@@ -2916,7 +2932,7 @@ function checkAssessmentCompliance(){
       }catch(e){ Logger.log('Reminder send failed for row '+(i+1)+': '+e.message); }
     }
   }
-  Logger.log('Compliance check complete. Reminders sent: '+reminders+', Archived: '+archived);
+  Logger.log('Compliance check complete. Reminders sent: '+reminders+', Archived: '+archived+', Auto-healed back to In Progress: '+healed);
 }
 
 function restoreCompliantApplicants(){
