@@ -2455,9 +2455,18 @@ async function sendEmailAutomatically(){
   var sentByName=(document.getElementById('sentByPicker') && document.getElementById('sentByPicker').value) || '';
   if(!sentByName){ alert('Please select who is sending this email (Frances, Wen, or David) so replies go to the right inbox.'); return; }
   var replyTo=TEAM_DIRECTORY[sentByName] || '';
+  var payload={to:to, subject:subject, body:body, replyTo:replyTo};
+  if(currentTemplate==='assessment'){
+    // This template's wording already says "the assessment file attached to this email" --
+    // actually attach the blank EMM template so that's true, instead of leaving the
+    // candidate to figure out where the file is.
+    payload.attachmentBase64=EMM_TEMPLATE_B64;
+    payload.attachmentName=EMM_TEMPLATE_FILENAME;
+    payload.attachmentMimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
   var btn=document.getElementById('sendAutoBtn');
   if(btn){ btn.disabled=true; btn.textContent='Sending...'; }
-  var res=await apiPost('sendEmail', {data:{to:to, subject:subject, body:body, replyTo:replyTo}});
+  var res=await apiPost('sendEmail', {data:payload});
   if(btn){ btn.disabled=false; btn.innerHTML='&#9993; Send Automatically'; }
   if(res && res.success){
     markEmailSent();
@@ -2846,7 +2855,16 @@ function sendApplicantEmail(data){
   if(!data || !data.to) return {success:false, error:'Missing recipient email address.'};
   try{
     var replyTo = (data.replyTo && String(data.replyTo).trim()) || DEFAULT_REPLY_TO;
-    MailApp.sendEmail(data.to, data.subject||'', data.body||'', {replyTo: replyTo});
+    var options = {replyTo: replyTo};
+    if(data.attachmentBase64){
+      var blob = Utilities.newBlob(
+        Utilities.base64Decode(data.attachmentBase64),
+        data.attachmentMimeType || 'application/octet-stream',
+        data.attachmentName || 'attachment'
+      );
+      options.attachments = [blob];
+    }
+    MailApp.sendEmail(data.to, data.subject||'', data.body||'', options);
     return {success:true};
   }catch(e){
     return {success:false, error:e.message};
