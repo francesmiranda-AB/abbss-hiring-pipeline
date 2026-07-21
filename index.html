@@ -495,6 +495,8 @@ tbody tr:last-child td{border-bottom:none}
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Overview of your hiring pipeline</p>
   </div>
   <div class="stats-grid" id="dashStats"></div>
+  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">What's Pending &mdash; Needs Your Attention</div>
+  <div class="pipeline-grid" id="dashPendingGrid" style="margin-bottom:8px"></div>
   <div class="g2" style="gap:24px;align-items:start">
     <div>
       <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Internal &mdash; Active Pipeline</div>
@@ -583,6 +585,18 @@ tbody tr:last-child td{border-bottom:none}
         <option value="2">Stage 2 - Endorsed to Preliminary Interview</option>
         <option value="3">Stage 3 - Interviewed</option>
         <option value="4">Stage 4 - Endorsed to Client</option>
+      </select>
+      <select class="filter-inp" id="filterPipeline" onchange="filterTracker()">
+        <option value="">All Pipeline Steps</option>
+        <option value="pl_not_invited">Not Yet Invited</option>
+        <option value="pl_sent">Sent Assessment Email</option>
+        <option value="pl_partial">Partially Submitted</option>
+        <option value="pl_pending_grading">Submitted — Pending EMM Grading</option>
+        <option value="pl_ready_endorse1">Ready to Endorse (Prelim Interview)</option>
+        <option value="pl_endorsed_prelim">Endorsed to Preliminary Interview</option>
+        <option value="pl_interview_fail">Interviewed — Did Not Pass</option>
+        <option value="pl_ready_endorse_client">Ready to Endorse to Client</option>
+        <option value="pl_endorsed_client">Endorsed to Client</option>
       </select>
       <select class="filter-inp" id="filterResult" onchange="filterTracker()">
         <option value="">All Results</option>
@@ -1194,6 +1208,7 @@ function filterTracker(){
   const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
   const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
   const stageF=document.getElementById('filterStage').value;
+  const pipelineF=document.getElementById('filterPipeline')?document.getElementById('filterPipeline').value:'';
   const resultF=document.getElementById('filterResult').value;
   const statusF=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
   const gritF=document.getElementById('filterGrit')?document.getElementById('filterGrit').value:'';
@@ -1203,6 +1218,7 @@ function filterTracker(){
   if(deptF)apps=apps.filter(a=>a.department===deptF);
   if(posF)apps=apps.filter(a=>(a.position||'').toLowerCase().includes(posF));
   if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF) && (a.overallStatus||'In Progress')==='In Progress');
+  if(pipelineF)apps=apps.filter(a=>getPipelineStep(a).key===pipelineF);
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
   if(resultF==='fail')apps=apps.filter(a=>a.emm&&a.emm.pass===false);
   if(statusF)apps=apps.filter(a=>(a.overallStatus||'In Progress')===statusF);
@@ -3151,12 +3167,20 @@ function restoreCompliantApplicants(){
     const r=data[i];
     const id=r[0]; if(!id) continue;
     if(r[9]!=='NonCompliant') continue;
-    // Lenient check: if there's ANY evidence they actually answered (a GRIT score
-    // or a Values score on file), they shouldn't be sitting in Non Compliant —
-    // that status is meant for candidates who never responded at all.
+    // Must match checkAssessmentCompliance()'s own definition of "complete"
+    // EXACTLY. This used to be a lenient "any evidence at all" check (GRIT OR
+    // Values, ignoring EMM entirely) -- so it would restore someone who still
+    // hadn't submitted a required EMM file, only for the automatic 15-minute
+    // check to archive them right back. That mismatch is what caused the
+    // Non Compliant count to drop after a manual run and then bounce back up
+    // on its own a few minutes later.
     const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-    if(hasGrit||hasValues){
+    const requiresEmm=r[7]==='Yes';
+    const emmReceived=!!r[38];
+    const emmGraded=!!r[23];
+    const complete=hasGrit&&hasValues&&(requiresEmm?(emmReceived||emmGraded):true);
+    if(complete){
       t.getRange(i+1,10).setValue('In Progress');
       restored++;
       names.push(r[1]);
@@ -3427,6 +3451,13 @@ function renderDashboard() {
     return '<div class="pipeline-card stage-' + s.n + '" data-card-key="' + key + '" onclick="showCardApplicants(\'' + key + '\')"><div class="pipeline-num" style="color:' + s.color + '">' + count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + STAGE_LABELS[s.n-1] + '</div>' + (i < stageDefs.length-1 ? '<div class="pipeline-arrow">&#8250;</div>' : '') + '</div>';
   }).join('');
 
+  var pendingCounts = PIPELINE_CARD_DEFS.map(function(d){
+    return { def:d, count: apps.filter(function(a){ return getPipelineStep(a).key === d.key; }).length };
+  }).filter(function(x){ return x.count > 0; });
+  document.getElementById('dashPendingGrid').innerHTML = pendingCounts.length ? pendingCounts.map(function(x){
+    return '<div class="pipeline-card" data-card-key="' + x.def.key + '" onclick="showCardApplicants(\'' + x.def.key + '\')"><div class="pipeline-num" style="color:' + x.def.color + '">' + x.count + '</div><div class="pipeline-lbl" style="color:' + x.def.color + '">' + x.def.label + '</div></div>';
+  }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">Nothing pending right now.</div></div>';
+
   var statusDefs = [
     { key:'statusHired', label:'Hired', color:'#059669', fn: function(a){ return a.overallStatus==='Hired'; } },
     { key:'statusRejected', label:'Rejected', color:'#dc2626', fn: function(a){ return a.overallStatus==='Rejected'; } },
@@ -3620,34 +3651,64 @@ function openStatusQuickView(id, evt){
   document.getElementById('detailModal').classList.add('open');
 }
 
-function getApplicantStatusLine(a){
-  if(a.overallStatus==='Hired') return { label:'Hired', tone:'#166534', bg:'#e8f5e9' };
-  if(a.overallStatus==='Rejected') return { label:'Rejected', tone:'#b52a2a', bg:'#fdecea' };
-  if(a.overallStatus==='Hold') return { label:'On Hold', tone:'#b45309', bg:'#fff8e1' };
-  if(a.overallStatus==='NonCompliant') return { label:'Non Compliant', tone:'#6b7280', bg:'#f1f1f4' };
+// ============================================================
+// PIPELINE STATUS -- single source of truth for "where is this applicant
+// right now", used by the Tracker column, the dashboard card lists, AND the
+// new "What's Pending" dashboard cards / Tracker filter below. One place to
+// read, one place to change, so the wording can never drift between screens.
+// ============================================================
+function getPipelineStep(a){
+  if(a.overallStatus==='Hired') return { key:'pl_hired', label:'Hired', tone:'#166534', bg:'#e8f5e9' };
+  if(a.overallStatus==='Rejected') return { key:'pl_rejected', label:'Rejected', tone:'#b52a2a', bg:'#fdecea' };
+  if(a.overallStatus==='Hold') return { key:'pl_hold', label:'On Hold', tone:'#b45309', bg:'#fff8e1' };
+  if(a.overallStatus==='NonCompliant') return { key:'pl_noncompliant', label:'Non Compliant', tone:'#6b7280', bg:'#f1f1f4' };
 
   var invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
   var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
   var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
+  var emmPendingGrading = a.requiresEmm && a.emmReceivedAt && !(a.emm && a.emm.graded);
 
   if(a.stage===1){
-    if(!invitedAt) return { label:'Not yet invited', tone:'#888', bg:'#f1f1f4' };
-    if(!hasGrit && !hasValues) return { label:'Assessment sent — awaiting response', tone:'#1e40af', bg:'#eef2ff' };
-    if(hasGrit && hasValues && a.requiresEmm && a.emmReceivedAt && !emmDone) return { label:'EMM submitted — pending grading', tone:'#6d28d9', bg:'#f3e8ff' };
-    if(!(hasGrit && hasValues && emmDone)) return { label:'Partially submitted', tone:'#b45309', bg:'#fff8e1' };
-    return { label:'Assessments complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
+    if(!invitedAt) return { key:'pl_not_invited', label:'Not Yet Invited', tone:'#888', bg:'#f1f1f4' };
+    if(!hasGrit && !hasValues) return { key:'pl_sent', label:'Sent Assessment Email', tone:'#1e40af', bg:'#eef2ff' };
+    if(hasGrit && hasValues && emmPendingGrading) return { key:'pl_pending_grading', label:'Submitted — Pending EMM Grading', tone:'#6d28d9', bg:'#f3e8ff' };
+    if(!(hasGrit && hasValues && emmDone)) return { key:'pl_partial', label:'Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
+    return { key:'pl_ready_endorse1', label:'Submitted Assessments — Ready to Endorse', tone:'#166534', bg:'#e8f5e9' };
   }
   if(a.stage===2){
     var ivResult = a.interview && a.interview.result;
-    if(!ivResult) return { label:'Awaiting interview', tone:'#1e40af', bg:'#eef2ff' };
-    if(ivResult==='fail') return { label:'Interviewed — did not pass', tone:'#b52a2a', bg:'#fdecea' };
-    return { label:'Interview complete — ready to endorse', tone:'#166534', bg:'#e8f5e9' };
+    if(!ivResult) return { key:'pl_endorsed_prelim', label:'Endorsed to Preliminary Interview', tone:'#1e40af', bg:'#eef2ff' };
+    if(ivResult==='fail') return { key:'pl_interview_fail', label:'Interviewed — Did Not Pass', tone:'#b52a2a', bg:'#fdecea' };
+    return { key:'pl_ready_endorse_client', label:'Interviewed — Ready to Endorse to Client', tone:'#166534', bg:'#e8f5e9' };
   }
-  if(a.stage===3) return { label:'Interviewed — ready to endorse to client', tone:'#166534', bg:'#e8f5e9' };
-  if(a.stage===4) return { label:'Endorsed to client', tone:'#166534', bg:'#e8f5e9' };
-  return { label:'In progress', tone:'#888', bg:'#f1f1f4' };
+  if(a.stage===3) return { key:'pl_ready_endorse_client', label:'Interviewed — Ready to Endorse to Client', tone:'#166534', bg:'#e8f5e9' };
+  if(a.stage===4) return { key:'pl_endorsed_client', label:'Endorsed to Client', tone:'#047857', bg:'#e8f5e9' };
+  return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
 }
+
+function getApplicantStatusLine(a){
+  return getPipelineStep(a);
+}
+
+// Ordered, non-terminal steps shown as "What's Pending" cards on the Dashboard
+// and as options in the Tracker's Pipeline Status filter. Terminal outcomes
+// (Hired/Rejected/Hold/Non Compliant) already have their own "Outcomes" cards,
+// so they're deliberately left out of this list to avoid duplicating them.
+var PIPELINE_CARD_DEFS = [
+  { key:'pl_not_invited', label:'Not Yet Invited', color:'#6b7280' },
+  { key:'pl_sent', label:'Sent Assessment Email', color:'#1e40af' },
+  { key:'pl_partial', label:'Partially Submitted', color:'#b45309' },
+  { key:'pl_pending_grading', label:'Submitted — Pending EMM Grading', color:'#6d28d9' },
+  { key:'pl_ready_endorse1', label:'Ready to Endorse (Prelim Interview)', color:'#166534' },
+  { key:'pl_endorsed_prelim', label:'Endorsed to Preliminary Interview', color:'#1e40af' },
+  { key:'pl_interview_fail', label:'Interviewed — Did Not Pass', color:'#b52a2a' },
+  { key:'pl_ready_endorse_client', label:'Ready to Endorse to Client', color:'#166534' },
+  { key:'pl_endorsed_client', label:'Endorsed to Client', color:'#047857' }
+];
+PIPELINE_CARD_DEFS.forEach(function(d){
+  CARD_FILTERS[d.key] = { label: d.label, fn: function(a){ return getPipelineStep(a).key === d.key; } };
+});
 
 async function updateFieldImmediate(id, field, value){
   var apps = getApplicants();
