@@ -2884,35 +2884,77 @@ function checkAssessmentCompliance(){
   const data=t.getDataRange().getValues();
   const now=new Date();
   const REMINDER_HOURS=12, ARCHIVE_HOURS=24;
-  const resolvedStatuses=['Hired','Rejected','Hold','NonCompliant'];
-  let reminders=0, archived=0, healed=0;
+  let reminders=0, archived=0, healed=0, attached=0;
   for(let i=1;i<data.length;i++){
     const r=data[i];
     const id=r[0]; if(!id) continue;
-    const status=r[9]||'In Progress';
+    let status=r[9]||'In Progress';
 
-    // Self-heal: someone may have been archived as Non Compliant, then their
-    // GRIT/Values score arrived shortly after (they did respond, just close to
-    // the cutoff, or the score attached a bit late) -- put them back to In
-    // Progress automatically instead of leaving them stuck until someone
-    // remembers to run restoreCompliantApplicants() by hand.
-    if(status==='NonCompliant'){
-      const hasGritH=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
-      const hasValuesH=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-      if(hasGritH||hasValuesH){
-        t.getRange(i+1,10).setValue('In Progress');
-        healed++;
-      }
-      continue;
-    }
+    // Terminal outcomes never change automatically.
+    if(status==='Hired'||status==='Rejected'||status==='Hold') continue;
 
-    if(resolvedStatuses.indexOf(status)!==-1) continue;
     let emailsSent={};
     try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
     const inviteSentAt=emailsSent.assessment||emailsSent.assessment_no_emm;
+
+    let hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
+    let hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+
+    // Proactively pull in any GRIT/Values scores that have arrived since the
+    // last check. Previously this ONLY happened when a staff member happened to
+    // open that specific applicant's record in the app -- so a candidate who
+    // genuinely answered could sit with a blank score indefinitely (and get
+    // auto-archived, or stay archived) if nobody opened their page. Now every
+    // scheduled run checks for a matching, sufficiently-recent form response itself.
+    const email=r[2];
+    if(email && inviteSentAt && (!hasGrit||!hasValues)){
+      function isFreshEnough(ts){
+        if(!ts) return true;
+        const tm=new Date(ts).getTime();
+        return isNaN(tm) ? true : tm >= new Date(inviteSentAt).getTime();
+      }
+      if(!hasGrit){
+        try{
+          const g=lookupGrit(email);
+          if(g && !g.error && g.score!==null && g.score!==undefined && isFreshEnough(g.timestamp)){
+            t.getRange(i+1,14).setValue(g.score);
+            t.getRange(i+1,15).setValue(getGritLabel(parseFloat(g.score)));
+            if(g.perseverance!==null && g.perseverance!==undefined) t.getRange(i+1,36).setValue(g.perseverance);
+            if(g.consistency!==null && g.consistency!==undefined) t.getRange(i+1,37).setValue(g.consistency);
+            hasGrit=true; attached++;
+          }
+        }catch(e){ Logger.log('GRIT lookup failed for row '+(i+1)+': '+e.message); }
+      }
+      if(!hasValues){
+        try{
+          const v=lookupValues(email);
+          if(v && !v.error && v.total!==null && v.total!==undefined && isFreshEnough(v.timestamp)){
+            t.getRange(i+1,16).setValue(v.total);
+            t.getRange(i+1,17).setValue(v.confScore||'');
+            t.getRange(i+1,18).setValue(v.intScore||'');
+            t.getRange(i+1,19).setValue(getValuesLabel(parseFloat(v.total),parseFloat(v.confScore||0),parseFloat(v.intScore||0)));
+            hasValues=true; attached++;
+          }
+        }catch(e){ Logger.log('Values lookup failed for row '+(i+1)+': '+e.message); }
+      }
+    }
+
+    // Self-heal: someone may have been archived as Non Compliant, then their
+    // GRIT/Values score arrived shortly after (they did respond, just close to
+    // the cutoff, or the score just got attached above) -- put them back to In
+    // Progress automatically instead of leaving them stuck until someone
+    // remembers to run restoreCompliantApplicants() by hand.
+    if(status==='NonCompliant'){
+      if(hasGrit||hasValues){
+        t.getRange(i+1,10).setValue('In Progress');
+        status='In Progress';
+        healed++;
+      } else {
+        continue;
+      }
+    }
+
     if(!inviteSentAt) continue;
-    const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
-    const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
     const requiresEmm=r[7]==='Yes';
     const emmReceived=!!r[38];
     const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?emmReceived:true);
@@ -2932,7 +2974,7 @@ function checkAssessmentCompliance(){
       }catch(e){ Logger.log('Reminder send failed for row '+(i+1)+': '+e.message); }
     }
   }
-  Logger.log('Compliance check complete. Reminders sent: '+reminders+', Archived: '+archived+', Auto-healed back to In Progress: '+healed);
+  Logger.log('Compliance check complete. Scores auto-attached: '+attached+', Reminders sent: '+reminders+', Archived: '+archived+', Auto-healed back to In Progress: '+healed);
 }
 
 function restoreCompliantApplicants(){
@@ -2983,8 +3025,11 @@ function sendComplianceReminderEmail(email,name,position,enteredBy){
 function installComplianceTrigger(){
   const triggers=ScriptApp.getProjectTriggers();
   triggers.forEach(function(t){ if(t.getHandlerFunction()==='checkAssessmentCompliance') ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('checkAssessmentCompliance').timeBased().everyHours(1).create();
-  return 'Compliance trigger installed (runs hourly)';
+  // Every 15 minutes instead of hourly -- this is what pulls in new GRIT/Values
+  // answers and un-archives anyone who gets marked Non Compliant then responds
+  // late, so the gap between "they answered" and "the app shows it" is short.
+  ScriptApp.newTrigger('checkAssessmentCompliance').timeBased().everyMinutes(15).create();
+  return 'Compliance trigger installed (runs every 15 minutes)';
 }
 `;
 
