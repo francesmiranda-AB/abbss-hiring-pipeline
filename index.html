@@ -1760,9 +1760,9 @@ function buildDecisionTab(a){
     </div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm btn-green" onclick="setDecision(${a.id},'Hired')">✅ Mark as Hired</button>
-      <button class="btn-sm btn-red" onclick="if(confirm('Mark '+${JSON.stringify(a.name)}+' as Rejected?'))setDecision(${a.id},'Rejected')">✗ Mark as Rejected</button>
+      <button class="btn-sm btn-red" onclick="setDecision(${a.id},'Rejected')">✗ Mark as Rejected</button>
       <button class="btn-sm btn-amber" onclick="setDecision(${a.id},'Hold')">⏸ Put on Hold</button>
-      <button class="btn-sm" style="background:#6b7280;color:#fff;border:none" onclick="if(confirm('Mark '+${JSON.stringify(a.name)}+' as Non Compliant/Archive?'))setDecision(${a.id},'NonCompliant')">⛔ Non Compliant/Archive</button>
+      <button class="btn-sm" style="background:#6b7280;color:#fff;border:none" onclick="setDecision(${a.id},'NonCompliant')">⛔ Non Compliant/Archive</button>
       ${a.overallStatus && a.overallStatus!=='In Progress' ? `<button class="btn-sm" style="background:#e2e8f0;color:#334155;border:none" onclick="setDecision(${a.id},'In Progress')">&#8630; Undo / Back to In Progress</button>` : ''}
     </div>
     <div style="margin-top:12px">
