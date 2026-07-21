@@ -3027,6 +3027,20 @@ function checkAssessmentCompliance(){
     let hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
     const requiresEmm=r[7]==='Yes';
     let emmReceived=!!r[38];
+    const emmGradedAt=r[23];
+    const emmGraded=!!emmGradedAt;
+    // Backfill: some applicants were graded through a path that never set the
+    // "EMM Received At" flag (e.g. an older email-reply submission graded before
+    // this column existed, or a Drive-form submission whose email didn't match
+    // cleanly so lookupEmmSubmission() below never found it, but staff located
+    // the file in the shared Drive folder and graded it anyway). Being graded is
+    // strictly stronger evidence of completion than "received" -- if it happened
+    // without Received ever being set, that was a data gap, not a compliance
+    // problem, and this row should stop being treated as if nothing arrived.
+    if(requiresEmm && emmGraded && !emmReceived){
+      t.getRange(i+1,39).setValue(emmGradedAt);
+      emmReceived=true;
+    }
 
     // Proactively pull in any GRIT/Values scores that have arrived since the
     // last check. Previously this ONLY happened when a staff member happened to
@@ -3106,7 +3120,7 @@ function checkAssessmentCompliance(){
     }
 
     if(!inviteSentAt) continue;
-    const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?emmReceived:true);
+    const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?(emmReceived||emmGraded):true);
     if(assessmentsComplete) continue;
     const hoursElapsed=(now.getTime()-new Date(inviteSentAt).getTime())/3600000;
     if(hoursElapsed>=ARCHIVE_HOURS){
