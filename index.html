@@ -591,8 +591,9 @@ tbody tr:last-child td{border-bottom:none}
         <option value="4">Stage 4</option>
         <option value="5">Stage 5</option>
         <option value="6">Stage 6</option>
-        <option value="7">Stage 7 - Job Offer</option>
-        <option value="8">Stage 8 - Hired</option>
+        <option value="7">Stage 7</option>
+        <option value="8">Stage 8</option>
+        <option value="9">Stage 9 (AP/AR only)</option>
       </select>
       <select class="filter-inp" id="filterPipeline" onchange="filterTracker()">
         <option value="">All Pipeline Steps</option>
@@ -601,17 +602,18 @@ tbody tr:last-child td{border-bottom:none}
         <option value="pl_a_stage3_sent">[AP/AR] Assessments Sent — Awaiting Results</option>
         <option value="pl_a_stage3_partial">[AP/AR] Assessments Partially Submitted</option>
         <option value="pl_a_stage3_pending_emm">[AP/AR] Submitted — Pending EMM Grading</option>
-        <option value="pl_a_stage4">[AP/AR] Ready to Endorse to Ops</option>
-        <option value="pl_a_stage5">[AP/AR] Interview (Ops Manager)</option>
-        <option value="pl_a_stage5_fail">[AP/AR] Interviewed (Ops) — Did Not Pass</option>
-        <option value="pl_a_stage6">[AP/AR] Endorsed to Client — Awaiting Decision</option>
+        <option value="pl_a_stage4">[AP/AR] Ready for Operations Manager Interview</option>
+        <option value="pl_a_stage5">[AP/AR] Operations Manager Interview</option>
+        <option value="pl_a_stage5_fail">[AP/AR] Interviewed by Operations Manager — Did Not Pass</option>
+        <option value="pl_a_stage6">[AP/AR] Sent to Client for Review</option>
+        <option value="pl_a_stage7">[AP/AR] Waiting on Client's Decision</option>
         <option value="pl_b_stage2_sent">[Sales/Mktg] Assessments Sent — Awaiting Results</option>
         <option value="pl_b_stage2_partial">[Sales/Mktg] Assessments Partially Submitted</option>
-        <option value="pl_b_stage3">[Sales/Mktg] Ready to Endorse</option>
+        <option value="pl_b_stage3">[Sales/Mktg] Ready for Preliminary Interview (HR)</option>
         <option value="pl_b_stage4">[Sales/Mktg] Preliminary Interview (HR)</option>
-        <option value="pl_b_stage5">[Sales/Mktg] Second Interview (PM)</option>
+        <option value="pl_b_stage5">[Sales/Mktg] Second Interview (Project Manager)</option>
         <option value="pl_b_stage6">[Sales/Mktg] Final Interview (CEO)</option>
-        <option value="pl_stage7">Job Offer Sent</option>
+        <option value="pl_joboffer">Job Offer Sent</option>
       </select>
       <select class="filter-inp" id="filterResult" onchange="filterTracker()">
         <option value="">All Results</option>
@@ -791,11 +793,21 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
   </div>
-  <div class="g2" style="margin-bottom:20px">
-    <div class="card">
-      <div class="card-header"><div class="card-title">Pipeline Stages</div></div>
-      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Submitted Assessments</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Add the applicant (already screened by the time they're entered). GRIT + Values + EMM (Operations roles only) send automatically, and scores auto-populate here as they come in.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Endorsed to Preliminary Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Once GRIT, Values (and EMM, if required) are complete, click Endorse to move them forward.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Interviewed</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Live validation scorecard (5 questions) plus Resilience &amp; Adaptability Check (2 questions). Auto-advances once all 5 are scored.</div></div></div><div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray100)"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Endorsed to Client</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Available once the interview is fully scored. Record the final Hired/Rejected/Hold decision here.</div></div></div>
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><div class="card-title">Pipeline Stages</div></div>
+    <div style="font-size:12px;color:var(--gray500);margin:-6px 0 14px">Which list an applicant follows depends on their Department. Numbers on the Tracker/Board mean different things for each track — that's expected.</div>
+    <div class="g2">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Track A — AP/AR (Operations)</div>
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system — already screened before they were entered.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Initial Screening &amp; Preliminary Interview (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR conducts the first interview.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">GRIT + Values, plus EMM if the role requires it (AR only), are emailed out.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Passed — Ready for Operations Manager Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">All required assessments came back passing.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Operations Manager Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The Operations Manager interviews the candidate directly.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Sent to Client for Review</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Candidate&#8217;s profile has been submitted to the external client.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Waiting on Client&#8217;s Decision</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The client has it and is deciding — nothing to do until they respond.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Client approved the candidate; ABBSS sends the formal offer.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">9</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:#6d28d9;text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Track B — Sales &amp; Marketing</div>
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system — already screened before they were entered.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">GRIT + Values are emailed out (no EMM on this track).</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Passed — Ready for Preliminary Interview (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">All required assessments came back passing.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Preliminary Interview (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR conducts the first interview.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Second Interview (Project Manager)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The Project Manager (Frances) interviews the candidate.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Final Interview (CEO)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The CEO makes the final call.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">CEO approved; ABBSS sends the offer directly — no external client involved on this track.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
+      </div>
     </div>
+  </div>
+  <div class="g2" style="margin-bottom:20px">
     <div class="card">
       <div class="card-header"><div class="card-title">Assessment Thresholds</div></div>
       <table><thead><tr><th>Assessment</th><th>Score</th><th>Rating</th></tr></thead><tbody>
@@ -1287,7 +1299,7 @@ function closeModal(){document.getElementById('detailModal').classList.remove('o
 function buildStageStepper(a){
   var steps=getStageLabels(a);
   var status=a.overallStatus||'In Progress';
-  var curStage = status==='Hired' ? 8 : (a.stage||1);
+  var curStage = status==='Hired' ? steps.length : (a.stage||1);
   var stepperHtml = '<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;flex-wrap:wrap">' + steps.map(function(label,i){
     var n=i+1, bg='#e2e8f0', color='#94a3b8', mark=n;
     if(status==='Rejected' && n<=curStage){ bg='#fca5a5'; color='#fff'; mark='\u2715'; }
@@ -1351,22 +1363,25 @@ function getNextStepActionAttr(a, n){
   if (n.label.indexOf('Grade their EMM assessment')===0 || n.label.indexOf('EMM failed')===0) {
     return "jumpToModalTab('emm'," + a.id + ")";
   }
-  if (n.label === 'Assessments complete \u2014 endorse to Interview with Ops' || n.label === 'Endorse to Interview with Ops') {
+  if (n.label === 'Assessments complete \u2014 ready for the Operations Manager interview' || n.label === 'Ready for the Operations Manager interview') {
     return "advanceStage(" + a.id + ",5)";
   }
-  if (n.label.indexOf('Schedule and conduct the Ops interview')===0) {
+  if (n.label.indexOf('Schedule and conduct the Operations Manager interview')===0) {
     return "jumpToModalTab('interview'," + a.id + ")";
   }
-  if (n.label === 'Interview scored \u2014 endorse to client') {
+  if (n.label === 'Interview passed \u2014 send to the client for review') {
     return "advanceStage(" + a.id + ",6)";
   }
-  if (n.label === 'Assessments complete \u2014 endorse to Preliminary Interview (HR)' || n.label === 'Endorse to Preliminary Interview (HR)') {
+  if (n.label.indexOf('Confirm the client has it')===0) {
+    return "advanceStage(" + a.id + ",7)";
+  }
+  if (n.label === 'Assessments complete \u2014 ready for Preliminary Interview (HR)' || n.label === 'Ready for Preliminary Interview (HR)') {
     return "advanceStage(" + a.id + ",3)";
   }
   if (n.label.indexOf('Conduct Preliminary Interview (HR)')===0) {
     return "advanceStage(" + a.id + ",5)";
   }
-  if (n.label.indexOf('Conduct Second Interview (PM)')===0) {
+  if (n.label.indexOf('Conduct Second Interview (Project Manager)')===0) {
     return "advanceStage(" + a.id + ",6)";
   }
   if (n.label.indexOf('Conduct Final Interview (CEO)')===0) {
@@ -1598,8 +1613,8 @@ function buildAssessmentsTab(a){
   </div>
 
   ${isTrackB(a) ?
-    (a.stage<3 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},3)">✓ Assessments complete — Endorse to Preliminary Interview (HR)</button>` : '') :
-    (a.stage<5 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},5)">✓ Assessments complete — Endorse to Interview with Ops</button>` : '')}`;
+    (a.stage<3 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},3)">✓ Assessments Passed — Ready for Preliminary Interview (HR)</button>` : '') :
+    (a.stage<5 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},5)">✓ Assessments Passed — Ready for Operations Manager Interview</button>` : '')}`;
 }
 
 function buildEmmTab(a){
@@ -1856,13 +1871,24 @@ function buildDecisionTab(a){
       </div>
       <div style="font-size:12px;color:#666;margin-top:4px">${anyFail?'One or more assessments did not meet the required threshold.':allPass?'All screening assessments passed. Proceed to offer or final panel.':'Complete all assessments before making a hiring decision.'}</div>
     </div>
-    ${a.stage===6 ? `<div style="margin-bottom:12px">
-      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},7)">📨 ${isTrackB(a)?'CEO Confirmed':'Client Confirmed'} — Send Job Offer</button>
+    ${(function(){
+      var totalStages = getStageLabels(a).length;
+      var jobOfferStage = totalStages - 1;
+      var hiredStage = totalStages;
+      var out = '';
+      if(a.stage===jobOfferStage-1){
+        out += `<div style="margin-bottom:12px">
+      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},${jobOfferStage})">📨 ${isTrackB(a)?'CEO Confirmed':'Client Confirmed'} — Send Job Offer</button>
       <div style="font-size:11px;color:var(--gray400);margin-top:4px">${isTrackB(a)?'Waiting on the CEO’s decision.':'Waiting on the client’s decision.'} If they pass, use Rejected/Hold below instead.</div>
-    </div>` : ''}
-    ${a.stage===7 ? `<div style="margin-bottom:12px">
-      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},8)">✅ Offer Accepted — Mark Hired</button>
-    </div>` : ''}
+    </div>`;
+      }
+      if(a.stage===jobOfferStage){
+        out += `<div style="margin-bottom:12px">
+      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},${hiredStage})">✅ Offer Accepted — Mark Hired</button>
+    </div>`;
+      }
+      return out;
+    })()}
     ${a.overallStatus && a.overallStatus!=='In Progress' ? `<div style="padding:8px 12px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:13px;font-weight:700;color:#3730a3;margin-bottom:10px">Current decision: ${a.overallStatus==='NonCompliant'?'Non Compliant/Archived':a.overallStatus}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm btn-green${a.overallStatus==='Hired'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hired')">${a.overallStatus==='Hired'?'✓ ':''}✅ Mark as Hired</button>
@@ -2016,7 +2042,7 @@ function advanceStage(id,stage){
   const a=apps.find(a=>a.id===id);
   if(a&&a.stage<stage){
     a.stage=stage;
-    if(stage===8) a.overallStatus='Hired';
+    if(stage===getStageLabels(a).length) a.overallStatus='Hired';
     saveApplicants(apps);
     syncApplicantToSheets(a);
     if(stage===5 && !isTrackB(a)) notifyPreliminaryInterviewEndorsement(a);
@@ -2036,7 +2062,7 @@ function advanceStage(id,stage){
 function setDecision(id,decision){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a){a.overallStatus=decision;if(decision==='Hired')a.stage=8;saveApplicants(apps);syncApplicantToSheets(a);}
+  if(a){a.overallStatus=decision;if(decision==='Hired')a.stage=getStageLabels(a).length;saveApplicants(apps);syncApplicantToSheets(a);}
   document.getElementById('modalTabContent').innerHTML=buildDecisionTab(getApplicant(id));
   refreshModalStageInfo(id);
   renderDashboard();
@@ -3510,31 +3536,37 @@ function showPage(id, btn) {
 // ============================================================
 // OVERRIDE renderDashboard
 // ============================================================
-// Two real, differently-ordered pipelines, chosen by department. Both are 8
-// stages ending Job Offer -> Hired, but everything in between differs: Track A
+// Two real, differently-ordered pipelines, chosen by department. Track A
 // (Operations / AP-AR) screens+interviews with HR before assessments even go
-// out, then has one scored interview (Ops Manager) before an external client
-// decides on the Job Offer. Track B (Sales and Marketing) sends assessments
-// first, then runs three internal interview rounds (HR, PM, CEO) with no
-// external client step -- ABBSS issues the offer itself either way.
+// out, then has one scored interview with the Operations Manager, then the
+// candidate is sent to an external client, who separately decides on the Job
+// Offer -- that hand-off and the wait for the client's answer are two
+// distinct, separately-tracked steps (9 stages total). Track B (Sales and
+// Marketing) sends assessments first, then runs three internal interview
+// rounds (HR, Project Manager, CEO) with no external client step -- ABBSS
+// issues the offer itself either way (8 stages total). Labels are plain,
+// say-what-happens-next language on purpose -- no internal shorthand like
+// "endorse" or "Ops" -- since this is read by anyone glancing at the
+// Dashboard or Board, not just the person doing the step.
 var TRACK_A_LABELS = [
   'Application Received',
   'Initial Screening & Preliminary Interview (HR)',
   'Assessments Sent',
-  'Assessments Submitted — Ready to Endorse',
-  'Interview (Ops Manager)',
-  'Endorsed to Client — Awaiting Decision',
-  'Job Offer',
+  'Assessments Passed — Ready for Operations Manager Interview',
+  'Operations Manager Interview',
+  'Sent to Client for Review',
+  'Waiting on Client’s Decision',
+  'Job Offer Sent',
   'Hired'
 ];
 var TRACK_B_LABELS = [
   'Application Received',
   'Assessments Sent',
-  'Assessments Submitted — Ready to Endorse',
+  'Assessments Passed — Ready for Preliminary Interview (HR)',
   'Preliminary Interview (HR)',
   'Second Interview (Project Manager)',
   'Final Interview (CEO)',
-  'Job Offer',
+  'Job Offer Sent',
   'Hired'
 ];
 function isTrackB(a){
@@ -3663,26 +3695,27 @@ function getNextStep(a) {
 
   if (isTrackB(a)) {
     // Track B (Sales and Marketing): Application Received -> Assessments Sent ->
-    // Ready to Endorse -> Prelim (HR) -> Second (PM) -> Final (CEO) -> Job Offer -> Hired.
+    // Ready for Prelim (HR) -> Second (Project Manager) -> Final (CEO) -> Job Offer -> Hired.
     if (stage === 1) {
       if (!emailedAssessment) return { label: 'Send the assessment invite email', tone: 'action', icon: '\u2709\uFE0F' };
       return { label: 'Assessments sent \u2014 waiting on results', tone: 'waiting', icon: '\u23F3' };
     }
     if (stage === 2) {
       if (!hasGrit || !hasValues) return { label: 'Waiting on GRIT/Values form results', tone: 'waiting', icon: '\u23F3' };
-      return { label: 'Assessments complete \u2014 endorse to Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
+      return { label: 'Assessments complete \u2014 ready for Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
     }
-    if (stage === 3) return { label: 'Endorse to Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
-    if (stage === 4) return { label: 'Conduct Preliminary Interview (HR), then endorse to Second Interview', tone: 'action', icon: '\uD83C\uDFAF' };
-    if (stage === 5) return { label: 'Conduct Second Interview (PM), then endorse to Final Interview', tone: 'action', icon: '\uD83C\uDFAF' };
+    if (stage === 3) return { label: 'Ready for Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
+    if (stage === 4) return { label: 'Conduct Preliminary Interview (HR), then move to Second Interview', tone: 'action', icon: '\uD83C\uDFAF' };
+    if (stage === 5) return { label: 'Conduct Second Interview (Project Manager), then move to Final Interview', tone: 'action', icon: '\uD83C\uDFAF' };
     if (stage === 6) return { label: 'Conduct Final Interview (CEO), then send Job Offer', tone: 'action', icon: '\uD83C\uDFAF' };
     if (stage === 7) return { label: 'Job Offer sent \u2014 confirm once accepted', tone: 'action', icon: '\uD83D\uDCE8' };
     return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
   }
 
   // Track A (Operations / AP-AR): Application Received -> Screening & Prelim
-  // Interview (HR) -> Assessments Sent -> Ready to Endorse -> Interview (Ops) ->
-  // Endorsed to Client -> Job Offer -> Hired.
+  // Interview (HR) -> Assessments Sent -> Ready for Operations Manager Interview ->
+  // Operations Manager Interview -> Sent to Client for Review -> Waiting on Client's
+  // Decision -> Job Offer -> Hired.
   if (stage === 1) return { label: 'Complete initial screening & preliminary interview (HR)', tone: 'action', icon: '\uD83D\uDC64' };
 
   if (stage === 2) {
@@ -3697,20 +3730,22 @@ function getNextStep(a) {
       if (a.emmReceivedAt) return { label: 'Grade their EMM assessment \u2014 file received', tone: 'action', icon: '\u26A1' };
       return { label: 'Waiting on EMM submission', tone: 'waiting', icon: '\u23F3' };
     }
-    if (a.requiresEmm && a.emm && a.emm.graded && a.emm.pass === false) return { label: 'EMM failed \u2014 review before endorsing to Ops', tone: 'action', icon: '\u26A0\uFE0F' };
-    return { label: 'Assessments complete \u2014 endorse to Interview with Ops', tone: 'action', icon: '\u27A1\uFE0F' };
+    if (a.requiresEmm && a.emm && a.emm.graded && a.emm.pass === false) return { label: 'EMM failed \u2014 review before scheduling the Operations Manager interview', tone: 'action', icon: '\u26A0\uFE0F' };
+    return { label: 'Assessments complete \u2014 ready for the Operations Manager interview', tone: 'action', icon: '\u27A1\uFE0F' };
   }
 
-  if (stage === 4) return { label: 'Endorse to Interview with Ops', tone: 'action', icon: '\u27A1\uFE0F' };
+  if (stage === 4) return { label: 'Ready for the Operations Manager interview', tone: 'action', icon: '\u27A1\uFE0F' };
 
   if (stage === 5) {
-    if (!(a.interview && a.interview.result)) return { label: 'Schedule and conduct the Ops interview', tone: 'action', icon: '\uD83C\uDFAF' };
-    return { label: 'Interview scored \u2014 endorse to client', tone: 'action', icon: '\u27A1\uFE0F' };
+    if (!(a.interview && a.interview.result)) return { label: 'Schedule and conduct the Operations Manager interview', tone: 'action', icon: '\uD83C\uDFAF' };
+    return { label: 'Interview passed \u2014 send to the client for review', tone: 'action', icon: '\u27A1\uFE0F' };
   }
 
-  if (stage === 6) return { label: 'Waiting on the client\u2019s decision', tone: 'waiting', icon: '\u23F3' };
+  if (stage === 6) return { label: 'Confirm the client has it, then mark as waiting on their decision', tone: 'action', icon: '\u27A1\uFE0F' };
 
-  if (stage === 7) return { label: 'Job Offer sent \u2014 confirm once accepted', tone: 'action', icon: '\uD83D\uDCE8' };
+  if (stage === 7) return { label: 'Waiting on the client\u2019s decision', tone: 'waiting', icon: '\u23F3' };
+
+  if (stage === 8) return { label: 'Job Offer sent \u2014 confirm once accepted', tone: 'action', icon: '\uD83D\uDCE8' };
 
   return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
 }
@@ -3734,8 +3769,10 @@ function checkAutoAdvance(a){
     if((stage===2 || target===2) && assessmentsComplete) target=3;
   } else {
     // Track A: 2 -> 3 once the invite is sent, 3 -> 4 once assessments are
-    // complete, 5 -> 6 only once the Ops interview is scored PASS (a fail is a
-    // Decision-tab call, not an auto-endorse to the client).
+    // complete, 5 -> 6 only once the Operations Manager interview is scored
+    // PASS (a fail is a Decision-tab call, not an auto-send to the client).
+    // 6 -> 7 (actually hearing back from the client) has no data signal, so
+    // that one stays a manual click.
     if(stage===2 && emailedAssessment) target=3;
     if((stage===3 || target===3) && assessmentsComplete) target=4;
     if(stage===5 && a.interview && a.interview.result==='pass') target=6;
@@ -3763,7 +3800,7 @@ function recomputeStageFromEvidence(a){
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
   var invited = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
 
-  if(a.overallStatus==='Hired') return 8;
+  if(a.overallStatus==='Hired') return getStageLabels(a).length;
 
   if(isTrackB(a)){
     if(hasGrit && hasValues) return 3;
@@ -3953,7 +3990,8 @@ function getPipelineStep(a){
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
 
   if(stage===1) return { key:'pl_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
-  if(stage===7) return { key:'pl_stage7', label:'Job Offer Sent', tone:'#047857', bg:'#e8f5e9' };
+  var jobOfferStage = getStageLabels(a).length - 1;
+  if(stage===jobOfferStage) return { key:'pl_joboffer', label:'Job Offer Sent', tone:'#047857', bg:'#e8f5e9' };
 
   if(isTrackB(a)){
     // Track B (Sales and Marketing): no EMM, three internal interview rounds.
@@ -3961,9 +3999,9 @@ function getPipelineStep(a){
       if(hasGrit || hasValues) return { key:'pl_b_stage2_partial', label:'Assessments Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
       return { key:'pl_b_stage2_sent', label:'Assessments Sent — Awaiting Results', tone:'#1e40af', bg:'#eef2ff' };
     }
-    if(stage===3) return { key:'pl_b_stage3', label:'Assessments Submitted — Ready to Endorse', tone:'#166534', bg:'#e8f5e9' };
+    if(stage===3) return { key:'pl_b_stage3', label:'Ready for Preliminary Interview (HR)', tone:'#166534', bg:'#e8f5e9' };
     if(stage===4) return { key:'pl_b_stage4', label:'Preliminary Interview (HR)', tone:'#1e40af', bg:'#eef2ff' };
-    if(stage===5) return { key:'pl_b_stage5', label:'Second Interview (PM)', tone:'#1e40af', bg:'#eef2ff' };
+    if(stage===5) return { key:'pl_b_stage5', label:'Second Interview (Project Manager)', tone:'#1e40af', bg:'#eef2ff' };
     if(stage===6) return { key:'pl_b_stage6', label:'Final Interview (CEO)', tone:'#6d28d9', bg:'#f3e8ff' };
     return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
   }
@@ -3977,13 +4015,14 @@ function getPipelineStep(a){
     if(hasGrit || hasValues) return { key:'pl_a_stage3_partial', label:'Assessments Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
     return { key:'pl_a_stage3_sent', label:'Assessments Sent — Awaiting Results', tone:'#1e40af', bg:'#eef2ff' };
   }
-  if(stage===4) return { key:'pl_a_stage4', label:'Assessments Submitted — Ready to Endorse', tone:'#166534', bg:'#e8f5e9' };
+  if(stage===4) return { key:'pl_a_stage4', label:'Ready for Operations Manager Interview', tone:'#166534', bg:'#e8f5e9' };
   if(stage===5){
     var ivResult = a.interview && a.interview.result;
-    if(ivResult==='fail') return { key:'pl_a_stage5_fail', label:'Interviewed (Ops) — Did Not Pass', tone:'#b52a2a', bg:'#fdecea' };
-    return { key:'pl_a_stage5', label:'Interview (Ops Manager)', tone:'#1e40af', bg:'#eef2ff' };
+    if(ivResult==='fail') return { key:'pl_a_stage5_fail', label:'Interviewed by Operations Manager — Did Not Pass', tone:'#b52a2a', bg:'#fdecea' };
+    return { key:'pl_a_stage5', label:'Operations Manager Interview', tone:'#1e40af', bg:'#eef2ff' };
   }
-  if(stage===6) return { key:'pl_a_stage6', label:'Endorsed to Client — Awaiting Decision', tone:'#6d28d9', bg:'#f3e8ff' };
+  if(stage===6) return { key:'pl_a_stage6', label:'Sent to Client for Review', tone:'#6d28d9', bg:'#f3e8ff' };
+  if(stage===7) return { key:'pl_a_stage7', label:'Waiting on Client’s Decision', tone:'#6d28d9', bg:'#f3e8ff' };
   return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
 }
 
@@ -3995,26 +4034,29 @@ function getApplicantStatusLine(a){
 // and as options in the Tracker's Pipeline Status filter. Terminal outcomes
 // (Hired/Rejected/Hold/Non Compliant) already have their own "Outcomes" cards,
 // so they're deliberately left out of this list to avoid duplicating them.
-// Stage 1 and Job Offer (stage 7) mean the same thing in both tracks, so they
-// share one key each; everything in between is track-specific since the two
-// pipelines are ordered completely differently.
+// Stage 1 and Job Offer mean the same thing in both tracks, so they share one
+// key each; everything in between is track-specific since the two pipelines
+// are ordered completely differently. Labels avoid internal shorthand like
+// "endorse" or "Ops" so anyone glancing at the Dashboard/Board understands
+// them without context.
 var PIPELINE_CARD_DEFS = [
   { key:'pl_stage1', label:'Application Received', color:'#6b7280' },
   { key:'pl_a_stage2', label:'[AP/AR] Initial Screening & Prelim Interview (HR)', color:'#1e40af' },
   { key:'pl_a_stage3_sent', label:'[AP/AR] Assessments Sent — Awaiting Results', color:'#1e40af' },
   { key:'pl_a_stage3_partial', label:'[AP/AR] Assessments Partially Submitted', color:'#b45309' },
   { key:'pl_a_stage3_pending_emm', label:'[AP/AR] Submitted — Pending EMM Grading', color:'#6d28d9' },
-  { key:'pl_a_stage4', label:'[AP/AR] Ready to Endorse to Ops', color:'#166534' },
-  { key:'pl_a_stage5', label:'[AP/AR] Interview (Ops Manager)', color:'#1e40af' },
-  { key:'pl_a_stage5_fail', label:'[AP/AR] Interviewed (Ops) — Did Not Pass', color:'#b52a2a' },
-  { key:'pl_a_stage6', label:'[AP/AR] Endorsed to Client — Awaiting Decision', color:'#6d28d9' },
+  { key:'pl_a_stage4', label:'[AP/AR] Ready for Operations Manager Interview', color:'#166534' },
+  { key:'pl_a_stage5', label:'[AP/AR] Operations Manager Interview', color:'#1e40af' },
+  { key:'pl_a_stage5_fail', label:'[AP/AR] Interviewed by Operations Manager — Did Not Pass', color:'#b52a2a' },
+  { key:'pl_a_stage6', label:'[AP/AR] Sent to Client for Review', color:'#6d28d9' },
+  { key:'pl_a_stage7', label:'[AP/AR] Waiting on Client’s Decision', color:'#6d28d9' },
   { key:'pl_b_stage2_sent', label:'[Sales/Mktg] Assessments Sent — Awaiting Results', color:'#1e40af' },
   { key:'pl_b_stage2_partial', label:'[Sales/Mktg] Assessments Partially Submitted', color:'#b45309' },
-  { key:'pl_b_stage3', label:'[Sales/Mktg] Ready to Endorse', color:'#166534' },
+  { key:'pl_b_stage3', label:'[Sales/Mktg] Ready for Preliminary Interview (HR)', color:'#166534' },
   { key:'pl_b_stage4', label:'[Sales/Mktg] Preliminary Interview (HR)', color:'#1e40af' },
-  { key:'pl_b_stage5', label:'[Sales/Mktg] Second Interview (PM)', color:'#1e40af' },
+  { key:'pl_b_stage5', label:'[Sales/Mktg] Second Interview (Project Manager)', color:'#1e40af' },
   { key:'pl_b_stage6', label:'[Sales/Mktg] Final Interview (CEO)', color:'#6d28d9' },
-  { key:'pl_stage7', label:'Job Offer Sent', color:'#047857' }
+  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857' }
 ];
 PIPELINE_CARD_DEFS.forEach(function(d){
   CARD_FILTERS[d.key] = { label: d.label, fn: function(a){ return getPipelineStep(a).key === d.key; } };
