@@ -1286,9 +1286,9 @@ function closeModal(){document.getElementById('detailModal').classList.remove('o
 
 function buildStageStepper(a){
   var steps=getStageLabels(a);
-  var status=a.overallStatus;
-  var curStage = status==='Hired' ? 8 : a.stage;
-  return '<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;flex-wrap:wrap">' + steps.map(function(label,i){
+  var status=a.overallStatus||'In Progress';
+  var curStage = status==='Hired' ? 8 : (a.stage||1);
+  var stepperHtml = '<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;flex-wrap:wrap">' + steps.map(function(label,i){
     var n=i+1, bg='#e2e8f0', color='#94a3b8', mark=n;
     if(status==='Rejected' && n<=curStage){ bg='#fca5a5'; color='#fff'; mark='\u2715'; }
     else if(n<curStage || (status==='Hired'&&n<=curStage)){ bg='#06d6a0'; color='#fff'; mark='\u2713'; }
@@ -1298,8 +1298,20 @@ function buildStageStepper(a){
       '<span style="font-size:11px;font-weight:600;color:var(--gray600)">'+label+'</span>' +
       (i<steps.length-1?'<span style="color:var(--gray300);margin:0 6px">\u203A</span>':'') +
     '</div>';
-  }).join('') + '</div>' +
-  '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Interview stage auto-advances once fully scored. Click any circle above to move directly to that stage, forward or back \u2014 handy for correcting a mistake.</div>';
+  }).join('') + '</div>';
+
+  // A single, unmissable button that just moves one stage forward -- this is
+  // the main way to advance someone day-to-day. The small numbered circles
+  // above stay available for jumping straight to any stage (forward or back),
+  // which is what fixes an applicant whose real progress has no data trail
+  // (e.g. endorsed to a client months ago, before this version existed).
+  var nextBtn = '';
+  if(status==='In Progress' && curStage<steps.length){
+    nextBtn = '<button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="advanceStage('+a.id+','+(curStage+1)+')">\u2192 Move to Next Stage: '+steps[curStage]+'</button>';
+  }
+
+  return stepperHtml + nextBtn +
+    '<div style="font-size:11px;color:var(--gray400);margin:6px 0 14px">Assessments auto-advance once fully submitted. For every other step, click "Move to Next Stage" above, or click any circle to jump straight to a stage, forward or back \u2014 handy for correcting a mistake or an old record.</div>';
 }
 
 // Lets HR jump an applicant directly to any stage, in either direction --
