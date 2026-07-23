@@ -503,12 +503,28 @@ tbody tr:last-child td{border-bottom:none}
 <div class="main">
 
 <div id="page-dashboard" class="page active">
-  <div style="margin-bottom:24px">
+  <div style="margin-bottom:20px">
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Dashboard</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Overview of your hiring pipeline</p>
   </div>
+  <div class="card card-glass" style="margin-bottom:20px;border-left:4px solid var(--blue);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--gray900)">Who's checking the dashboard?</div>
+      <div style="font-size:12px;color:var(--gray500);margin-top:2px">Pick your role once -- this device will remember it and only show you your own tasks from now on.</div>
+    </div>
+    <select id="dashRoleFilter" class="filter-inp" onchange="setDashboardRole(this.value)" style="font-size:13px;padding:8px 12px;font-weight:600">
+      <option value="">Everyone (show it all)</option>
+      <option value="HR">HR</option>
+      <option value="Operations Manager">Operations Manager</option>
+      <option value="Project Manager">Project Manager</option>
+      <option value="CEO">CEO</option>
+    </select>
+  </div>
+  <div id="dashRoleNote" style="font-size:12px;color:var(--gray400);margin:-8px 0 14px;display:none"></div>
+  <div style="margin:0 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Your Tasks<span id="dashTasksCount"></span></div>
+  <div id="dashTasksList" style="margin-bottom:20px"></div>
   <div class="stats-grid" id="dashStats"></div>
-  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">What's Pending &mdash; Needs Your Attention</div>
+  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">What's Pending &mdash; Full Pipeline</div>
   <div class="pipeline-grid" id="dashPendingGrid" style="margin-bottom:8px"></div>
   <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Outcomes &mdash; Final Decisions</div>
   <div class="pipeline-grid" id="dashStatusGrid"></div>
@@ -3637,9 +3653,70 @@ function showCardApplicants(key){
   panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+// Remembers which role's queue this browser/device wants to see on the
+// Dashboard (HR / Operations Manager / Project Manager / CEO), so David
+// opens it and it's already showing just his tasks -- no login system yet,
+// but this gets the same day-to-day result: pick your role once, it sticks.
+function getDashboardRole(){
+  try { return localStorage.getItem('abbss_dashboard_role') || ''; } catch(e){ return ''; }
+}
+function setDashboardRole(role){
+  try { localStorage.setItem('abbss_dashboard_role', role); } catch(e){}
+  renderDashboard();
+}
+
 function renderDashboard() {
   var apps = getApplicants();
   var total = apps.length;
+  var role = getDashboardRole();
+
+  var roleSelect = document.getElementById('dashRoleFilter');
+  if(roleSelect) roleSelect.value = role;
+  var roleNote = document.getElementById('dashRoleNote');
+  if(roleNote){
+    if(role){
+      roleNote.style.display = 'block';
+      roleNote.textContent = 'Showing only ' + role + ' tasks. Pick "Everyone" above to see the full pipeline.';
+    } else {
+      roleNote.style.display = 'none';
+    }
+  }
+
+  // "Your Tasks" -- a flat list of named people, not pipeline categories.
+  // Answers "what do I need to do right now" directly: who, and one line of
+  // what for. Pure waiting states are left off (nothing to click on those).
+  var actionableDefs = PIPELINE_CARD_DEFS.filter(function(d){ return d.actionable && (!role || d.role === role); });
+  var actionableKeys = {};
+  actionableDefs.forEach(function(d){ actionableKeys[d.key] = d; });
+  var tasks = apps.map(function(a){
+    var step = getPipelineStep(a);
+    var def = actionableKeys[step.key];
+    return def ? { a:a, def:def, sortAt: a.createdAt || a.dateReceived || '' } : null;
+  }).filter(Boolean);
+  tasks.sort(function(x,y){ return new Date(x.sortAt) - new Date(y.sortAt); });
+
+  var countEl = document.getElementById('dashTasksCount');
+  if(countEl) countEl.textContent = tasks.length ? ' (' + tasks.length + ')' : '';
+
+  var tasksEl = document.getElementById('dashTasksList');
+  if(tasksEl){
+    if(!tasks.length){
+      tasksEl.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-icon">&#9989;</div><div class="empty-title">' + (role ? 'Nothing for ' + role + ' to do right now.' : 'Nothing needs action right now.') + '</div></div>';
+    } else {
+      tasksEl.innerHTML = '<div class="table-wrap" style="border-radius:12px">' + tasks.map(function(t){
+        var av = getAvatar(t.a.name);
+        var roleTag = role ? '' : ' <span style="font-size:10px;font-weight:700;color:var(--gray500);border:1px solid var(--gray200);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:none;letter-spacing:0">' + t.def.role + '</span>';
+        return '<div onclick="openApplicant(' + t.a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100)">' +
+          '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-weight:700;font-size:14px">' + t.a.name + roleTag + '</div>' +
+            '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + (t.def.hint||'') + '</div>' +
+          '</div>' +
+          '<span style="font-weight:800;font-size:16px;color:var(--gray300);flex-shrink:0">&#8250;</span>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+  }
 
   document.getElementById('dashStats').innerHTML =
     '<div class="stat-card blue" data-card-key="total" onclick="showCardApplicants(\'total\')"><span class="stat-icon">&#128203;</span><div class="stat-num">' + total + '</div><div class="stat-lbl">Total Applicants</div><div class="stat-change">All time</div></div>';
@@ -3652,12 +3729,13 @@ function renderDashboard() {
   // rejected/held), the other only counts people still actively there. Two
   // numbers for one label made the whole dashboard look unreliable. The pending
   // cards below are the single source of truth for "where is everyone right now."
-  var pendingCounts = PIPELINE_CARD_DEFS.map(function(d){
+  var visibleDefs = role ? PIPELINE_CARD_DEFS.filter(function(d){ return d.role === role; }) : PIPELINE_CARD_DEFS;
+  var pendingCounts = visibleDefs.map(function(d){
     return { def:d, count: apps.filter(function(a){ return getPipelineStep(a).key === d.key; }).length };
   }).filter(function(x){ return x.count > 0; });
   document.getElementById('dashPendingGrid').innerHTML = pendingCounts.length ? pendingCounts.map(function(x){
     return '<div class="pipeline-card" data-card-key="' + x.def.key + '" onclick="showCardApplicants(\'' + x.def.key + '\')"><div class="pipeline-num" style="color:' + x.def.color + '">' + x.count + '</div><div class="pipeline-lbl" style="color:' + x.def.color + '">' + x.def.label + '</div><div class="pipeline-hint">' + (x.def.hint||'') + '</div></div>';
-  }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">Nothing pending right now.</div></div>';
+  }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">' + (role ? 'Nothing for '+role+' to do right now.' : 'Nothing pending right now.') + '</div></div>';
 
   var statusDefs = [
     { key:'statusHired', label:'Hired', color:'#059669', hint:'Done — nothing to do.', fn: function(a){ return a.overallStatus==='Hired'; } },
@@ -4047,24 +4125,30 @@ function getApplicantStatusLine(a){
 // do). Same two words, every single card -- nothing else to learn. Near-
 // duplicate states that need the exact same (no) action, like "assessments
 // sent" vs. "partially submitted," are merged into one card so there's less
-// to scan.
+// to scan. Every card also carries a "role" -- whose job it is to act on it,
+// or to keep an eye on it while waiting -- so the Dashboard's role filter can
+// show each person only their own queue instead of the whole pipeline.
+// "actionable" marks the states that belong on the flat "Your Tasks" list --
+// someone genuinely needs to do something right now. Pure waiting states
+// (and "Application Received"/"Job Offer Sent" once nothing further is owed)
+// are left off that list since there's nothing to click.
 var PIPELINE_CARD_DEFS = [
-  { key:'pl_a_stage1', label:'AP/AR Team: Application Received', color:'#6b7280', hint:'New — HR needs to interview them first.' },
-  { key:'pl_a_stage2', label:'AP/AR Team: TO DO — Send Assessments', color:'#1e40af', hint:'HR already interviewed them. Send the test emails.' },
-  { key:'pl_a_stage3', label:'AP/AR Team: WAITING — Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.' },
-  { key:'pl_a_stage3_pending_emm', label:'AP/AR Team: TO DO — Grade EMM Test', color:'#6d28d9', hint:'Someone needs to grade their EMM test.' },
-  { key:'pl_a_stage4', label:'AP/AR Team: TO DO — Interview Them (Ops Manager)', color:'#166534', hint:'They passed their tests. The Operations Manager needs to interview them.' },
-  { key:'pl_a_stage5', label:'AP/AR Team: TO DO — Finish Ops Manager Interview', color:'#1e40af', hint:'Interview is happening. Write down pass or fail.' },
-  { key:'pl_a_stage5_fail', label:'AP/AR Team: TO DO — Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass. Make the call.' },
-  { key:'pl_a_stage6', label:'AP/AR Team: TO DO — Send to Client', color:'#6d28d9', hint:'They passed the interview. Send them to the client now.' },
-  { key:'pl_a_stage7', label:'AP/AR Team: WAITING — Client’s Decision', color:'#6d28d9', hint:'Already sent. Just wait for the client to answer.' },
-  { key:'pl_b_stage1', label:'Sales Team: Application Received', color:'#6b7280', hint:'New — send them the assessment email.' },
-  { key:'pl_b_stage2', label:'Sales Team: WAITING — Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.' },
-  { key:'pl_b_stage3', label:'Sales Team: TO DO — Interview Them (HR)', color:'#166534', hint:'They passed their tests. HR needs to interview them.' },
-  { key:'pl_b_stage4', label:'Sales Team: TO DO — Finish HR Interview', color:'#1e40af', hint:'HR is interviewing them. Once done, send to Frances.' },
-  { key:'pl_b_stage5', label:'Sales Team: TO DO — Finish PM Interview', color:'#1e40af', hint:'Frances is interviewing them now.' },
-  { key:'pl_b_stage6', label:'Sales Team: TO DO — Finish CEO Interview', color:'#6d28d9', hint:'The CEO is interviewing them now.' },
-  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'WAITING — for them to accept, then click Hired.' }
+  { key:'pl_a_stage1', label:'AP/AR Team: Application Received', color:'#6b7280', hint:'New — HR needs to interview them first.', role:'HR', actionable:true },
+  { key:'pl_a_stage2', label:'AP/AR Team: TO DO — Send Assessments', color:'#1e40af', hint:'HR already interviewed them. Send the test emails.', role:'HR', actionable:true },
+  { key:'pl_a_stage3', label:'AP/AR Team: WAITING — Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.', role:'HR', actionable:false },
+  { key:'pl_a_stage3_pending_emm', label:'AP/AR Team: TO DO — Grade EMM Test', color:'#6d28d9', hint:'Someone needs to grade their EMM test.', role:'HR', actionable:true },
+  { key:'pl_a_stage4', label:'AP/AR Team: TO DO — Interview Them (Ops Manager)', color:'#166534', hint:'They passed their tests. The Operations Manager needs to interview them.', role:'Operations Manager', actionable:true },
+  { key:'pl_a_stage5', label:'AP/AR Team: TO DO — Finish Ops Manager Interview', color:'#1e40af', hint:'Interview is happening. Write down pass or fail.', role:'Operations Manager', actionable:true },
+  { key:'pl_a_stage5_fail', label:'AP/AR Team: TO DO — Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass. Make the call.', role:'HR', actionable:true },
+  { key:'pl_a_stage6', label:'AP/AR Team: TO DO — Send to Client', color:'#6d28d9', hint:'They passed the interview. Send them to the client now.', role:'Operations Manager', actionable:true },
+  { key:'pl_a_stage7', label:'AP/AR Team: WAITING — Client’s Decision', color:'#6d28d9', hint:'Already sent. Just wait for the client to answer.', role:'Operations Manager', actionable:false },
+  { key:'pl_b_stage1', label:'Sales Team: Application Received', color:'#6b7280', hint:'New — send them the assessment email.', role:'HR', actionable:true },
+  { key:'pl_b_stage2', label:'Sales Team: WAITING — Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.', role:'HR', actionable:false },
+  { key:'pl_b_stage3', label:'Sales Team: TO DO — Interview Them (HR)', color:'#166534', hint:'They passed their tests. HR needs to interview them.', role:'HR', actionable:true },
+  { key:'pl_b_stage4', label:'Sales Team: TO DO — Finish HR Interview', color:'#1e40af', hint:'HR is interviewing them. Once done, send to Frances.', role:'HR', actionable:true },
+  { key:'pl_b_stage5', label:'Sales Team: TO DO — Finish PM Interview', color:'#1e40af', hint:'Frances is interviewing them now.', role:'Project Manager', actionable:true },
+  { key:'pl_b_stage6', label:'Sales Team: TO DO — Finish CEO Interview', color:'#6d28d9', hint:'The CEO is interviewing them now.', role:'CEO', actionable:true },
+  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'WAITING — for them to accept, then click Hired.', role:'HR', actionable:false }
 ];
 PIPELINE_CARD_DEFS.forEach(function(d){
   CARD_FILTERS[d.key] = { label: d.label, fn: function(a){ return getPipelineStep(a).key === d.key; } };
