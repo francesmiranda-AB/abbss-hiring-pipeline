@@ -598,22 +598,23 @@ tbody tr:last-child td{border-bottom:none}
       </select>
       <select class="filter-inp" id="filterPipeline" onchange="filterTracker()">
         <option value="">All Pipeline Steps</option>
-        <option value="pl_stage1">Application Received</option>
-        <option value="pl_a_stage2">[AP/AR] Initial Screening &amp; Prelim Interview (HR)</option>
-        <option value="pl_a_stage3_sent">[AP/AR] Assessments Sent — Awaiting Results</option>
-        <option value="pl_a_stage3_partial">[AP/AR] Assessments Partially Submitted</option>
-        <option value="pl_a_stage3_pending_emm">[AP/AR] Submitted — Pending EMM Grading</option>
-        <option value="pl_a_stage4">[AP/AR] Ready for Operations Manager Interview</option>
-        <option value="pl_a_stage5">[AP/AR] Operations Manager Interview</option>
-        <option value="pl_a_stage5_fail">[AP/AR] Interviewed by Operations Manager — Did Not Pass</option>
-        <option value="pl_a_stage6">[AP/AR] Sent to Client for Review</option>
-        <option value="pl_a_stage7">[AP/AR] Waiting on Client's Decision</option>
-        <option value="pl_b_stage2_sent">[Sales/Mktg] Assessments Sent — Awaiting Results</option>
-        <option value="pl_b_stage2_partial">[Sales/Mktg] Assessments Partially Submitted</option>
-        <option value="pl_b_stage3">[Sales/Mktg] Ready for Preliminary Interview (HR)</option>
-        <option value="pl_b_stage4">[Sales/Mktg] Preliminary Interview (HR)</option>
-        <option value="pl_b_stage5">[Sales/Mktg] Second Interview (Project Manager)</option>
-        <option value="pl_b_stage6">[Sales/Mktg] Final Interview (CEO)</option>
+        <option value="pl_a_stage1">AP/AR Team: Application Received</option>
+        <option value="pl_a_stage2">AP/AR Team: Initial Screening &amp; Prelim Interview (HR)</option>
+        <option value="pl_a_stage3_sent">AP/AR Team: Assessments Sent — Awaiting Results</option>
+        <option value="pl_a_stage3_partial">AP/AR Team: Assessments Partially Submitted</option>
+        <option value="pl_a_stage3_pending_emm">AP/AR Team: Submitted — Pending EMM Grading</option>
+        <option value="pl_a_stage4">AP/AR Team: Ready for Operations Manager Interview</option>
+        <option value="pl_a_stage5">AP/AR Team: Operations Manager Interview</option>
+        <option value="pl_a_stage5_fail">AP/AR Team: Interviewed by Operations Manager — Did Not Pass</option>
+        <option value="pl_a_stage6">AP/AR Team: Sent to Client for Review</option>
+        <option value="pl_a_stage7">AP/AR Team: Waiting on Client's Decision</option>
+        <option value="pl_b_stage1">Sales Team: Application Received</option>
+        <option value="pl_b_stage2_sent">Sales Team: Assessments Sent — Awaiting Results</option>
+        <option value="pl_b_stage2_partial">Sales Team: Assessments Partially Submitted</option>
+        <option value="pl_b_stage3">Sales Team: Ready for Preliminary Interview (HR)</option>
+        <option value="pl_b_stage4">Sales Team: Preliminary Interview (HR)</option>
+        <option value="pl_b_stage5">Sales Team: Second Interview (Project Manager)</option>
+        <option value="pl_b_stage6">Sales Team: Final Interview (CEO)</option>
         <option value="pl_joboffer">Job Offer Sent</option>
       </select>
       <select class="filter-inp" id="filterResult" onchange="filterTracker()">
@@ -3651,10 +3652,10 @@ function renderDashboard() {
   }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">Nothing pending right now.</div></div>';
 
   var statusDefs = [
-    { key:'statusHired', label:'Hired', color:'#059669', hint:'No action needed.', fn: function(a){ return a.overallStatus==='Hired'; } },
-    { key:'statusRejected', label:'Rejected', color:'#dc2626', hint:'No action needed.', fn: function(a){ return a.overallStatus==='Rejected'; } },
-    { key:'statusHold', label:'On Hold', color:'#d97706', hint:'Revisit when ready.', fn: function(a){ return a.overallStatus==='Hold'; } },
-    { key:'statusNonCompliant', label:'Non Compliant', color:'#6b7280', hint:'Archived — no response within 24 hours.', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
+    { key:'statusHired', label:'Hired', color:'#059669', hint:'Done — nothing to do.', fn: function(a){ return a.overallStatus==='Hired'; } },
+    { key:'statusRejected', label:'Rejected', color:'#dc2626', hint:'Done — nothing to do.', fn: function(a){ return a.overallStatus==='Rejected'; } },
+    { key:'statusHold', label:'On Hold', color:'#d97706', hint:'Come back to these later.', fn: function(a){ return a.overallStatus==='Hold'; } },
+    { key:'statusNonCompliant', label:'Non Compliant', color:'#6b7280', hint:'They did not reply in time, so this closed on its own.', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
   ];
   document.getElementById('dashStatusGrid').innerHTML = statusDefs.map(function(s) {
     var count = apps.filter(s.fn).length;
@@ -3990,12 +3991,12 @@ function getPipelineStep(a){
   var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
 
-  if(stage===1) return { key:'pl_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
   var jobOfferStage = getStageLabels(a).length - 1;
   if(stage===jobOfferStage) return { key:'pl_joboffer', label:'Job Offer Sent', tone:'#047857', bg:'#e8f5e9' };
 
   if(isTrackB(a)){
     // Track B (Sales and Marketing): no EMM, three internal interview rounds.
+    if(stage===1) return { key:'pl_b_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
     if(stage===2){
       if(hasGrit || hasValues) return { key:'pl_b_stage2_partial', label:'Assessments Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
       return { key:'pl_b_stage2_sent', label:'Assessments Sent — Awaiting Results', tone:'#1e40af', bg:'#eef2ff' };
@@ -4010,6 +4011,7 @@ function getPipelineStep(a){
   // Track A (Operations / AP-AR)
   var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
   var emmPendingGrading = a.requiresEmm && a.emmReceivedAt && !(a.emm && a.emm.graded);
+  if(stage===1) return { key:'pl_a_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
   if(stage===2) return { key:'pl_a_stage2', label:'Initial Screening & Prelim Interview (HR)', tone:'#1e40af', bg:'#eef2ff' };
   if(stage===3){
     if(hasGrit && hasValues && emmPendingGrading) return { key:'pl_a_stage3_pending_emm', label:'Submitted — Pending EMM Grading', tone:'#6d28d9', bg:'#f3e8ff' };
@@ -4035,32 +4037,33 @@ function getApplicantStatusLine(a){
 // and as options in the Tracker's Pipeline Status filter. Terminal outcomes
 // (Hired/Rejected/Hold/Non Compliant) already have their own "Outcomes" cards,
 // so they're deliberately left out of this list to avoid duplicating them.
-// Stage 1 and Job Offer mean the same thing in both tracks, so they share one
-// key each; everything in between is track-specific since the two pipelines
-// are ordered completely differently. Labels avoid internal shorthand like
-// "endorse" or "Ops" so anyone glancing at the Dashboard/Board understands
-// them without context.
-// Every card also carries a short "hint" -- who needs to act (or that no one
-// does) and what the action is, in plain words. This is what actually shows
-// up on the card face so HR/Ops can tell what to check without clicking in.
+// Job Offer means the same thing in both tracks, so it shares one key;
+// everything else is track-specific since the two pipelines are ordered
+// completely differently. Labels avoid internal shorthand like "endorse" or
+// "Ops" so anyone glancing at the Dashboard/Board understands them without
+// context. Every card also carries a short "hint" written at a plain,
+// first-day-on-the-job reading level: who does the next thing (or that
+// nobody needs to), spelled out in the most literal words possible -- no
+// "score," "endorse," "profile," or other insider shorthand.
 var PIPELINE_CARD_DEFS = [
-  { key:'pl_stage1', label:'Application Received', color:'#6b7280', hint:'Open their profile — the next step is shown there.' },
-  { key:'pl_a_stage2', label:'[AP/AR] Initial Screening & Prelim Interview (HR)', color:'#1e40af', hint:'HR: conduct the screening interview.' },
-  { key:'pl_a_stage3_sent', label:'[AP/AR] Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Waiting on GRIT/Values (and EMM, if required) to come back.' },
-  { key:'pl_a_stage3_partial', label:'[AP/AR] Assessments Partially Submitted', color:'#b45309', hint:'Some scores are in — still waiting on the rest.' },
-  { key:'pl_a_stage3_pending_emm', label:'[AP/AR] Submitted — Pending EMM Grading', color:'#6d28d9', hint:'EMM file received — needs grading.' },
-  { key:'pl_a_stage4', label:'[AP/AR] Ready for Operations Manager Interview', color:'#166534', hint:'Operations Manager: schedule the interview.' },
-  { key:'pl_a_stage5', label:'[AP/AR] Operations Manager Interview', color:'#1e40af', hint:'Interview underway — score it once done.' },
-  { key:'pl_a_stage5_fail', label:'[AP/AR] Interviewed by Operations Manager — Did Not Pass', color:'#b52a2a', hint:'Make the final call on their Decision tab.' },
-  { key:'pl_a_stage6', label:'[AP/AR] Sent to Client for Review', color:'#6d28d9', hint:'Confirm the client has it, then mark as awaiting decision.' },
-  { key:'pl_a_stage7', label:'[AP/AR] Waiting on Client’s Decision', color:'#6d28d9', hint:'No action — waiting to hear back from the client.' },
-  { key:'pl_b_stage2_sent', label:'[Sales/Mktg] Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Waiting on GRIT/Values to come back.' },
-  { key:'pl_b_stage2_partial', label:'[Sales/Mktg] Assessments Partially Submitted', color:'#b45309', hint:'Some scores are in — still waiting on the rest.' },
-  { key:'pl_b_stage3', label:'[Sales/Mktg] Ready for Preliminary Interview (HR)', color:'#166534', hint:'HR: schedule the interview.' },
-  { key:'pl_b_stage4', label:'[Sales/Mktg] Preliminary Interview (HR)', color:'#1e40af', hint:'HR: conduct interview, then move to Second Interview.' },
-  { key:'pl_b_stage5', label:'[Sales/Mktg] Second Interview (Project Manager)', color:'#1e40af', hint:'Project Manager (Frances): conduct the interview.' },
-  { key:'pl_b_stage6', label:'[Sales/Mktg] Final Interview (CEO)', color:'#6d28d9', hint:'CEO: conduct the final interview.' },
-  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'Confirm once accepted, then mark as Hired.' }
+  { key:'pl_a_stage1', label:'AP/AR Team: Application Received', color:'#6b7280', hint:'New person — HR needs to interview them first.' },
+  { key:'pl_a_stage2', label:'AP/AR Team: Initial Screening & Prelim Interview (HR)', color:'#1e40af', hint:'HR needs to interview them.' },
+  { key:'pl_a_stage3_sent', label:'AP/AR Team: Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Test emails were sent — just wait for their answers.' },
+  { key:'pl_a_stage3_partial', label:'AP/AR Team: Assessments Partially Submitted', color:'#b45309', hint:'Some answers are in — still waiting on the rest.' },
+  { key:'pl_a_stage3_pending_emm', label:'AP/AR Team: Submitted — Pending EMM Grading', color:'#6d28d9', hint:'Someone needs to grade their EMM test.' },
+  { key:'pl_a_stage4', label:'AP/AR Team: Ready for Operations Manager Interview', color:'#166534', hint:'The Operations Manager needs to set up an interview.' },
+  { key:'pl_a_stage5', label:'AP/AR Team: Operations Manager Interview', color:'#1e40af', hint:'Interview is happening — write down if they passed or failed.' },
+  { key:'pl_a_stage5_fail', label:'AP/AR Team: Interviewed by Operations Manager — Did Not Pass', color:'#b52a2a', hint:'They did not pass — go decide Reject or Hold.' },
+  { key:'pl_a_stage6', label:'AP/AR Team: Sent to Client for Review', color:'#6d28d9', hint:'Already sent to the client — click "Waiting on Client’s Decision" once they have it.' },
+  { key:'pl_a_stage7', label:'AP/AR Team: Waiting on Client’s Decision', color:'#6d28d9', hint:'Nothing to do — just wait for the client to answer.' },
+  { key:'pl_b_stage1', label:'Sales Team: Application Received', color:'#6b7280', hint:'New person — send them the assessment email.' },
+  { key:'pl_b_stage2_sent', label:'Sales Team: Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Test emails were sent — just wait for their answers.' },
+  { key:'pl_b_stage2_partial', label:'Sales Team: Assessments Partially Submitted', color:'#b45309', hint:'Some answers are in — still waiting on the rest.' },
+  { key:'pl_b_stage3', label:'Sales Team: Ready for Preliminary Interview (HR)', color:'#166534', hint:'HR needs to set up an interview.' },
+  { key:'pl_b_stage4', label:'Sales Team: Preliminary Interview (HR)', color:'#1e40af', hint:'HR needs to interview them, then send them to the next interview.' },
+  { key:'pl_b_stage5', label:'Sales Team: Second Interview (Project Manager)', color:'#1e40af', hint:'Frances needs to interview them.' },
+  { key:'pl_b_stage6', label:'Sales Team: Final Interview (CEO)', color:'#6d28d9', hint:'The CEO needs to interview them.' },
+  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'Wait for them to accept — then click Hired.' }
 ];
 PIPELINE_CARD_DEFS.forEach(function(d){
   CARD_FILTERS[d.key] = { label: d.label, fn: function(a){ return getPipelineStep(a).key === d.key; } };
