@@ -599,22 +599,22 @@ tbody tr:last-child td{border-bottom:none}
       <select class="filter-inp" id="filterPipeline" onchange="filterTracker()">
         <option value="">All Pipeline Steps</option>
         <option value="pl_a_stage1">AP/AR Team: Application Received</option>
-        <option value="pl_a_stage2">AP/AR Team: Initial Screening &amp; Prelim Interview (HR)</option>
+        <option value="pl_a_stage2">AP/AR Team: HR Interview Done — Send Assessments</option>
         <option value="pl_a_stage3_sent">AP/AR Team: Assessments Sent — Awaiting Results</option>
         <option value="pl_a_stage3_partial">AP/AR Team: Assessments Partially Submitted</option>
         <option value="pl_a_stage3_pending_emm">AP/AR Team: Submitted — Pending EMM Grading</option>
-        <option value="pl_a_stage4">AP/AR Team: Ready for Operations Manager Interview</option>
-        <option value="pl_a_stage5">AP/AR Team: Operations Manager Interview</option>
+        <option value="pl_a_stage4">AP/AR Team: Operations Manager Interview Needed</option>
+        <option value="pl_a_stage5">AP/AR Team: Operations Manager Interview — In Progress</option>
         <option value="pl_a_stage5_fail">AP/AR Team: Interviewed by Operations Manager — Did Not Pass</option>
-        <option value="pl_a_stage6">AP/AR Team: Sent to Client for Review</option>
+        <option value="pl_a_stage6">AP/AR Team: Interview Passed — Send to Client</option>
         <option value="pl_a_stage7">AP/AR Team: Waiting on Client's Decision</option>
         <option value="pl_b_stage1">Sales Team: Application Received</option>
         <option value="pl_b_stage2_sent">Sales Team: Assessments Sent — Awaiting Results</option>
         <option value="pl_b_stage2_partial">Sales Team: Assessments Partially Submitted</option>
-        <option value="pl_b_stage3">Sales Team: Ready for Preliminary Interview (HR)</option>
-        <option value="pl_b_stage4">Sales Team: Preliminary Interview (HR)</option>
-        <option value="pl_b_stage5">Sales Team: Second Interview (Project Manager)</option>
-        <option value="pl_b_stage6">Sales Team: Final Interview (CEO)</option>
+        <option value="pl_b_stage3">Sales Team: Preliminary Interview (HR) Needed</option>
+        <option value="pl_b_stage4">Sales Team: Preliminary Interview (HR) — In Progress</option>
+        <option value="pl_b_stage5">Sales Team: Second Interview (Project Manager) — In Progress</option>
+        <option value="pl_b_stage6">Sales Team: Final Interview (CEO) — In Progress</option>
         <option value="pl_joboffer">Job Offer Sent</option>
       </select>
       <select class="filter-inp" id="filterResult" onchange="filterTracker()">
@@ -801,11 +801,11 @@ tbody tr:last-child td{border-bottom:none}
     <div class="g2">
       <div>
         <div style="font-size:12px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Track A — AP/AR (Operations)</div>
-        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system — already screened before they were entered.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Initial Screening &amp; Preliminary Interview (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR conducts the first interview.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">GRIT + Values, plus EMM if the role requires it (AR only), are emailed out.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Passed — Ready for Operations Manager Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">All required assessments came back passing.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Operations Manager Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The Operations Manager interviews the candidate directly.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Sent to Client for Review</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Candidate&#8217;s profile has been submitted to the external client.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Waiting on Client&#8217;s Decision</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The client has it and is deciding — nothing to do until they respond.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Client approved the candidate; ABBSS sends the formal offer.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">9</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system — already screened before they were entered.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">HR Interview Done — Send Assessments</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR already interviewed them. Now send GRIT + Values, plus EMM if the role requires it.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Waiting for GRIT/Values (and EMM, if required) to come back.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Passed — Operations Manager Interview Needed</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">They passed their tests. The Operations Manager needs to set up an interview.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Operations Manager Interview &#8212; In Progress</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The Operations Manager is interviewing them now, or it&#8217;s about to happen.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Interview Passed — Send to Client</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">They passed the interview. Go send this candidate to the external client now.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Waiting on Client&#8217;s Decision</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Already sent to the client — nothing to do until they respond.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Client approved the candidate; ABBSS sends the formal offer.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">9</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
       </div>
       <div>
         <div style="font-size:12px;font-weight:800;color:#6d28d9;text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Track B — Sales &amp; Marketing</div>
-        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system — already screened before they were entered.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">GRIT + Values are emailed out (no EMM on this track).</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Passed — Ready for Preliminary Interview (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">All required assessments came back passing.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Preliminary Interview (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR conducts the first interview.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Second Interview (Project Manager)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The Project Manager (Frances) interviews the candidate.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Final Interview (CEO)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The CEO makes the final call.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">CEO approved; ABBSS sends the offer directly — no external client involved on this track.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system — already screened before they were entered.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Assessments Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">GRIT + Values are emailed out (no EMM on this track).</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Preliminary Interview (HR) Needed</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">They passed their tests. HR needs to set up an interview.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Preliminary Interview (HR) &#8212; In Progress</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR is interviewing them now, or it&#8217;s about to happen.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Second Interview (Project Manager) &#8212; In Progress</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The Project Manager (Frances) is interviewing them now.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Final Interview (CEO) &#8212; In Progress</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The CEO is interviewing them now.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">CEO approved; ABBSS sends the offer directly — no external client involved on this track.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
       </div>
     </div>
   </div>
@@ -1377,8 +1377,11 @@ function getNextStepActionAttr(a, n){
   if (n.label.indexOf('Confirm the client has it')===0) {
     return "advanceStage(" + a.id + ",7)";
   }
-  if (n.label === 'Assessments complete \u2014 ready for Preliminary Interview (HR)' || n.label === 'Ready for Preliminary Interview (HR)') {
+  if (n.label === 'Assessments complete \u2014 ready for Preliminary Interview (HR)') {
     return "advanceStage(" + a.id + ",3)";
+  }
+  if (n.label === 'Ready for Preliminary Interview (HR)') {
+    return "advanceStage(" + a.id + ",4)";
   }
   if (n.label.indexOf('Conduct Preliminary Interview (HR)')===0) {
     return "advanceStage(" + a.id + ",5)";
@@ -3550,13 +3553,20 @@ function showPage(id, btn) {
 // say-what-happens-next language on purpose -- no internal shorthand like
 // "endorse" or "Ops" -- since this is read by anyone glancing at the
 // Dashboard or Board, not just the person doing the step.
+// Every label below follows one rule: it always says whether the thing named
+// is still NEEDED, currently IN PROGRESS, or already DONE -- never a bare
+// noun phrase like "Operations Manager Interview" on its own, which reads as
+// ambiguous (about to happen? happening now? already over?). That ambiguity
+// was the exact confusion reported at the HR/Ops-Manager and HR/PM interview
+// handoffs, so every interview-named stage spells out which of the three it
+// is.
 var TRACK_A_LABELS = [
   'Application Received',
-  'Initial Screening & Preliminary Interview (HR)',
+  'HR Interview Done — Send Assessments',
   'Assessments Sent',
-  'Assessments Passed — Ready for Operations Manager Interview',
-  'Operations Manager Interview',
-  'Sent to Client for Review',
+  'Assessments Passed — Operations Manager Interview Needed',
+  'Operations Manager Interview — In Progress',
+  'Interview Passed — Send to Client',
   'Waiting on Client’s Decision',
   'Job Offer Sent',
   'Hired'
@@ -3564,10 +3574,10 @@ var TRACK_A_LABELS = [
 var TRACK_B_LABELS = [
   'Application Received',
   'Assessments Sent',
-  'Assessments Passed — Ready for Preliminary Interview (HR)',
-  'Preliminary Interview (HR)',
-  'Second Interview (Project Manager)',
-  'Final Interview (CEO)',
+  'Assessments Passed — Preliminary Interview (HR) Needed',
+  'Preliminary Interview (HR) — In Progress',
+  'Second Interview (Project Manager) — In Progress',
+  'Final Interview (CEO) — In Progress',
   'Job Offer Sent',
   'Hired'
 ];
@@ -4001,10 +4011,10 @@ function getPipelineStep(a){
       if(hasGrit || hasValues) return { key:'pl_b_stage2_partial', label:'Assessments Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
       return { key:'pl_b_stage2_sent', label:'Assessments Sent — Awaiting Results', tone:'#1e40af', bg:'#eef2ff' };
     }
-    if(stage===3) return { key:'pl_b_stage3', label:'Ready for Preliminary Interview (HR)', tone:'#166534', bg:'#e8f5e9' };
-    if(stage===4) return { key:'pl_b_stage4', label:'Preliminary Interview (HR)', tone:'#1e40af', bg:'#eef2ff' };
-    if(stage===5) return { key:'pl_b_stage5', label:'Second Interview (Project Manager)', tone:'#1e40af', bg:'#eef2ff' };
-    if(stage===6) return { key:'pl_b_stage6', label:'Final Interview (CEO)', tone:'#6d28d9', bg:'#f3e8ff' };
+    if(stage===3) return { key:'pl_b_stage3', label:'Preliminary Interview (HR) Needed', tone:'#166534', bg:'#e8f5e9' };
+    if(stage===4) return { key:'pl_b_stage4', label:'Preliminary Interview (HR) — In Progress', tone:'#1e40af', bg:'#eef2ff' };
+    if(stage===5) return { key:'pl_b_stage5', label:'Second Interview (Project Manager) — In Progress', tone:'#1e40af', bg:'#eef2ff' };
+    if(stage===6) return { key:'pl_b_stage6', label:'Final Interview (CEO) — In Progress', tone:'#6d28d9', bg:'#f3e8ff' };
     return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
   }
 
@@ -4012,19 +4022,19 @@ function getPipelineStep(a){
   var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
   var emmPendingGrading = a.requiresEmm && a.emmReceivedAt && !(a.emm && a.emm.graded);
   if(stage===1) return { key:'pl_a_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
-  if(stage===2) return { key:'pl_a_stage2', label:'Initial Screening & Prelim Interview (HR)', tone:'#1e40af', bg:'#eef2ff' };
+  if(stage===2) return { key:'pl_a_stage2', label:'HR Interview Done — Send Assessments', tone:'#1e40af', bg:'#eef2ff' };
   if(stage===3){
     if(hasGrit && hasValues && emmPendingGrading) return { key:'pl_a_stage3_pending_emm', label:'Submitted — Pending EMM Grading', tone:'#6d28d9', bg:'#f3e8ff' };
     if(hasGrit || hasValues) return { key:'pl_a_stage3_partial', label:'Assessments Partially Submitted', tone:'#b45309', bg:'#fff8e1' };
     return { key:'pl_a_stage3_sent', label:'Assessments Sent — Awaiting Results', tone:'#1e40af', bg:'#eef2ff' };
   }
-  if(stage===4) return { key:'pl_a_stage4', label:'Ready for Operations Manager Interview', tone:'#166534', bg:'#e8f5e9' };
+  if(stage===4) return { key:'pl_a_stage4', label:'Operations Manager Interview Needed', tone:'#166534', bg:'#e8f5e9' };
   if(stage===5){
     var ivResult = a.interview && a.interview.result;
     if(ivResult==='fail') return { key:'pl_a_stage5_fail', label:'Interviewed by Operations Manager — Did Not Pass', tone:'#b52a2a', bg:'#fdecea' };
-    return { key:'pl_a_stage5', label:'Operations Manager Interview', tone:'#1e40af', bg:'#eef2ff' };
+    return { key:'pl_a_stage5', label:'Operations Manager Interview — In Progress', tone:'#1e40af', bg:'#eef2ff' };
   }
-  if(stage===6) return { key:'pl_a_stage6', label:'Sent to Client for Review', tone:'#6d28d9', bg:'#f3e8ff' };
+  if(stage===6) return { key:'pl_a_stage6', label:'Interview Passed — Send to Client', tone:'#6d28d9', bg:'#f3e8ff' };
   if(stage===7) return { key:'pl_a_stage7', label:'Waiting on Client’s Decision', tone:'#6d28d9', bg:'#f3e8ff' };
   return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
 }
@@ -4047,22 +4057,22 @@ function getApplicantStatusLine(a){
 // "score," "endorse," "profile," or other insider shorthand.
 var PIPELINE_CARD_DEFS = [
   { key:'pl_a_stage1', label:'AP/AR Team: Application Received', color:'#6b7280', hint:'New person — HR needs to interview them first.' },
-  { key:'pl_a_stage2', label:'AP/AR Team: Initial Screening & Prelim Interview (HR)', color:'#1e40af', hint:'HR needs to interview them.' },
+  { key:'pl_a_stage2', label:'AP/AR Team: HR Interview Done — Send Assessments', color:'#1e40af', hint:'HR already interviewed them — now send the assessment emails.' },
   { key:'pl_a_stage3_sent', label:'AP/AR Team: Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Test emails were sent — just wait for their answers.' },
   { key:'pl_a_stage3_partial', label:'AP/AR Team: Assessments Partially Submitted', color:'#b45309', hint:'Some answers are in — still waiting on the rest.' },
   { key:'pl_a_stage3_pending_emm', label:'AP/AR Team: Submitted — Pending EMM Grading', color:'#6d28d9', hint:'Someone needs to grade their EMM test.' },
-  { key:'pl_a_stage4', label:'AP/AR Team: Ready for Operations Manager Interview', color:'#166534', hint:'The Operations Manager needs to set up an interview.' },
-  { key:'pl_a_stage5', label:'AP/AR Team: Operations Manager Interview', color:'#1e40af', hint:'Interview is happening — write down if they passed or failed.' },
+  { key:'pl_a_stage4', label:'AP/AR Team: Operations Manager Interview Needed', color:'#166534', hint:'They passed their tests — the Operations Manager needs to set up an interview.' },
+  { key:'pl_a_stage5', label:'AP/AR Team: Operations Manager Interview — In Progress', color:'#1e40af', hint:'Interview is happening now — write down if they passed or failed.' },
   { key:'pl_a_stage5_fail', label:'AP/AR Team: Interviewed by Operations Manager — Did Not Pass', color:'#b52a2a', hint:'They did not pass — go decide Reject or Hold.' },
-  { key:'pl_a_stage6', label:'AP/AR Team: Sent to Client for Review', color:'#6d28d9', hint:'Already sent to the client — click "Waiting on Client’s Decision" once they have it.' },
-  { key:'pl_a_stage7', label:'AP/AR Team: Waiting on Client’s Decision', color:'#6d28d9', hint:'Nothing to do — just wait for the client to answer.' },
+  { key:'pl_a_stage6', label:'AP/AR Team: Interview Passed — Send to Client', color:'#6d28d9', hint:'They passed the interview — go send this person to the client now.' },
+  { key:'pl_a_stage7', label:'AP/AR Team: Waiting on Client’s Decision', color:'#6d28d9', hint:'Already sent to the client — nothing to do but wait for their answer.' },
   { key:'pl_b_stage1', label:'Sales Team: Application Received', color:'#6b7280', hint:'New person — send them the assessment email.' },
   { key:'pl_b_stage2_sent', label:'Sales Team: Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Test emails were sent — just wait for their answers.' },
   { key:'pl_b_stage2_partial', label:'Sales Team: Assessments Partially Submitted', color:'#b45309', hint:'Some answers are in — still waiting on the rest.' },
-  { key:'pl_b_stage3', label:'Sales Team: Ready for Preliminary Interview (HR)', color:'#166534', hint:'HR needs to set up an interview.' },
-  { key:'pl_b_stage4', label:'Sales Team: Preliminary Interview (HR)', color:'#1e40af', hint:'HR needs to interview them, then send them to the next interview.' },
-  { key:'pl_b_stage5', label:'Sales Team: Second Interview (Project Manager)', color:'#1e40af', hint:'Frances needs to interview them.' },
-  { key:'pl_b_stage6', label:'Sales Team: Final Interview (CEO)', color:'#6d28d9', hint:'The CEO needs to interview them.' },
+  { key:'pl_b_stage3', label:'Sales Team: Preliminary Interview (HR) Needed', color:'#166534', hint:'They passed their tests — HR needs to set up an interview.' },
+  { key:'pl_b_stage4', label:'Sales Team: Preliminary Interview (HR) — In Progress', color:'#1e40af', hint:'HR is interviewing them now — once done, send to Frances for the next interview.' },
+  { key:'pl_b_stage5', label:'Sales Team: Second Interview (Project Manager) — In Progress', color:'#1e40af', hint:'Frances is interviewing them now.' },
+  { key:'pl_b_stage6', label:'Sales Team: Final Interview (CEO) — In Progress', color:'#6d28d9', hint:'The CEO is interviewing them now.' },
   { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'Wait for them to accept — then click Hired.' }
 ];
 PIPELINE_CARD_DEFS.forEach(function(d){
