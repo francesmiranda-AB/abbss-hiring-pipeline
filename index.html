@@ -848,6 +848,12 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div id="settingsMsg" style="display:none"></div>
   </div>
+  <div class="card card-accent-green" style="max-width:700px">
+    <div class="card-header"><div class="card-title-lg">Recalculate Pipeline Stages</div></div>
+    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The pipeline was rebuilt with new, more detailed stages. Applicants added before this update kept their old stage number, which now means something different — so some records may show the wrong step (e.g. someone already at the Ops interview showing as still in screening). Run this once to re-check every applicant's actual GRIT/Values/EMM/interview data and correct their stage. It uses your real answers as the source of truth, not the old stored number, and applies the same fix to every applicant automatically — you shouldn't need to fix people one at a time.</p>
+    <button class="btn btn-primary" onclick="recalculateAllStages()">🔄 Recalculate All Stages Now</button>
+    <div id="recalcMsg" style="display:none;margin-top:10px;font-size:13px"></div>
+  </div>
   <details class="card" style="max-width:700px">
     <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">⚙️ Technical Setup (IT / one-time only — click to expand)</summary>
     <div style="margin-top:16px">
@@ -3723,6 +3729,71 @@ function checkAutoAdvance(a){
     if(stage===5 && a.interview && a.interview.result==='pass') target=6;
   }
   return target>stage ? target : null;
+}
+
+// ============================================================
+// STAGE MIGRATION -- applicants added before the 8-stage rebuild kept their
+// old raw stage number (1-4 under the old model), which now means something
+// completely different, so their displayed stage is wrong until corrected.
+// This recomputes the right stage from the applicant's actual GRIT/Values/
+// EMM/interview evidence rather than trusting the stale stored number.
+// Known limitation: a few manual hand-offs leave no data trail at all (e.g.
+// "already endorsed to the Ops interview, not yet scored" looks identical to
+// "ready to endorse" -- both just show no interview result yet), so this
+// lands people at the furthest stage the evidence can actually prove, and a
+// few individuals may need one more manual nudge forward via the stage
+// circles at the top of their profile. Track B's three internal interview
+// rounds (HR/PM/CEO) have no dedicated scoring fields yet, so the same
+// limitation applies there from stage 4 onward.
+// ============================================================
+function recomputeStageFromEvidence(a){
+  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
+  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
+  var invited = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+
+  if(a.overallStatus==='Hired') return 8;
+
+  if(isTrackB(a)){
+    if(hasGrit && hasValues) return 3;
+    if(invited) return 2;
+    return 1;
+  }
+
+  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
+  var assessmentsComplete = hasGrit && hasValues && emmDone;
+  var ivResult = a.interview && a.interview.result;
+  if(ivResult==='pass') return 6;
+  if(ivResult==='fail') return 5;
+  if(assessmentsComplete) return 4;
+  if(invited) return 3;
+  return 1;
+}
+
+async function recalculateAllStages(){
+  if(!confirm('Recalculate every applicant\'s stage based on their actual assessment/interview data? This corrects stale stage numbers left over from the pipeline rebuild. You can still move anyone individually afterward using the stage circles on their profile.')) return;
+  var apps = getApplicants();
+  var msg = document.getElementById('recalcMsg');
+  if(msg){ msg.style.display='block'; msg.style.color='#555'; msg.textContent = 'Recalculating…'; }
+  var changed = 0;
+  apps.forEach(function(a){
+    var correct = recomputeStageFromEvidence(a);
+    if(correct !== (a.stage||1)){
+      a.stage = correct;
+      a.stageDates = a.stageDates || {};
+      a.stageDates[correct] = new Date().toISOString();
+      changed++;
+    }
+  });
+  saveApplicants(apps);
+  if(SCRIPT_URL){
+    for(var j=0;j<apps.length;j++){
+      try{ await syncApplicantToSheets(apps[j]); }catch(e){}
+    }
+  }
+  if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
+  if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
+  if(msg){ msg.style.color='#166534'; msg.textContent = '✓ Done — ' + changed + ' applicant(s) had their stage corrected. Please double-check anyone who was mid-interview or mid-endorsement, since a few manual hand-offs leave no data trail to recompute exactly.'; }
+  showToast('✓ Recalculated stages for ' + changed + ' applicant(s).');
 }
 
 function autoAdvanceIfNeeded(id){
