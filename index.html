@@ -4118,8 +4118,9 @@ function renderTrackerTable(apps) {
 // end. Both tracks (AP/AR and Sales and Marketing) show up correctly because
 // the column list is driven by the same track-aware getPipelineStep() used
 // everywhere else -- there's no separate "board logic" to keep in sync.
-// Empty columns are hidden so the board stays a fast glance, not a wall of
-// empty boxes.
+// Every column always shows, even at zero -- that way the board reads as a
+// map of the whole pipeline, and an empty column is a clear "nothing to
+// check here" signal rather than looking like a missing step.
 // ============================================================
 var BOARD_OUTCOME_DEFS = [
   { key:'pl_hired', label:'Hired', color:'#166534' },
@@ -4135,22 +4136,19 @@ function renderBoard(){
   var allDefs = PIPELINE_CARD_DEFS.concat(BOARD_OUTCOME_DEFS);
   var cols = allDefs.map(function(d){
     return { def:d, apps: apps.filter(function(a){ return getPipelineStep(a).key===d.key; }) };
-  }).filter(function(c){ return c.apps.length>0; });
+  });
 
   var el = document.getElementById('boardColumns');
-  if(!cols.length){
-    el.innerHTML = '<div class="empty" style="padding:48px;width:100%"><div class="empty-icon">&#128203;</div><div class="empty-title">No applicants found</div><div class="empty-sub">Try a different department filter</div></div>';
-    return;
-  }
   el.innerHTML = cols.map(function(c){
+    var isEmpty = c.apps.length===0;
     var cards = c.apps.map(function(a){
       var av = getAvatar(a.name);
       return '<div onclick="openApplicant(' + a.id + ')" style="cursor:pointer;background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:13px">' + a.name + '</div></div>' +
         '<div style="font-size:11px;color:var(--gray500)">' + (a.position||'No position') + (a.department?' &middot; '+a.department:'') + '</div>' +
       '</div>';
-    }).join('');
-    return '<div style="flex:0 0 240px;background:var(--gray50);border-radius:12px;padding:10px">' +
+    }).join('') || '<div style="border:1.5px dashed var(--gray200);border-radius:10px;padding:16px 8px;text-align:center;font-size:11px;color:var(--gray400)">Nobody here right now</div>';
+    return '<div style="flex:0 0 240px;background:var(--gray50);border-radius:12px;padding:10px;opacity:' + (isEmpty?'.55':'1') + '">' +
       '<div style="font-size:12px;font-weight:800;color:' + c.def.color + ';text-transform:uppercase;letter-spacing:.02em;margin-bottom:8px;padding:0 2px">' + c.def.label + ' &middot; ' + c.apps.length + '</div>' +
       cards +
     '</div>';
