@@ -143,6 +143,7 @@ a{color:var(--blue);text-decoration:none}
 .pipeline-card.stage-5{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#a7f3d0}
 .stage-6{background:linear-gradient(135deg,#ecfdf5,#c7f0dd);border-color:#86e0b6}
 .pipeline-num{font-size:36px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.pipeline-hint{font-size:10.5px;color:var(--gray400);margin-top:5px;line-height:1.35;font-weight:500}
 .pipeline-lbl{font-size:12px;font-weight:600;margin-top:4px}
 .pipeline-arrow{position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:var(--gray300);font-size:18px;z-index:1}
 
@@ -3646,18 +3647,18 @@ function renderDashboard() {
     return { def:d, count: apps.filter(function(a){ return getPipelineStep(a).key === d.key; }).length };
   }).filter(function(x){ return x.count > 0; });
   document.getElementById('dashPendingGrid').innerHTML = pendingCounts.length ? pendingCounts.map(function(x){
-    return '<div class="pipeline-card" data-card-key="' + x.def.key + '" onclick="showCardApplicants(\'' + x.def.key + '\')"><div class="pipeline-num" style="color:' + x.def.color + '">' + x.count + '</div><div class="pipeline-lbl" style="color:' + x.def.color + '">' + x.def.label + '</div></div>';
+    return '<div class="pipeline-card" data-card-key="' + x.def.key + '" onclick="showCardApplicants(\'' + x.def.key + '\')"><div class="pipeline-num" style="color:' + x.def.color + '">' + x.count + '</div><div class="pipeline-lbl" style="color:' + x.def.color + '">' + x.def.label + '</div><div class="pipeline-hint">' + (x.def.hint||'') + '</div></div>';
   }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">Nothing pending right now.</div></div>';
 
   var statusDefs = [
-    { key:'statusHired', label:'Hired', color:'#059669', fn: function(a){ return a.overallStatus==='Hired'; } },
-    { key:'statusRejected', label:'Rejected', color:'#dc2626', fn: function(a){ return a.overallStatus==='Rejected'; } },
-    { key:'statusHold', label:'On Hold', color:'#d97706', fn: function(a){ return a.overallStatus==='Hold'; } },
-    { key:'statusNonCompliant', label:'Non Compliant', color:'#6b7280', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
+    { key:'statusHired', label:'Hired', color:'#059669', hint:'No action needed.', fn: function(a){ return a.overallStatus==='Hired'; } },
+    { key:'statusRejected', label:'Rejected', color:'#dc2626', hint:'No action needed.', fn: function(a){ return a.overallStatus==='Rejected'; } },
+    { key:'statusHold', label:'On Hold', color:'#d97706', hint:'Revisit when ready.', fn: function(a){ return a.overallStatus==='Hold'; } },
+    { key:'statusNonCompliant', label:'Non Compliant', color:'#6b7280', hint:'Archived — no response within 24 hours.', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
   ];
   document.getElementById('dashStatusGrid').innerHTML = statusDefs.map(function(s) {
     var count = apps.filter(s.fn).length;
-    return '<div class="pipeline-card" data-card-key="' + s.key + '" onclick="showCardApplicants(\'' + s.key + '\')"><div class="pipeline-num" style="color:' + s.color + '">' + count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + s.label + '</div></div>';
+    return '<div class="pipeline-card" data-card-key="' + s.key + '" onclick="showCardApplicants(\'' + s.key + '\')"><div class="pipeline-num" style="color:' + s.color + '">' + count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + s.label + '</div><div class="pipeline-hint">' + s.hint + '</div></div>';
   }).join('');
 
   document.getElementById('dashActions').innerHTML =
@@ -4039,24 +4040,27 @@ function getApplicantStatusLine(a){
 // are ordered completely differently. Labels avoid internal shorthand like
 // "endorse" or "Ops" so anyone glancing at the Dashboard/Board understands
 // them without context.
+// Every card also carries a short "hint" -- who needs to act (or that no one
+// does) and what the action is, in plain words. This is what actually shows
+// up on the card face so HR/Ops can tell what to check without clicking in.
 var PIPELINE_CARD_DEFS = [
-  { key:'pl_stage1', label:'Application Received', color:'#6b7280' },
-  { key:'pl_a_stage2', label:'[AP/AR] Initial Screening & Prelim Interview (HR)', color:'#1e40af' },
-  { key:'pl_a_stage3_sent', label:'[AP/AR] Assessments Sent — Awaiting Results', color:'#1e40af' },
-  { key:'pl_a_stage3_partial', label:'[AP/AR] Assessments Partially Submitted', color:'#b45309' },
-  { key:'pl_a_stage3_pending_emm', label:'[AP/AR] Submitted — Pending EMM Grading', color:'#6d28d9' },
-  { key:'pl_a_stage4', label:'[AP/AR] Ready for Operations Manager Interview', color:'#166534' },
-  { key:'pl_a_stage5', label:'[AP/AR] Operations Manager Interview', color:'#1e40af' },
-  { key:'pl_a_stage5_fail', label:'[AP/AR] Interviewed by Operations Manager — Did Not Pass', color:'#b52a2a' },
-  { key:'pl_a_stage6', label:'[AP/AR] Sent to Client for Review', color:'#6d28d9' },
-  { key:'pl_a_stage7', label:'[AP/AR] Waiting on Client’s Decision', color:'#6d28d9' },
-  { key:'pl_b_stage2_sent', label:'[Sales/Mktg] Assessments Sent — Awaiting Results', color:'#1e40af' },
-  { key:'pl_b_stage2_partial', label:'[Sales/Mktg] Assessments Partially Submitted', color:'#b45309' },
-  { key:'pl_b_stage3', label:'[Sales/Mktg] Ready for Preliminary Interview (HR)', color:'#166534' },
-  { key:'pl_b_stage4', label:'[Sales/Mktg] Preliminary Interview (HR)', color:'#1e40af' },
-  { key:'pl_b_stage5', label:'[Sales/Mktg] Second Interview (Project Manager)', color:'#1e40af' },
-  { key:'pl_b_stage6', label:'[Sales/Mktg] Final Interview (CEO)', color:'#6d28d9' },
-  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857' }
+  { key:'pl_stage1', label:'Application Received', color:'#6b7280', hint:'Open their profile — the next step is shown there.' },
+  { key:'pl_a_stage2', label:'[AP/AR] Initial Screening & Prelim Interview (HR)', color:'#1e40af', hint:'HR: conduct the screening interview.' },
+  { key:'pl_a_stage3_sent', label:'[AP/AR] Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Waiting on GRIT/Values (and EMM, if required) to come back.' },
+  { key:'pl_a_stage3_partial', label:'[AP/AR] Assessments Partially Submitted', color:'#b45309', hint:'Some scores are in — still waiting on the rest.' },
+  { key:'pl_a_stage3_pending_emm', label:'[AP/AR] Submitted — Pending EMM Grading', color:'#6d28d9', hint:'EMM file received — needs grading.' },
+  { key:'pl_a_stage4', label:'[AP/AR] Ready for Operations Manager Interview', color:'#166534', hint:'Operations Manager: schedule the interview.' },
+  { key:'pl_a_stage5', label:'[AP/AR] Operations Manager Interview', color:'#1e40af', hint:'Interview underway — score it once done.' },
+  { key:'pl_a_stage5_fail', label:'[AP/AR] Interviewed by Operations Manager — Did Not Pass', color:'#b52a2a', hint:'Make the final call on their Decision tab.' },
+  { key:'pl_a_stage6', label:'[AP/AR] Sent to Client for Review', color:'#6d28d9', hint:'Confirm the client has it, then mark as awaiting decision.' },
+  { key:'pl_a_stage7', label:'[AP/AR] Waiting on Client’s Decision', color:'#6d28d9', hint:'No action — waiting to hear back from the client.' },
+  { key:'pl_b_stage2_sent', label:'[Sales/Mktg] Assessments Sent — Awaiting Results', color:'#1e40af', hint:'Waiting on GRIT/Values to come back.' },
+  { key:'pl_b_stage2_partial', label:'[Sales/Mktg] Assessments Partially Submitted', color:'#b45309', hint:'Some scores are in — still waiting on the rest.' },
+  { key:'pl_b_stage3', label:'[Sales/Mktg] Ready for Preliminary Interview (HR)', color:'#166534', hint:'HR: schedule the interview.' },
+  { key:'pl_b_stage4', label:'[Sales/Mktg] Preliminary Interview (HR)', color:'#1e40af', hint:'HR: conduct interview, then move to Second Interview.' },
+  { key:'pl_b_stage5', label:'[Sales/Mktg] Second Interview (Project Manager)', color:'#1e40af', hint:'Project Manager (Frances): conduct the interview.' },
+  { key:'pl_b_stage6', label:'[Sales/Mktg] Final Interview (CEO)', color:'#6d28d9', hint:'CEO: conduct the final interview.' },
+  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'Confirm once accepted, then mark as Hired.' }
 ];
 PIPELINE_CARD_DEFS.forEach(function(d){
   CARD_FILTERS[d.key] = { label: d.label, fn: function(a){ return getPipelineStep(a).key === d.key; } };
