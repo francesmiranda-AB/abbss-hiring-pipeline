@@ -508,16 +508,8 @@ tbody tr:last-child td{border-bottom:none}
   <div class="stats-grid" id="dashStats"></div>
   <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">What's Pending &mdash; Needs Your Attention</div>
   <div class="pipeline-grid" id="dashPendingGrid" style="margin-bottom:8px"></div>
-  <div class="g2" style="gap:24px;align-items:start">
-    <div>
-      <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Internal &mdash; Active Pipeline</div>
-      <div class="pipeline-grid" id="dashPipeline"></div>
-    </div>
-    <div>
-      <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Outcomes</div>
-      <div class="pipeline-grid" id="dashStatusGrid"></div>
-    </div>
-  </div>
+  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Outcomes &mdash; Final Decisions</div>
+  <div class="pipeline-grid" id="dashStatusGrid"></div>
   <div class="card" id="dashCardDetail" style="display:none;margin-bottom:20px"></div>
   <div class="card" style="max-width:360px">
     <div class="card-header"><div class="card-title">Quick Actions</div></div>
@@ -1258,12 +1250,33 @@ function buildStageStepper(a){
     else if(n<curStage || (status==='Hired'&&n<=curStage)){ bg='#06d6a0'; color='#fff'; mark='\u2713'; }
     else if(n===curStage && status==='In Progress'){ bg='#4361ee'; color='#fff'; }
     return '<div style="display:flex;align-items:center;gap:6px">' +
-      '<div style="width:24px;height:24px;border-radius:50%;background:'+bg+';color:'+color+';font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+mark+'</div>' +
+      '<div onclick="manualSetStage('+a.id+','+n+')" title="Click to move to this stage" style="cursor:pointer;width:24px;height:24px;border-radius:50%;background:'+bg+';color:'+color+';font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+mark+'</div>' +
       '<span style="font-size:11px;font-weight:600;color:var(--gray600)">'+label+'</span>' +
       (i<steps.length-1?'<span style="color:var(--gray300);margin:0 6px">\u203A</span>':'') +
     '</div>';
   }).join('') + '</div>' +
-  '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Interview stage auto-advances once fully scored \u2014 use the Endorse buttons to move to Preliminary Interview or Client.</div>';
+  '<div style="font-size:11px;color:var(--gray400);margin:-8px 0 14px">\u26A1 Interview stage auto-advances once fully scored. Click any circle above to move directly to that stage, forward or back \u2014 handy for correcting a mistake.</div>';
+}
+
+// Lets HR jump an applicant directly to any stage, in either direction --
+// previously advanceStage() only allowed moving forward, so there was no way
+// to undo an accidental early endorsement short of editing the Sheet by hand.
+function manualSetStage(id, stage){
+  var apps=getApplicants();
+  var a=apps.find(function(x){ return x.id===id; });
+  if(!a) return;
+  if((a.stage||1)===stage) return;
+  var dir = stage>(a.stage||1) ? 'forward to' : 'back to';
+  if(!confirm('Move '+a.name+' '+dir+' "'+STAGE_LABELS[stage-1]+'"?')) return;
+  a.stage=stage;
+  a.stageDates=a.stageDates||{};
+  a.stageDates[stage]=new Date().toISOString();
+  saveApplicants(apps);
+  syncApplicantToSheets(a);
+  refreshModalStageInfo(id);
+  showToast('Moved '+a.name+' to '+STAGE_LABELS[stage-1]);
+  if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
+  if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
 }
 
 function jumpToModalTab(tab, id){
@@ -1927,10 +1940,12 @@ function advanceStage(id,stage){
     if(stage===2) notifyPreliminaryInterviewEndorsement(a);
   }
   refreshModalStageInfo(id);
+  if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
+  if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
   if(a&&a.requiresEmm){
-    alert('Stage updated. Go to EMM Grader to upload and grade their assessment.');
+    showToast('Stage updated — go to EMM Grader to upload and grade their assessment.');
   } else {
-    alert('Stage updated. Ready for interview.');
+    showToast('Stage updated — ready for interview.');
   }
 }
 
@@ -3466,15 +3481,14 @@ function renderDashboard() {
   document.getElementById('dashStats').innerHTML =
     '<div class="stat-card blue" data-card-key="total" onclick="showCardApplicants(\'total\')"><span class="stat-icon">&#128203;</span><div class="stat-num">' + total + '</div><div class="stat-lbl">Total Applicants</div><div class="stat-change">All time</div></div>';
 
-  var stageDefs = [
-    { n:1, color:'#d97706' }, { n:2, color:'#0891b2' }, { n:3, color:'#059669' }, { n:4, color:'#047857' }
-  ];
-  document.getElementById('dashPipeline').innerHTML = stageDefs.map(function(s, i) {
-    var count = apps.filter(function(a){ return a.stage === s.n; }).length;
-    var key = 'stage' + s.n;
-    return '<div class="pipeline-card stage-' + s.n + '" data-card-key="' + key + '" onclick="showCardApplicants(\'' + key + '\')"><div class="pipeline-num" style="color:' + s.color + '">' + count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + STAGE_LABELS[s.n-1] + '</div>' + (i < stageDefs.length-1 ? '<div class="pipeline-arrow">&#8250;</div>' : '') + '</div>';
-  }).join('');
-
+  // NOTE: the old raw-stage-count grid ("Internal -- Active Pipeline") was removed.
+  // It counted applicants by stage number alone, regardless of outcome, which meant
+  // the exact same label (e.g. "Endorsed to Preliminary Interview") could show a
+  // different number than the equivalent "What's Pending" card just below it --
+  // one counted everyone ever endorsed to that stage (including people later
+  // rejected/held), the other only counts people still actively there. Two
+  // numbers for one label made the whole dashboard look unreliable. The pending
+  // cards below are the single source of truth for "where is everyone right now."
   var pendingCounts = PIPELINE_CARD_DEFS.map(function(d){
     return { def:d, count: apps.filter(function(a){ return getPipelineStep(a).key === d.key; }).length };
   }).filter(function(x){ return x.count > 0; });
@@ -3764,14 +3778,14 @@ function renderTrackerTable(apps) {
     var av = getAvatar(a.name);
     var st = getApplicantStatusLine(a);
     var sla = getSlaStatus(a);
-    var isResolved = a.overallStatus && a.overallStatus !== 'In Progress';
-    var barMini = isResolved ? '' : getStageProgressBar(a,'mini');
-    var stageStatusInner = isResolved ?
-      '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">' + st.label + '</span>' :
-      ('<div style="margin-bottom:6px">' + barMini + '</div>' +
-       '<div style="font-size:11px;color:var(--gray400);font-weight:600">Stage ' + a.stage + ' &middot; ' + (STAGE_LABELS[a.stage-1]||'') + '</div>' +
-       '<div style="margin-top:4px;font-size:13px;font-weight:700;color:' + st.tone + '">' + st.label + '</div>' +
-       (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:3px;font-weight:700">' + sla.label + '</div>' : ''));
+    // One clear badge is the primary (and usually only) thing shown per row --
+    // the same wording used on the Dashboard, so the vocabulary never drifts
+    // between screens. Stage number, progress bar, and full detail are one
+    // click away in the quick view (openStatusQuickView) instead of being
+    // crammed into every row.
+    var stageStatusInner =
+      '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">' + st.label + '</span>' +
+      (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:5px;font-weight:700">' + sla.label + '</div>' : '');
     var stageStatusCell = '<div onclick="openStatusQuickView(' + a.id + ', event)" style="cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px" title="Click for a larger view">' + stageStatusInner + '</div>';
     var rawNote = (a.resumeNotes||'');
     var escNote = rawNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
