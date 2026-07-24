@@ -4187,6 +4187,8 @@ function renderTrackerTable(apps) {
       '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">' + st.label + '</span>' +
       (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:5px;font-weight:700">' + sla.label + '</div>' : '');
     var stageStatusCell = '<div onclick="openStatusQuickView(' + a.id + ', event)" style="cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px" title="Click for a larger view">' + stageStatusInner + '</div>';
+    var emm = getEmmBadge(a);
+    var emmCell = '<span style="background:' + emm.bg + ';color:' + emm.tone + ';font-weight:800;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block;white-space:nowrap">' + emm.label + '</span>';
     var rawNote = (a.resumeNotes||'');
     var escNote = rawNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     var notesCell = '<textarea onchange="updateFieldImmediate(' + a.id + ',\'resumeNotes\',this.value)" onclick="event.stopPropagation()" placeholder="Add a note..." style="width:100%;min-height:34px;font-size:12px;border:1px solid var(--gray200);border-radius:6px;padding:5px 7px;resize:vertical;font-family:inherit">' + escNote + '</textarea>';
@@ -4195,13 +4197,30 @@ function renderTrackerTable(apps) {
       '<td style="font-size:13px;color:var(--gray700)">' + (a.department||'—') + '</td>' +
       '<td style="font-size:13px;color:var(--gray700)">' + (a.position||'—') + '</td>' +
       '<td style="font-size:13px;color:var(--gray600)">' + (a.enteredBy||'—') + '</td>' +
+      '<td>' + emmCell + '</td>' +
       '<td style="min-width:200px">' + stageStatusCell + '</td>' +
       '<td style="min-width:160px" onclick="event.stopPropagation()">' + notesCell + '</td></tr>';
   }).join('');
   document.getElementById('trackerTable').innerHTML =
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
-    '<th>Applicant</th><th>Department</th><th>Position</th><th>Entered By</th><th>Current Stage &amp; Status</th><th>Notes</th>' +
+    '<th>Applicant</th><th>Department</th><th>Position</th><th>Entered By</th><th>EMM</th><th>Current Stage &amp; Status</th><th>Notes</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+// ============================================================
+// EMM PASS/FAIL BADGE -- a quick glance answer to "did they pass EMM?"
+// without opening the profile. Four possible states: not applicable to this
+// role, not submitted yet, submitted but not graded yet, or graded (pass/fail).
+// ============================================================
+function getEmmBadge(a){
+  if(!a.requiresEmm) return { label:'N/A', bg:'#f1f1f4', tone:'#9ca3af' };
+  if(a.emm && a.emm.graded){
+    return a.emm.pass
+      ? { label:'✓ Passed', bg:'#e8f5e9', tone:'#166534' }
+      : { label:'✗ Failed', bg:'#fdecea', tone:'#b52a2a' };
+  }
+  if(a.emmReceivedAt) return { label:'Needs Grading', bg:'#f3e8ff', tone:'#6d28d9' };
+  return { label:'Not Submitted', bg:'#fff8e1', tone:'#b45309' };
 }
 
 // ============================================================
