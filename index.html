@@ -493,6 +493,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="sidebar-section">Pipeline</div>
   <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span> Tracker <span id="trackerBadge" class="nav-badge-blue" style="display:none">0</span></button>
   <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
+  <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> EOD Report</button>
   <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> EMM Grader</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
   <div class="sidebar-section">System</div>
@@ -683,6 +684,17 @@ tbody tr:last-child td{border-bottom:none}
   <div id="boardColumns" style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;align-items:flex-start"></div>
 </div>
 
+<div id="page-eod" class="page">
+  <div style="margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">End of Day Report</h1>
+      <p style="font-size:14px;color:var(--gray500);margin-top:4px" id="eodDateLine">Everything that happened in the pipeline today.</p>
+    </div>
+    <button class="btn btn-success btn-sm" onclick="copyEodSummary()">&#128203; Copy Summary</button>
+  </div>
+  <div id="eodContent"></div>
+</div>
+
 <div id="page-grade" class="page">
   <div style="margin-bottom:24px">
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">EMM Grader</h1>
@@ -751,6 +763,14 @@ tbody tr:last-child td{border-bottom:none}
         <div style="margin-bottom:12px"><label class="lbl">Position</label><input class="inp" id="et-position" placeholder="AR Specialist" oninput="updateEmail()"></div>
         <div><label class="lbl">Assessment Deadline</label><input class="inp" id="et-deadline" placeholder="e.g. July 15, 2026" oninput="updateEmail()"></div>
       </div>
+      <div class="card" id="et-offer-fields" style="display:none">
+        <div class="card-header"><div class="card-title">Job Offer / Contract Details</div></div>
+        <div style="margin-bottom:12px"><label class="lbl">Job Description (JD)</label><textarea class="inp" id="et-jd" placeholder="Key duties and responsibilities..." oninput="updateEmail()" style="min-height:70px"></textarea></div>
+        <div style="margin-bottom:12px"><label class="lbl">Start Date</label><input class="inp" id="et-startdate" placeholder="e.g. August 4, 2026" oninput="updateEmail()"></div>
+        <div style="margin-bottom:12px"><label class="lbl">Contract Type</label><select class="inp" id="et-contracttype" onchange="updateEmail()"><option value="">Select...</option><option value="Employee">Employee</option><option value="Independent Contractor">Independent Contractor</option></select></div>
+        <div style="margin-bottom:12px"><label class="lbl">Rate</label><input class="inp" id="et-rate" placeholder="e.g. PHP 30,000/month" oninput="updateEmail()"></div>
+        <div><label class="lbl">Signatory</label><input class="inp" id="et-signatory" placeholder="e.g. Frances Miranda" oninput="updateEmail()"></div>
+      </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Template</div></div>
         <div style="display:flex;flex-direction:column;gap:8px">
@@ -760,6 +780,8 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-ghost btn-full" id="etBtn-interview" onclick="setEmailTemplate('interview')" style="justify-content:flex-start;gap:10px"><span>&#127919;</span><div style="text-align:left"><div style="font-weight:700">Interview Invitation</div><div style="font-size:11px;color:var(--gray400);font-weight:400">After passing all assessments</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-regret" onclick="setEmailTemplate('regret')" style="justify-content:flex-start;gap:10px"><span>&#10060;</span><div style="text-align:left"><div style="font-weight:700">Regret Letter</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Not moving forward</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-offer" onclick="setEmailTemplate('offer')" style="justify-content:flex-start;gap:10px"><span>&#9989;</span><div style="text-align:left"><div style="font-weight:700">Next Steps / Offer</div><div style="font-size:11px;color:var(--gray400);font-weight:400">After successful interview</div></div></button>
+          <button class="btn btn-ghost btn-full" id="etBtn-job_offer" onclick="setEmailTemplate('job_offer')" style="justify-content:flex-start;gap:10px"><span>&#128188;</span><div style="text-align:left"><div style="font-weight:700">Job Offer</div><div style="font-size:11px;color:var(--gray400);font-weight:400">JD, start date, rate, contract type</div></div></button>
+          <button class="btn btn-ghost btn-full" id="etBtn-contract" onclick="setEmailTemplate('contract')" style="justify-content:flex-start;gap:10px"><span>&#128196;</span><div style="text-align:left"><div style="font-weight:700">Contract</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Same terms, formal engagement summary</div></div></button>
         </div>
       </div>
     </div>
@@ -1906,6 +1928,30 @@ function buildDecisionTab(a){
       <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},${hiredStage})">✅ Offer Accepted — Mark Hired</button>
     </div>`;
       }
+      if(a.stage>=jobOfferStage-1){
+        var od = a.offerDetails||{};
+        out += `<div class="assess-card" style="margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Job Offer &amp; Contract Details</div>
+      <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Fill these in once, then use the buttons below to send the Job Offer email and/or Contract — the details carry over automatically.</div>
+      <div style="margin-bottom:10px"><label class="lbl">Job Description (JD)</label><textarea onchange="updateNestedField(${a.id},'offerDetails','jd',this.value)" style="min-height:60px" placeholder="Key duties and responsibilities...">${od.jd||''}</textarea></div>
+      <div class="g2" style="margin-bottom:10px">
+        <div><label class="lbl">Start Date</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','startDate',this.value)" value="${od.startDate||''}" placeholder="e.g. August 4, 2026"></div>
+        <div><label class="lbl">Rate</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','rate',this.value)" value="${od.rate||''}" placeholder="e.g. PHP 30,000/month"></div>
+      </div>
+      <div class="g2" style="margin-bottom:12px">
+        <div><label class="lbl">Contract Type</label><select class="inp" onchange="updateNestedField(${a.id},'offerDetails','contractType',this.value)">
+          <option value="" ${!od.contractType?'selected':''}>Select...</option>
+          <option value="Employee" ${od.contractType==='Employee'?'selected':''}>Employee</option>
+          <option value="Independent Contractor" ${od.contractType==='Independent Contractor'?'selected':''}>Independent Contractor</option>
+        </select></div>
+        <div><label class="lbl">Signatory</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','signatory',this.value)" value="${od.signatory||''}" placeholder="e.g. Frances Miranda"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#0f9d58;color:#fff" onclick="goToOfferEmail(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
+        <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="goToOfferEmail(${a.id},'contract')">&#128196; Send Contract</button>
+      </div>
+    </div>`;
+      }
       return out;
     })()}
     ${a.overallStatus && a.overallStatus!=='In Progress' ? `<div style="padding:8px 12px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:13px;font-weight:700;color:#3730a3;margin-bottom:10px">Current decision: ${a.overallStatus==='NonCompliant'?'Non Compliant/Archived':a.overallStatus}</div>` : ''}
@@ -2081,7 +2127,7 @@ function advanceStage(id,stage){
 function setDecision(id,decision){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
-  if(a){a.overallStatus=decision;if(decision==='Hired')a.stage=getStageLabels(a).length;saveApplicants(apps);syncApplicantToSheets(a);}
+  if(a){a.overallStatus=decision;a.statusChangedAt=new Date().toISOString();if(decision==='Hired')a.stage=getStageLabels(a).length;saveApplicants(apps);syncApplicantToSheets(a);}
   document.getElementById('modalTabContent').innerHTML=buildDecisionTab(getApplicant(id));
   refreshModalStageInfo(id);
   renderDashboard();
@@ -2655,6 +2701,45 @@ Congratulations, and we look forward to welcoming you to the team!
 Warm regards,
 HR Team
 ABBSS`
+  },
+  job_offer:{
+    subject:'[ABBSS] Job Offer — {position}',
+    body:`Dear {name},
+
+Congratulations! We are delighted to formally offer you the {position} position at ABBSS, under the following terms:
+
+Job Description: {jd}
+Contract Type: {contracttype}
+Start Date: {startdate}
+Rate: {rate}
+Signed by: {signatory}
+
+Please review the details above. Our HR team will follow up shortly with your onboarding requirements and the formal contract for signature. If you have any questions about this offer, feel free to reach out.
+
+We are excited to welcome you to the team!
+
+Warm regards,
+{signatory}
+ABBSS`
+  },
+  contract:{
+    subject:'[ABBSS] Contract — {position}',
+    body:`Dear {name},
+
+Please find below the summary of your engagement terms for the {position} role at ABBSS. A signed copy of this contract should be returned before your start date.
+
+Position: {position}
+Job Description: {jd}
+Contract Type: {contracttype}
+Start Date: {startdate}
+Rate: {rate}
+Authorized Signatory: {signatory}
+
+Please review these terms carefully and reply to confirm your agreement, or let us know if you have any questions.
+
+Warm regards,
+{signatory}
+ABBSS`
   }
 };
 
@@ -2666,7 +2751,9 @@ const EMAIL_TEMPLATE_LABELS={
   reminder:'Assessment Reminder',
   interview:'Interview Invitation',
   regret:'Regret Letter',
-  offer:'Next Steps / Offer'
+  offer:'Next Steps / Offer',
+  job_offer:'Job Offer',
+  contract:'Contract'
 };
 function setEmailTemplate(key){
   currentTemplate=key;
@@ -2679,6 +2766,8 @@ function setEmailTemplate(key){
   document.getElementById('etBtn-'+key).style.color='#fff';
   var emmBtn=document.getElementById('emmTemplateBtn');
   if(emmBtn) emmBtn.style.display=(key==='assessment')?'inline-flex':'none';
+  var offerFields=document.getElementById('et-offer-fields');
+  if(offerFields) offerFields.style.display=(key==='job_offer'||key==='contract')?'block':'none';
   updateEmail();
   updateEmailSentStatus();
 }
@@ -2771,9 +2860,22 @@ function updateEmail(){
   const pos=document.getElementById('et-position').value||'{position}';
   const deadlineEl=document.getElementById('et-deadline');
   const deadline=(deadlineEl&&deadlineEl.value)||'[DEADLINE]';
+  const jdEl=document.getElementById('et-jd');
+  const jd=(jdEl&&jdEl.value)||'[JOB DESCRIPTION]';
+  const startdateEl=document.getElementById('et-startdate');
+  const startdate=(startdateEl&&startdateEl.value)||'[START DATE]';
+  const signatoryEl=document.getElementById('et-signatory');
+  const signatory=(signatoryEl&&signatoryEl.value)||'[SIGNATORY]';
+  const contracttypeEl=document.getElementById('et-contracttype');
+  const contracttype=(contracttypeEl&&contracttypeEl.value)||'[CONTRACT TYPE]';
+  const rateEl=document.getElementById('et-rate');
+  const rate=(rateEl&&rateEl.value)||'[RATE]';
   const t=EMAIL_TEMPLATES[currentTemplate];
-  document.getElementById('emailSubject').value=t.subject.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
-  document.getElementById('emailBody').textContent=t.body.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline);
+  const fill=(s)=>s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
+    .replace(/{jd}/g,jd).replace(/{startdate}/g,startdate).replace(/{signatory}/g,signatory)
+    .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate);
+  document.getElementById('emailSubject').value=fill(t.subject);
+  document.getElementById('emailBody').textContent=fill(t.body);
 }
 
 function openOutlook(){
@@ -2840,6 +2942,31 @@ function setEmailAndSwitch(name,position,requiresEmm,email,applicantId){
   setEmailTemplate(requiresEmm?'assessment':'assessment_no_emm');
 }
 
+// Jumps straight from the applicant's Decision tab to a pre-filled Job Offer
+// or Contract email -- carries over whatever offer details (JD, start date,
+// signatory, contract type, rate) HR already entered there, so nothing has
+// to be retyped on this page.
+function goToOfferEmail(id, templateKey){
+  var a=getApplicant(id);
+  if(!a) return;
+  closeModal();
+  showPage('email',document.getElementById('nav-email'));
+  document.getElementById('et-name').value=a.name||'';
+  document.getElementById('et-position').value=a.position||'';
+  var emailEl=document.getElementById('et-email');
+  if(emailEl) emailEl.value=a.email||'';
+  var deadlineEl=document.getElementById('et-deadline');
+  if(deadlineEl) deadlineEl.value='';
+  var od=a.offerDetails||{};
+  var jdEl=document.getElementById('et-jd'); if(jdEl) jdEl.value=od.jd||'';
+  var sdEl=document.getElementById('et-startdate'); if(sdEl) sdEl.value=od.startDate||'';
+  var sigEl=document.getElementById('et-signatory'); if(sigEl) sigEl.value=od.signatory||'';
+  var ctEl=document.getElementById('et-contracttype'); if(ctEl) ctEl.value=od.contractType||'';
+  var rateEl=document.getElementById('et-rate'); if(rateEl) rateEl.value=od.rate||'';
+  currentEmailApplicantId=id;
+  setEmailTemplate(templateKey);
+}
+
 // ============================================================
 // EXPORT CSV
 // ============================================================
@@ -2901,8 +3028,9 @@ function setupSheet(){
       'EMM Overall%','EMM Category%','EMM Action%','EMM Pass','EMM Graded At',
       'Interview Result','Decision Notes','Resume Notes','Created At',
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
-      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL']);
-    t.getRange(1,1,1,41).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL',
+      'Offer Details JSON','Status Changed At']);
+    t.getRange(1,1,1,43).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -2974,7 +3102,8 @@ function saveApplicant(d){
     d.interview?.recommendation||'',d.decisionNotes||'',d.resumeNotes||'',d.createdAt||new Date().toISOString(),
     d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):'',
     d.emailsSent?JSON.stringify(d.emailsSent):'',
-    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||'',d.department||'',d.emmFileUrl||''];
+    d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||'',d.department||'',d.emmFileUrl||'',
+    d.offerDetails?JSON.stringify(d.offerDetails):'',d.statusChangedAt||''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -3005,6 +3134,8 @@ function getAllApplicants(){
     }
     let emailsSent={};
     if(r[30]){ try{ emailsSent=JSON.parse(r[30]); }catch(e){} }
+    let offerDetails={};
+    if(r[41]){ try{ offerDetails=JSON.parse(r[41]); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
@@ -3016,7 +3147,8 @@ function getAllApplicants(){
       resumeNotes:r[26]||'',createdAt:r[27]||'',
       emailsSent:emailsSent,
       cvUrl:r[31]||'',cvFileId:r[32]||'',cvFileName:r[33]||'',cvUploadedAt:r[34]||'',
-      emmReceivedAt:r[38]||'',department:r[39]||'',emmFileUrl:r[40]||''
+      emmReceivedAt:r[38]||'',department:r[39]||'',emmFileUrl:r[40]||'',
+      offerDetails:offerDetails,statusChangedAt:r[42]||''
     };
   });
 }
@@ -3073,7 +3205,7 @@ function doPost(e){
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
-
+}
 
 function addEmmReceivedColumn(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
@@ -3549,6 +3681,7 @@ function showPage(id, btn) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'tracker') renderTracker();
   if (id === 'board') renderBoard();
+  if (id === 'eod') renderEodReport();
   if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); }
 }
 
@@ -4264,6 +4397,127 @@ function renderBoard(){
       cards +
     '</div>';
   }).join('');
+}
+
+// ============================================================
+// END OF DAY REPORT -- "what happened in the pipeline today," built from
+// whatever timestamps we already track (no new manual logging required):
+// new applications, EMM submitted/graded, emails sent (by type), and
+// hire/reject/hold/non-compliant decisions. Local-device date/time is used
+// since that's what "today" means to whoever is looking at it.
+// ============================================================
+function isSameLocalDay(isoString, ref){
+  if(!isoString) return false;
+  var d = new Date(isoString);
+  if(isNaN(d.getTime())) return false;
+  return d.getFullYear()===ref.getFullYear() && d.getMonth()===ref.getMonth() && d.getDate()===ref.getDate();
+}
+
+function getEodData(){
+  var apps = getApplicants();
+  var today = new Date();
+  var newApps = [], emmSubmitted = [], emmGraded = [], decisions = [];
+  var emailsByType = {};
+  apps.forEach(function(a){
+    if(isSameLocalDay(a.createdAt, today)) newApps.push(a);
+    if(isSameLocalDay(a.emmReceivedAt, today)) emmSubmitted.push(a);
+    if(a.emm && a.emm.graded && isSameLocalDay(a.emm.gradedAt, today)) emmGraded.push(a);
+    if(isSameLocalDay(a.statusChangedAt, today) && a.overallStatus && a.overallStatus!=='In Progress'){
+      decisions.push({ a:a, status:a.overallStatus });
+    }
+    if(a.emailsSent){
+      Object.keys(a.emailsSent).forEach(function(k){
+        if(isSameLocalDay(a.emailsSent[k], today)){
+          if(!emailsByType[k]) emailsByType[k]=[];
+          emailsByType[k].push(a);
+        }
+      });
+    }
+  });
+  return { today:today, newApps:newApps, emmSubmitted:emmSubmitted, emmGraded:emmGraded, decisions:decisions, emailsByType:emailsByType };
+}
+
+function eodRow(a, hint){
+  var av = getAvatar(a.name);
+  return '<div onclick="openApplicant(' + a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--gray100)">' +
+    '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
+    '<div style="flex:1;min-width:0">' +
+      '<div style="font-weight:700;font-size:14px">' + a.name + '</div>' +
+      '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + (a.position||'—') + (hint?' &middot; '+hint:'') + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function eodSection(title, color, items){
+  var body = items.length
+    ? '<div class="table-wrap" style="border-radius:12px">' + items.join('') + '</div>'
+    : '<div class="empty" style="padding:14px;font-size:13px;color:var(--gray400)">Nothing today.</div>';
+  return '<div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:' + color + ';text-transform:uppercase;letter-spacing:.03em">' + title + '</div>' + body;
+}
+
+function renderEodReport(){
+  var d = getEodData();
+  var dateLine = document.getElementById('eodDateLine');
+  if(dateLine) dateLine.textContent = d.today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ' — everything that happened in the pipeline today.';
+
+  var html = '';
+  html += eodSection('New Applicants (' + d.newApps.length + ')', 'var(--gray600)', d.newApps.map(function(a){ return eodRow(a); }));
+  html += eodSection('EMM Submitted (' + d.emmSubmitted.length + ')', '#6d28d9', d.emmSubmitted.map(function(a){ return eodRow(a); }));
+  html += eodSection('EMM Graded (' + d.emmGraded.length + ')', '#6d28d9', d.emmGraded.map(function(a){ return eodRow(a, a.emm && a.emm.pass===true ? 'Passed' : a.emm && a.emm.pass===false ? 'Failed' : ''); }));
+
+  var emailLabelKeys = Object.keys(d.emailsByType);
+  var emailItems = [];
+  emailLabelKeys.forEach(function(k){
+    d.emailsByType[k].forEach(function(a){
+      emailItems.push(eodRow(a, (EMAIL_TEMPLATE_LABELS[k]||k) + ' sent'));
+    });
+  });
+  html += eodSection('Emails Sent (' + emailItems.length + ')', '#1e40af', emailItems);
+
+  html += eodSection('Decisions Made (' + d.decisions.length + ')', '#166534', d.decisions.map(function(x){
+    var label = x.status==='NonCompliant' ? 'Non Compliant/Archived' : x.status;
+    return eodRow(x.a, label);
+  }));
+
+  var el = document.getElementById('eodContent');
+  if(el) el.innerHTML = html;
+}
+
+function copyEodSummary(){
+  var d = getEodData();
+  var lines = [];
+  lines.push('END OF DAY REPORT — ' + d.today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}));
+  lines.push('');
+  lines.push('New Applicants (' + d.newApps.length + ')');
+  d.newApps.forEach(function(a){ lines.push('  - ' + a.name + ' (' + (a.position||'—') + ')'); });
+  if(!d.newApps.length) lines.push('  Nothing today.');
+  lines.push('');
+  lines.push('EMM Submitted (' + d.emmSubmitted.length + ')');
+  d.emmSubmitted.forEach(function(a){ lines.push('  - ' + a.name); });
+  if(!d.emmSubmitted.length) lines.push('  Nothing today.');
+  lines.push('');
+  lines.push('EMM Graded (' + d.emmGraded.length + ')');
+  d.emmGraded.forEach(function(a){ lines.push('  - ' + a.name + ' — ' + (a.emm && a.emm.pass===true?'Passed':a.emm && a.emm.pass===false?'Failed':'')); });
+  if(!d.emmGraded.length) lines.push('  Nothing today.');
+  lines.push('');
+  var emailLabelKeys = Object.keys(d.emailsByType);
+  var emailCount = emailLabelKeys.reduce(function(sum,k){ return sum + d.emailsByType[k].length; }, 0);
+  lines.push('Emails Sent (' + emailCount + ')');
+  emailLabelKeys.forEach(function(k){
+    d.emailsByType[k].forEach(function(a){ lines.push('  - ' + a.name + ' — ' + (EMAIL_TEMPLATE_LABELS[k]||k)); });
+  });
+  if(!emailCount) lines.push('  Nothing today.');
+  lines.push('');
+  lines.push('Decisions Made (' + d.decisions.length + ')');
+  d.decisions.forEach(function(x){ lines.push('  - ' + x.a.name + ' — ' + (x.status==='NonCompliant'?'Non Compliant/Archived':x.status)); });
+  if(!d.decisions.length) lines.push('  Nothing today.');
+
+  var text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('✓ EOD summary copied — paste it into email/chat');
+  }).catch(function(){
+    alert(text);
+  });
 }
 
 // ============================================================
