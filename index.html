@@ -557,10 +557,11 @@ tbody tr:last-child td{border-bottom:none}
       </div>
       <div><label class="lbl">Date Received</label><input class="inp" id="na-date" type="date"></div>
       <div><label class="lbl">Source</label>
-        <select class="inp" id="na-source">
+        <select class="inp" id="na-source" onchange="toggleSourceOtherField()">
           <option value="">Select source</option>
           <option>Seek</option><option>Indeed</option><option>Facebook</option><option>LinkedIn</option><option>JobStreet</option><option>Referral</option><option>Walk-in</option><option>Other</option>
         </select>
+        <input class="inp" id="na-source-other" placeholder="Please specify (e.g. Kalibrr, TikTok, company website...)" style="display:none;margin-top:6px">
       </div>
       <div><label class="lbl">Entered By</label><select class="inp" id="na-enteredby" onchange="localStorage.setItem('abbss_entered_by_name', this.value)"><option value="">Select...</option><option value="Frances Miranda">Frances Miranda</option><option value="Wennielyn Pungasi">Wennielyn Pungasi</option><option value="David Latimer">David Latimer</option></select><script>document.getElementById('na-enteredby').value = localStorage.getItem('abbss_entered_by_name') || '';</script></div>
     </div>
@@ -1249,6 +1250,19 @@ function inferRequiresEmm(position, department){
 }
 
 
+// Shows a free-text "please specify" box when Source is set to "Other" --
+// otherwise every non-listed platform (Kalibrr, TikTok, a company site, etc.)
+// gets silently lumped into one anonymous "Other" bucket with no way to tell
+// them apart on the Sources page, which defeats the point of tracking source
+// at all.
+function toggleSourceOtherField(){
+  var sel = document.getElementById('na-source');
+  var other = document.getElementById('na-source-other');
+  if(!sel || !other) return;
+  other.style.display = sel.value==='Other' ? 'block' : 'none';
+  if(sel.value!=='Other') other.value='';
+}
+
 async function createApplicant(){
   const name=document.getElementById('na-name').value.trim();
   const email=document.getElementById('na-email').value.trim();
@@ -1256,6 +1270,12 @@ async function createApplicant(){
   document.getElementById('naError').style.display='none';
   const apps=getApplicants();
   const id=Date.now();
+  const sourceSel=document.getElementById('na-source').value;
+  const sourceOther=document.getElementById('na-source-other')?document.getElementById('na-source-other').value.trim():'';
+  // If they picked "Other" and actually typed something, use that specific
+  // name as the real source value so it shows up as its own row on the
+  // Sources page instead of disappearing into a vague "Other" bucket.
+  const source = (sourceSel==='Other' && sourceOther) ? sourceOther : sourceSel;
   apps.push({
     id,name,email,
     enteredBy:document.getElementById('na-enteredby').value.trim(),
@@ -1263,7 +1283,7 @@ async function createApplicant(){
     position:document.getElementById('na-position').value.trim(),
     department:document.getElementById('na-department').value,
     dateReceived:document.getElementById('na-date').value,
-    source:document.getElementById('na-source').value,
+    source:source,
     resumeNotes:document.getElementById('na-notes').value.trim(),
     requiresEmm: inferRequiresEmm(document.getElementById('na-position').value.trim(), document.getElementById('na-department').value),
     stage:1,status:'Applied',createdAt:new Date().toISOString(),
@@ -1280,6 +1300,8 @@ async function createApplicant(){
   // Reset form and toggle
   ['na-name','na-email','na-phone','na-position','na-date','na-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('na-source').value='';
+  document.getElementById('na-source-other').value='';
+  document.getElementById('na-source-other').style.display='none';
   document.getElementById('na-department').value='';
   naEmmRequired=false;
   var emmT=document.getElementById('na-emmToggle');
@@ -1391,7 +1413,15 @@ function manualSetStage(id, stage){
   if((a.stage||1)===stage) return;
   var dir = stage>(a.stage||1) ? 'forward to' : 'back to';
   var labels = getStageLabels(a);
-  if(!confirm('Move '+a.name+' '+dir+' "'+labels[stage-1]+'"?')) return;
+  // Same warning as the "Move to Next Stage" button -- jumping straight into
+  // the interview-ready circle (Track A stage 4 / Track B stage 3) via a
+  // manual click should still flag an ungraded/failed assessment instead of
+  // silently endorsing them, since this is the other click path that can
+  // cause the same premature-endorsement problem.
+  var enteringInterviewReady = stage>(a.stage||1) && stage===(isTrackB(a)?3:4);
+  var warn = enteringInterviewReady ? assessmentGapWarning(a) : null;
+  var msg = 'Move '+a.name+' '+dir+' "'+labels[stage-1]+'"?' + (warn ? '\n\nHeads up: '+warn+'.' : '');
+  if(!confirm(msg)) return;
   a.stage=stage;
   a.stageDates=a.stageDates||{};
   a.stageDates[stage]=new Date().toISOString();
@@ -2126,18 +2156,34 @@ function advanceStage(id,stage){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===id);
   if(a&&a.stage<stage){
+    // Moving INTO the interview-ready stage (Track A stage 4 / Track B stage
+    // 3) is supposed to mean "assessments passed, go ahead and interview."
+    // The "Move to Next Stage" button has no built-in check though, so warn
+    // (don't hard-block, in case this really is an intentional override)
+    // instead of silently endorsing someone whose EMM isn't even graded yet.
+    var enteringInterviewReady = stage === (isTrackB(a) ? 3 : 4);
+    if(enteringInterviewReady){
+      var warn = assessmentGapWarning(a);
+      if(warn && !confirm('Heads up: ' + warn + ' for ' + a.name + '. Move them to the interview-ready stage anyway?')) return;
+    }
     a.stage=stage;
     if(stage===getStageLabels(a).length) a.overallStatus='Hired';
     saveApplicants(apps);
     syncApplicantToSheets(a);
-    if(stage===5 && !isTrackB(a)) notifyPreliminaryInterviewEndorsement(a);
+    // Only tell the team "assessments complete, go schedule the interview"
+    // once that's actually true -- previously this fired on stage===5 (a
+    // stale stage number left over from an earlier version of the pipeline)
+    // regardless of whether EMM had even been graded, which is exactly what
+    // sent a "completed assessments" email for an applicant whose EMM still
+    // said "pending grading."
+    if(stage===4 && !isTrackB(a) && assessmentsAllPassed(a)) notifyPreliminaryInterviewEndorsement(a);
   }
   refreshModalStageInfo(id);
   if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
   if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
-  if(stage===5 && !isTrackB(a) && a&&a.requiresEmm){
+  if(stage===4 && !isTrackB(a) && a&&a.requiresEmm && !(a.emm && a.emm.graded)){
     showToast('Stage updated — go to EMM Grader to upload and grade their assessment.');
-  } else if(stage===5 && !isTrackB(a)){
+  } else if(stage===4 && !isTrackB(a)){
     showToast('Stage updated — ready for interview.');
   } else {
     showToast('Stage updated — ' + ((a && getStageLabels(a)[stage-1]) || ''));
@@ -4014,6 +4060,15 @@ function assessmentsAnyFailed(a){
   var v = valuesOutcome(a.values && a.values.score, (a.values && a.values.confScore) || '', (a.values && a.values.intScore) || '');
   var emmFailed = !!(a.requiresEmm && a.emm && a.emm.graded && a.emm.pass===false);
   return g.pass===false || v.pass===false || emmFailed;
+}
+// Plain-language reason why someone isn't actually interview-ready yet, or
+// null if they genuinely are. Used to warn (not block) whoever is about to
+// manually push them into the interview stage anyway.
+function assessmentGapWarning(a){
+  if(assessmentsAllPassed(a)) return null;
+  if(a.requiresEmm && !(a.emm && a.emm.graded)) return "their EMM assessment hasn't been graded yet";
+  if(assessmentsAnyFailed(a)) return 'they did not pass one of the assessments (GRIT, Values, or EMM)';
+  return "their assessments aren't fully complete yet";
 }
 
 function checkAutoAdvance(a){
