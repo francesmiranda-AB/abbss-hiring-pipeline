@@ -4720,7 +4720,7 @@ function goToTrackerFilteredBySource(source){
 function renderSourcesReport(){
   var rows = getSourceBreakdown();
   var html = '<div class="table-wrap" style="border-radius:12px"><table><thead><tr>' +
-    '<th>Source</th><th>Total</th><th>Hired</th><th>Rejected / Non-Compliant</th><th>Still Deciding</th><th>Pass Rate</th>' +
+    '<th>Source</th><th>Total</th><th>Hired</th><th>Rejected / Non-Compliant</th><th>Still In Progress</th><th>Pass Rate</th>' +
     '</tr></thead><tbody>' + rows.map(function(b){
       var rateCell;
       if(b.passRate===null){
@@ -4740,7 +4740,8 @@ function renderSourcesReport(){
         '<td>'+rateCell+'</td>' +
       '</tr>';
     }).join('') + '</tbody></table></div>' +
-    '<div style="font-size:12px;color:var(--gray400);margin-top:10px">Pass Rate = Hired &divide; (Hired + Rejected/Non-Compliant). Applicants still In Progress or On Hold aren\'t counted yet since there\'s no outcome for them.</div>';
+    '<div style="font-size:12px;color:var(--gray400);margin-top:10px">Pass Rate = Hired &divide; (Hired + Rejected/Non-Compliant).<br>' +
+    '"Still In Progress" just means no final outcome yet on our end -- it is NOT one single person deciding. Depending on where each applicant is, it could mean: we\'re still waiting on their assessments or interview results (nothing to do yet), HR/the Operations Manager still needs to interview or review them (our team\'s turn to act), or -- only for AP/AR applicants already sent out -- the client is the one deciding. Open the Tracker to see exactly which one applies to each person.</div>';
   var el = document.getElementById('sourcesContent');
   if(el) el.innerHTML = html;
 }
