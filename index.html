@@ -1595,7 +1595,21 @@ function buildProfileTab(a){
     <div><label class="lbl">Email</label><div style="font-size:14px">${a.email}</div></div>
     <div><label class="lbl">Phone</label><div style="font-size:14px">${a.phone||'—'}</div></div>
     <div><label class="lbl">Position</label><div style="font-size:14px">${a.position||'—'}</div></div>
-    <div><label class="lbl">Source</label><div style="font-size:14px">${a.source||'—'}</div></div>
+    <div>
+      <label class="lbl">Source</label>
+      ${(function(){
+        var canonical = ['Seek','Indeed','Facebook','LinkedIn','JobStreet','Referral','Walk-in'];
+        var isCanonical = canonical.indexOf(a.source) >= 0;
+        var selValue = a.source && !isCanonical ? 'Other' : (a.source||'');
+        var otherText = (selValue==='Other' && a.source!=='Other') ? a.source : '';
+        var opt = function(v){ return '<option value="'+v+'"'+(selValue===v?' selected':'')+'>'+v+'</option>'; };
+        return '<select class="inp" id="profileSource_'+a.id+'" onchange="updateProfileSource('+a.id+')" style="font-size:13px">' +
+          '<option value=""'+(!selValue?' selected':'')+'>Select source</option>' +
+          opt('Seek')+opt('Indeed')+opt('Facebook')+opt('LinkedIn')+opt('JobStreet')+opt('Referral')+opt('Walk-in')+opt('Other') +
+          '</select>' +
+          '<input class="inp" id="profileSourceOther_'+a.id+'" onchange="updateProfileSource('+a.id+')" placeholder="Please specify (e.g. Kalibrr, TikTok, company website...)" style="margin-top:6px;font-size:13px;display:'+(selValue==='Other'?'block':'none')+'" value="'+otherText.replace(/"/g,'&quot;')+'">';
+      })()}
+    </div>
     <div><label class="lbl">Date Received</label><div style="font-size:14px">${a.dateReceived||'—'}</div></div>
   </div>
   <div style="margin-bottom:12px">
@@ -2046,6 +2060,26 @@ function updateField(id,field,value){
     clearTimeout(a._syncTimer);
     a._syncTimer=setTimeout(()=>syncApplicantToSheets(getApplicant(id)),2000);
   }
+}
+
+// Lets HR go back and fix/add the Source on an existing applicant -- most
+// useful for the backlog of records already saved as a generic "Other" (or no
+// source at all) before the "please specify" field existed, so they can be
+// re-bucketed into a real platform name and actually count on the Sources
+// report.
+function updateProfileSource(id){
+  var sel = document.getElementById('profileSource_'+id);
+  var other = document.getElementById('profileSourceOther_'+id);
+  if(!sel) return;
+  if(sel.value==='Other'){
+    if(other) other.style.display='block';
+    var val = other ? other.value.trim() : '';
+    updateField(id, 'source', val || 'Other');
+  } else {
+    if(other){ other.style.display='none'; other.value=''; }
+    updateField(id, 'source', sel.value);
+  }
+  showToast('✓ Source updated');
 }
 
 function uploadCvFile(id,file){
