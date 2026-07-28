@@ -1398,8 +1398,11 @@ function getNextStepActionAttr(a, n){
   if (n.label === 'Send the assessment invite email') {
     return "setEmailAndSwitch('" + String(a.name).replace(/'/g,"\\'") + "','" + String(a.position||'').replace(/'/g,"\\'") + "'," + (a.requiresEmm?'true':'false') + ",'" + a.email + "'," + a.id + ")";
   }
-  if (n.label.indexOf('Grade their EMM assessment')===0 || n.label.indexOf('EMM failed')===0) {
+  if (n.label.indexOf('Grade their EMM assessment')===0) {
     return "jumpToModalTab('emm'," + a.id + ")";
+  }
+  if (n.label.indexOf('Did not pass one of the assessments')===0) {
+    return "jumpToModalTab('decision'," + a.id + ")";
   }
   if (n.label === 'Assessments complete \u2014 ready for the Operations Manager interview' || n.label === 'Ready for the Operations Manager interview') {
     return "advanceStage(" + a.id + ",5)";
@@ -3923,6 +3926,7 @@ function getNextStep(a) {
     }
     if (stage === 2) {
       if (!hasGrit || !hasValues) return { label: 'Waiting on GRIT/Values form results', tone: 'waiting', icon: '\u23F3' };
+      if (assessmentsAnyFailed(a)) return { label: 'Did not pass one of the assessments \u2014 decide Reject/Hold', tone: 'action', icon: '\u26A0\uFE0F' };
       return { label: 'Assessments complete \u2014 ready for Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
     }
     if (stage === 3) return { label: 'Ready for Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
@@ -3951,7 +3955,7 @@ function getNextStep(a) {
       if (a.emmReceivedAt) return { label: 'Grade their EMM assessment \u2014 file received', tone: 'action', icon: '\u26A1' };
       return { label: 'Waiting on EMM submission', tone: 'waiting', icon: '\u23F3' };
     }
-    if (a.requiresEmm && a.emm && a.emm.graded && a.emm.pass === false) return { label: 'EMM failed \u2014 review before scheduling the Operations Manager interview', tone: 'action', icon: '\u26A0\uFE0F' };
+    if (assessmentsAnyFailed(a)) return { label: 'Did not pass one of the assessments \u2014 decide Reject/Hold', tone: 'action', icon: '\u26A0\uFE0F' };
     return { label: 'Assessments complete \u2014 ready for the Operations Manager interview', tone: 'action', icon: '\u27A1\uFE0F' };
   }
 
@@ -3971,6 +3975,29 @@ function getNextStep(a) {
   return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
 }
 
+// Whether GRIT, Values, and (if required) EMM have each individually PASSED --
+// not merely "arrived." Gating auto-advance on this instead of just "graded"
+// prevents a failed assessment from silently looking like a green light to
+// interview (the exact bug that misrouted Joanna Marie Tesoro: her EMM scored
+// 14.06% / FAIL, but the old logic only checked that EMM had been graded at
+// all, so she was auto-advanced straight to "ready for Operations Manager
+// interview" anyway).
+function assessmentsAllPassed(a){
+  var g = gritOutcome(a.grit && a.grit.score);
+  var v = valuesOutcome(a.values && a.values.score, (a.values && a.values.confScore) || '', (a.values && a.values.intScore) || '');
+  var emmOk = a.requiresEmm ? !!(a.emm && a.emm.graded && a.emm.pass===true) : true;
+  return g.pass===true && v.pass===true && emmOk;
+}
+// Whether all applicable assessments have come back AND at least one of them
+// failed -- the state that should route to a Reject/Hold decision instead of
+// silently proceeding toward an interview.
+function assessmentsAnyFailed(a){
+  var g = gritOutcome(a.grit && a.grit.score);
+  var v = valuesOutcome(a.values && a.values.score, (a.values && a.values.confScore) || '', (a.values && a.values.intScore) || '');
+  var emmFailed = !!(a.requiresEmm && a.emm && a.emm.graded && a.emm.pass===false);
+  return g.pass===false || v.pass===false || emmFailed;
+}
+
 function checkAutoAdvance(a){
   if(!a) return null;
   if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold'||a.overallStatus==='NonCompliant') return null;
@@ -3983,19 +4010,23 @@ function checkAutoAdvance(a){
   var assessmentsComplete = hasGrit && hasValues && emmDone;
 
   if(isTrackB(a)){
-    // Track B: 1 -> 2 once the invite is sent, 2 -> 3 once assessments are complete.
+    // Track B: 1 -> 2 once the invite is sent, 2 -> 3 only once assessments are
+    // complete AND actually passed (a completed-but-failed set stays at stage
+    // 2, now flagged as "TO DO: Decide Reject/Hold" instead of moving on).
     // Stages 4/5/6 (Prelim HR / PM / CEO interviews) have no scoring UI yet, so
     // those are manual clicks via the stage stepper rather than auto-advanced.
     if(stage===1 && emailedAssessment) target=2;
-    if((stage===2 || target===2) && assessmentsComplete) target=3;
+    if((stage===2 || target===2) && assessmentsComplete && assessmentsAllPassed(a)) target=3;
   } else {
-    // Track A: 2 -> 3 once the invite is sent, 3 -> 4 once assessments are
-    // complete, 5 -> 6 only once the Operations Manager interview is scored
-    // PASS (a fail is a Decision-tab call, not an auto-send to the client).
-    // 6 -> 7 (actually hearing back from the client) has no data signal, so
-    // that one stays a manual click.
+    // Track A: 2 -> 3 once the invite is sent, 3 -> 4 only once assessments are
+    // complete AND actually passed (same rule as above -- a completed-but-
+    // failed set stays at stage 3, flagged for a Reject/Hold decision), 5 -> 6
+    // only once the Operations Manager interview is scored PASS (a fail is a
+    // Decision-tab call, not an auto-send to the client). 6 -> 7 (actually
+    // hearing back from the client) has no data signal, so that one stays a
+    // manual click.
     if(stage===2 && emailedAssessment) target=3;
-    if((stage===3 || target===3) && assessmentsComplete) target=4;
+    if((stage===3 || target===3) && assessmentsComplete && assessmentsAllPassed(a)) target=4;
     if(stage===5 && a.interview && a.interview.result==='pass') target=6;
   }
   return target>stage ? target : null;
@@ -4024,7 +4055,10 @@ function recomputeStageFromEvidence(a){
   if(a.overallStatus==='Hired') return getStageLabels(a).length;
 
   if(isTrackB(a)){
-    if(hasGrit && hasValues) return 3;
+    // Only advance to stage 3 if the assessments actually PASSED -- a
+    // completed-but-failed set correctly lands back at stage 2, now flagged
+    // as "TO DO: Decide Reject/Hold" instead of looking interview-ready.
+    if(hasGrit && hasValues && assessmentsAllPassed(a)) return 3;
     if(invited) return 2;
     return 1;
   }
@@ -4034,7 +4068,7 @@ function recomputeStageFromEvidence(a){
   var ivResult = a.interview && a.interview.result;
   if(ivResult==='pass') return 6;
   if(ivResult==='fail') return 5;
-  if(assessmentsComplete) return 4;
+  if(assessmentsComplete && assessmentsAllPassed(a)) return 4;
   if(invited) return 3;
   return 1;
 }
@@ -4216,7 +4250,11 @@ function getPipelineStep(a){
     // (nothing to do) -- one rule, applied everywhere, so nobody has to
     // decode a different sentence shape at every stage.
     if(stage===1) return { key:'pl_b_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
-    if(stage===2) return { key:'pl_b_stage2', label:'WAITING: Assessments', tone:'#1e40af', bg:'#eef2ff' };
+    if(stage===2){
+      var b2Submitted = a.grit && a.grit.score!=='' && a.grit.score!=null && a.values && a.values.score!=='' && a.values.score!=null;
+      if(b2Submitted && assessmentsAnyFailed(a)) return { key:'pl_b_stage2_failed', label:'TO DO: Decide Reject/Hold', tone:'#b52a2a', bg:'#fdecea' };
+      return { key:'pl_b_stage2', label:'WAITING: Assessments', tone:'#1e40af', bg:'#eef2ff' };
+    }
     if(stage===3) return { key:'pl_b_stage3', label:'TO DO: Interview Them (HR)', tone:'#166534', bg:'#e8f5e9' };
     if(stage===4) return { key:'pl_b_stage4', label:'TO DO: Finish HR Interview', tone:'#1e40af', bg:'#eef2ff' };
     if(stage===5) return { key:'pl_b_stage5', label:'TO DO: Finish PM Interview', tone:'#1e40af', bg:'#eef2ff' };
@@ -4230,6 +4268,8 @@ function getPipelineStep(a){
   if(stage===2) return { key:'pl_a_stage2', label:'TO DO: Send Assessments', tone:'#1e40af', bg:'#eef2ff' };
   if(stage===3){
     if(emmPendingGrading) return { key:'pl_a_stage3_pending_emm', label:'TO DO: Grade EMM Test', tone:'#6d28d9', bg:'#f3e8ff' };
+    var a3Submitted = a.grit && a.grit.score!=='' && a.grit.score!=null && a.values && a.values.score!=='' && a.values.score!=null && (a.requiresEmm ? (a.emm && a.emm.graded) : true);
+    if(a3Submitted && assessmentsAnyFailed(a)) return { key:'pl_a_stage3_failed', label:'TO DO: Decide Reject/Hold', tone:'#b52a2a', bg:'#fdecea' };
     return { key:'pl_a_stage3', label:'WAITING: Assessments', tone:'#1e40af', bg:'#eef2ff' };
   }
   if(stage===4) return { key:'pl_a_stage4', label:'TO DO: Interview Them (Ops Manager)', tone:'#166534', bg:'#e8f5e9' };
@@ -4270,6 +4310,7 @@ var PIPELINE_CARD_DEFS = [
   { key:'pl_a_stage2', label:'AP/AR Team: TO DO — Send Assessments', color:'#1e40af', hint:'HR already interviewed them. Send the test emails.', role:'HR', actionable:true },
   { key:'pl_a_stage3', label:'AP/AR Team: WAITING — Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.', role:'HR', actionable:false },
   { key:'pl_a_stage3_pending_emm', label:'AP/AR Team: TO DO — Grade EMM Test', color:'#6d28d9', hint:'Someone needs to grade their EMM test.', role:'HR', actionable:true },
+  { key:'pl_a_stage3_failed', label:'AP/AR Team: TO DO — Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass one of the tests (GRIT, Values, or EMM). Make the call.', role:'HR', actionable:true },
   { key:'pl_a_stage4', label:'AP/AR Team: TO DO — Interview Them (Ops Manager)', color:'#166534', hint:'They passed their tests. The Operations Manager needs to interview them.', role:'Operations Manager', actionable:true },
   { key:'pl_a_stage5', label:'AP/AR Team: TO DO — Finish Ops Manager Interview', color:'#1e40af', hint:'Interview is happening. Write down pass or fail.', role:'Operations Manager', actionable:true },
   { key:'pl_a_stage5_fail', label:'AP/AR Team: TO DO — Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass. Make the call.', role:'HR', actionable:true },
@@ -4277,6 +4318,7 @@ var PIPELINE_CARD_DEFS = [
   { key:'pl_a_stage7', label:'AP/AR Team: WAITING — Client’s Decision', color:'#6d28d9', hint:'Already sent. Just wait for the client to answer.', role:'Operations Manager', actionable:false },
   { key:'pl_b_stage1', label:'Sales Team: Application Received', color:'#6b7280', hint:'New — send them the assessment email.', role:'HR', actionable:true },
   { key:'pl_b_stage2', label:'Sales Team: WAITING — Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.', role:'HR', actionable:false },
+  { key:'pl_b_stage2_failed', label:'Sales Team: TO DO — Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass one of the tests (GRIT or Values). Make the call.', role:'HR', actionable:true },
   { key:'pl_b_stage3', label:'Sales Team: TO DO — Interview Them (HR)', color:'#166534', hint:'They passed their tests. HR needs to interview them.', role:'HR', actionable:true },
   { key:'pl_b_stage4', label:'Sales Team: TO DO — Finish HR Interview', color:'#1e40af', hint:'HR is interviewing them. Once done, send to Frances.', role:'HR', actionable:true },
   { key:'pl_b_stage5', label:'Sales Team: TO DO — Finish PM Interview', color:'#1e40af', hint:'Frances is interviewing them now.', role:'Project Manager', actionable:true },
