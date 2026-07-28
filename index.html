@@ -494,6 +494,7 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span> Tracker <span id="trackerBadge" class="nav-badge-blue" style="display:none">0</span></button>
   <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
   <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> EOD Report</button>
+  <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
   <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> EMM Grader</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
   <div class="sidebar-section">System</div>
@@ -558,7 +559,7 @@ tbody tr:last-child td{border-bottom:none}
       <div><label class="lbl">Source</label>
         <select class="inp" id="na-source">
           <option value="">Select source</option>
-          <option>Referral</option><option>LinkedIn</option><option>JobStreet</option><option>Indeed</option><option>Walk-in</option><option>Other</option>
+          <option>Seek</option><option>Indeed</option><option>Facebook</option><option>LinkedIn</option><option>JobStreet</option><option>Referral</option><option>Walk-in</option><option>Other</option>
         </select>
       </div>
       <div><label class="lbl">Entered By</label><select class="inp" id="na-enteredby" onchange="localStorage.setItem('abbss_entered_by_name', this.value)"><option value="">Select...</option><option value="Frances Miranda">Frances Miranda</option><option value="Wennielyn Pungasi">Wennielyn Pungasi</option><option value="David Latimer">David Latimer</option></select><script>document.getElementById('na-enteredby').value = localStorage.getItem('abbss_entered_by_name') || '';</script></div>
@@ -601,6 +602,10 @@ tbody tr:last-child td{border-bottom:none}
         <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
       </select>
       <input class="filter-inp" id="filterPosition" placeholder="Filter by position..." oninput="filterTracker()" style="width:160px">
+      <select class="filter-inp" id="filterSource" onchange="filterTracker()">
+        <option value="">All Sources</option>
+        <option>Seek</option><option>Indeed</option><option>Facebook</option><option>LinkedIn</option><option>JobStreet</option><option>Referral</option><option>Walk-in</option><option>Other</option>
+      </select>
       <select class="filter-inp" id="filterStage" onchange="filterTracker()" title="Stage numbers mean different things for AP/AR vs Sales &amp; Marketing -- use the Pipeline Step filter below for exact wording">
         <option value="">All Stages (by number)</option>
         <option value="1">Stage 1</option>
@@ -619,13 +624,15 @@ tbody tr:last-child td{border-bottom:none}
         <option value="pl_a_stage2">AP/AR Team: TO DO — Send Assessments</option>
         <option value="pl_a_stage3">AP/AR Team: WAITING — Assessments</option>
         <option value="pl_a_stage3_pending_emm">AP/AR Team: TO DO — Grade EMM Test</option>
+        <option value="pl_a_stage3_failed">AP/AR Team: TO DO — Decide Reject/Hold (assessments)</option>
         <option value="pl_a_stage4">AP/AR Team: TO DO — Interview Them (Ops Manager)</option>
         <option value="pl_a_stage5">AP/AR Team: TO DO — Finish Ops Manager Interview</option>
-        <option value="pl_a_stage5_fail">AP/AR Team: TO DO — Decide Reject/Hold</option>
+        <option value="pl_a_stage5_fail">AP/AR Team: TO DO — Decide Reject/Hold (interview)</option>
         <option value="pl_a_stage6">AP/AR Team: TO DO — Send to Client</option>
         <option value="pl_a_stage7">AP/AR Team: WAITING — Client's Decision</option>
         <option value="pl_b_stage1">Sales Team: Application Received</option>
         <option value="pl_b_stage2">Sales Team: WAITING — Assessments</option>
+        <option value="pl_b_stage2_failed">Sales Team: TO DO — Decide Reject/Hold (assessments)</option>
         <option value="pl_b_stage3">Sales Team: TO DO — Interview Them (HR)</option>
         <option value="pl_b_stage4">Sales Team: TO DO — Finish HR Interview</option>
         <option value="pl_b_stage5">Sales Team: TO DO — Finish PM Interview</option>
@@ -693,6 +700,14 @@ tbody tr:last-child td{border-bottom:none}
     <button class="btn btn-success btn-sm" onclick="copyEodSummary()">&#128203; Copy Summary</button>
   </div>
   <div id="eodContent"></div>
+</div>
+
+<div id="page-sources" class="page">
+  <div style="margin-bottom:24px">
+    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Recruitment Sources</h1>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Where applicants come from, and which platforms actually lead to a hire. Click a row to see those applicants in the Tracker.</p>
+  </div>
+  <div id="sourcesContent"></div>
 </div>
 
 <div id="page-grade" class="page">
@@ -1304,6 +1319,7 @@ function filterTracker(){
   const search=document.getElementById('searchInput').value.toLowerCase();
   const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
   const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
+  const sourceF=document.getElementById('filterSource')?document.getElementById('filterSource').value:'';
   const stageF=document.getElementById('filterStage').value;
   const pipelineF=document.getElementById('filterPipeline')?document.getElementById('filterPipeline').value:'';
   const resultF=document.getElementById('filterResult').value;
@@ -1314,6 +1330,7 @@ function filterTracker(){
   if(search)apps=apps.filter(a=>a.name.toLowerCase().includes(search)||a.email.toLowerCase().includes(search));
   if(deptF)apps=apps.filter(a=>a.department===deptF);
   if(posF)apps=apps.filter(a=>(a.position||'').toLowerCase().includes(posF));
+  if(sourceF)apps=apps.filter(a=>(a.source||'')===sourceF);
   if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF) && (a.overallStatus||'In Progress')==='In Progress');
   if(pipelineF)apps=apps.filter(a=>getPipelineStep(a).key===pipelineF);
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
@@ -3685,6 +3702,7 @@ function showPage(id, btn) {
   if (id === 'tracker') renderTracker();
   if (id === 'board') renderBoard();
   if (id === 'eod') renderEodReport();
+  if (id === 'sources') renderSourcesReport();
   if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); }
 }
 
@@ -4560,6 +4578,82 @@ function copyEodSummary(){
   }).catch(function(){
     alert(text);
   });
+}
+
+// ============================================================
+// RECRUITMENT SOURCES -- "which platform actually gets us hires" (Andi's
+// question). Groups every applicant by where they came from and shows, per
+// source: how many total, how many are still being decided, and -- for the
+// ones already decided one way or the other -- what share turned into a
+// Hire vs a Reject/Non-Compliant. On Hold applicants count as "still
+// deciding" since no outcome has been reached for them yet.
+// ============================================================
+var SOURCE_OPTIONS = ['Seek','Indeed','Facebook','LinkedIn','JobStreet','Referral','Walk-in','Other'];
+
+function getSourceBreakdown(){
+  var apps = getApplicants();
+  var bySource = {};
+  function bucket(name){
+    if(!bySource[name]) bySource[name] = { source:name, total:0, hired:0, rejectedOrNC:0, deciding:0 };
+    return bySource[name];
+  }
+  // Seed every known option (and "Not Specified") so a platform with zero
+  // applicants still shows up as a visible zero -- same "show it even if
+  // empty" rule used on the Pipeline Board.
+  SOURCE_OPTIONS.forEach(function(s){ bucket(s); });
+  bucket('Not Specified');
+
+  apps.forEach(function(a){
+    var name = (a.source||'').trim() || 'Not Specified';
+    var b = bucket(name);
+    b.total++;
+    if(a.overallStatus==='Hired') b.hired++;
+    else if(a.overallStatus==='Rejected' || a.overallStatus==='NonCompliant') b.rejectedOrNC++;
+    else b.deciding++; // In Progress or Hold
+  });
+
+  return Object.keys(bySource).map(function(k){
+    var b = bySource[k];
+    var decided = b.hired + b.rejectedOrNC;
+    b.passRate = decided>0 ? Math.round(b.hired/decided*100) : null;
+    b.failRate = decided>0 ? Math.round(b.rejectedOrNC/decided*100) : null;
+    return b;
+  }).sort(function(x,y){ return y.total - x.total; });
+}
+
+function goToTrackerFilteredBySource(source){
+  showPage('tracker', document.getElementById('nav-tracker'));
+  var sel = document.getElementById('filterSource');
+  if(sel){ sel.value = SOURCE_OPTIONS.indexOf(source)>=0 ? source : ''; }
+  filterTracker();
+}
+
+function renderSourcesReport(){
+  var rows = getSourceBreakdown();
+  var html = '<div class="table-wrap" style="border-radius:12px"><table><thead><tr>' +
+    '<th>Source</th><th>Total</th><th>Hired</th><th>Rejected / Non-Compliant</th><th>Still Deciding</th><th>Pass Rate</th>' +
+    '</tr></thead><tbody>' + rows.map(function(b){
+      var rateCell;
+      if(b.passRate===null){
+        rateCell = '<span style="color:var(--gray400);font-size:12px">No decisions yet</span>';
+      } else {
+        var color = b.passRate>=60 ? '#166534' : (b.passRate>=30 ? '#b45309' : '#b52a2a');
+        rateCell = '<div style="font-weight:800;color:'+color+'">'+b.passRate+'% pass</div>' +
+          '<div style="height:6px;border-radius:3px;background:#fdecea;width:120px;overflow:hidden;margin-top:4px">' +
+          '<div style="height:100%;width:'+b.passRate+'%;background:#166534"></div></div>';
+      }
+      return '<tr onclick="goToTrackerFilteredBySource(\''+b.source.replace(/'/g,"\\'")+'\')" style="cursor:pointer">' +
+        '<td style="font-weight:700">'+b.source+'</td>' +
+        '<td>'+b.total+'</td>' +
+        '<td style="color:#166534;font-weight:700">'+b.hired+'</td>' +
+        '<td style="color:#b52a2a;font-weight:700">'+b.rejectedOrNC+'</td>' +
+        '<td style="color:var(--gray500)">'+b.deciding+'</td>' +
+        '<td>'+rateCell+'</td>' +
+      '</tr>';
+    }).join('') + '</tbody></table></div>' +
+    '<div style="font-size:12px;color:var(--gray400);margin-top:10px">Pass Rate = Hired &divide; (Hired + Rejected/Non-Compliant). Applicants still In Progress or On Hold aren\'t counted yet since there\'s no outcome for them.</div>';
+  var el = document.getElementById('sourcesContent');
+  if(el) el.innerHTML = html;
 }
 
 // ============================================================
