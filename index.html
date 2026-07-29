@@ -798,6 +798,7 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-ghost btn-full" id="etBtn-offer" onclick="setEmailTemplate('offer')" style="justify-content:flex-start;gap:10px"><span>&#9989;</span><div style="text-align:left"><div style="font-weight:700">Next Steps / Offer</div><div style="font-size:11px;color:var(--gray400);font-weight:400">After successful interview</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-job_offer" onclick="setEmailTemplate('job_offer')" style="justify-content:flex-start;gap:10px"><span>&#128188;</span><div style="text-align:left"><div style="font-weight:700">Job Offer</div><div style="font-size:11px;color:var(--gray400);font-weight:400">JD, start date, rate, contract type</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-contract" onclick="setEmailTemplate('contract')" style="justify-content:flex-start;gap:10px"><span>&#128196;</span><div style="text-align:left"><div style="font-weight:700">Contract</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Same terms, formal engagement summary</div></div></button>
+          <button class="btn btn-ghost btn-full" id="etBtn-pre_onboarding" onclick="setEmailTemplate('pre_onboarding')" style="justify-content:flex-start;gap:10px"><span>&#128187;</span><div style="text-align:left"><div style="font-weight:700">Pre-Onboarding Requirements</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Device, internet, typing, security checks</div></div></button>
         </div>
       </div>
     </div>
@@ -2013,7 +2014,9 @@ function buildDecisionTab(a){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:#0f9d58;color:#fff" onclick="goToOfferEmail(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
         <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="goToOfferEmail(${a.id},'contract')">&#128196; Send Contract</button>
+        <button class="btn btn-sm" style="background:#6d28d9;color:#fff" onclick="goToOfferEmail(${a.id},'pre_onboarding')">&#128187; Send Pre-Onboarding Requirements</button>
       </div>
+      <div style="font-size:11px;color:var(--gray400);margin-top:6px">Send Pre-Onboarding Requirements once the offer or contract has been signed and a start date is confirmed -- it asks for device/security checks, which shouldn't go out before that.</div>
     </div>`;
       }
       return out;
@@ -2845,6 +2848,39 @@ Please review these terms carefully and reply to confirm your agreement, or let 
 Warm regards,
 {signatory}
 ABBSS`
+  },
+  pre_onboarding:{
+    subject:'[ABBSS] Pre-Onboarding Requirements — {position}',
+    body:`Dear {name},
+
+Welcome to ABBSS! As part of your pre-onboarding process for the {position} role, please complete the following technical checks before your start date ({startdate}). These help us confirm that your device and connection are fully equipped for remote work.
+
+1. Device Specifications
+   Mac: Apple menu → About This Mac → screenshot the overview window.
+   Windows: Settings → System → About → screenshot the Device & Windows specifications section.
+
+2. Internet Speed Test
+   Go to https://www.speedtest.net/, run the test, and screenshot your download/upload results.
+   Minimum recommended: 25 Mbps download / 10 Mbps upload.
+
+3. Typing Speed Test
+   Go to https://www.typingtest.com/, complete the 1-minute test (standard English text option), and screenshot your WPM/accuracy result.
+
+4. Device Security Scan
+   Download and install Malwarebytes (https://www.malwarebytes.com/ — free for personal use), run a full scan, and screenshot the completed results. If any threats are detected, please note them in your submission.
+
+Full instructions, plus a submission template where you can paste your screenshots directly, are here:
+https://docs.google.com/document/d/1YtSQmrZosqCYhSjSo1IZ_1nhfPybDQzLZwrHNV7U9F0/edit?usp=sharing
+
+Once ready, please compile all four (4) screenshots and send them to:
+wennielyn.pungasi@ab-businesssupport.com AND operations@ab-businesssupport.com
+Subject line: Pre-Onboarding Requirements — {name}
+
+Thank you for completing these requirements. We look forward to working with you!
+
+Warm regards,
+HR Team
+ABBSS`
   }
 };
 
@@ -2858,7 +2894,8 @@ const EMAIL_TEMPLATE_LABELS={
   regret:'Regret Letter',
   offer:'Next Steps / Offer',
   job_offer:'Job Offer',
-  contract:'Contract'
+  contract:'Contract',
+  pre_onboarding:'Pre-Onboarding Requirements'
 };
 function setEmailTemplate(key){
   currentTemplate=key;
@@ -2872,7 +2909,7 @@ function setEmailTemplate(key){
   var emmBtn=document.getElementById('emmTemplateBtn');
   if(emmBtn) emmBtn.style.display=(key==='assessment')?'inline-flex':'none';
   var offerFields=document.getElementById('et-offer-fields');
-  if(offerFields) offerFields.style.display=(key==='job_offer'||key==='contract')?'block':'none';
+  if(offerFields) offerFields.style.display=(key==='job_offer'||key==='contract'||key==='pre_onboarding')?'block':'none';
   updateEmail();
   updateEmailSentStatus();
 }
