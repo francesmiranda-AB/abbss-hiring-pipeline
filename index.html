@@ -1635,9 +1635,37 @@ function buildProfileTab(a){
   </div>
   ${buildStageHistory(a)}
   ${(()=>{const info=getLastEmailSentInfo(a);return info?`<div style="margin-bottom:12px;font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px 12px;border-radius:8px">✓ Last email sent: <strong>${info.label}</strong> — ${new Date(info.date).toLocaleString()}</div>`:`<div style="margin-bottom:12px;font-size:12px;color:var(--gray400)">No emails marked as sent yet.</div>`;})()}
+  ${buildEmailActivitySummary(a)}
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn-sm btn-blue" onclick="setEmailAndSwitch('${a.name}','${a.position||''}',${a.requiresEmm||false},'${a.email}',${a.id})">📧 Generate Assessment Email</button>
     <button class="btn-sm btn-red" onclick="deleteApplicant(${a.id})">🗑 Delete Record</button>
+  </div>`;
+}
+
+// Per-template email activity: sent time, and -- only for emails actually sent
+// via "Send Automatically" (those are the only ones that carry the tracking
+// pixel) -- a best-effort "Opened" status. Manually-sent ("Open in Gmail")
+// emails have no way to be tracked, so they're shown as sent with no open info
+// rather than incorrectly implied as "not opened."
+function buildEmailActivitySummary(a){
+  const sent = a.emailsSent || {};
+  const keys = Object.keys(sent);
+  if(!keys.length) return '';
+  const opened = a.emailsOpened || {};
+  keys.sort(function(x,y){ return new Date(sent[x]) - new Date(sent[y]); });
+  const rows = keys.map(function(k){
+    const label = EMAIL_TEMPLATE_LABELS[k] || k;
+    const sentAt = sent[k] ? new Date(sent[k]).toLocaleString() : '';
+    const openedAt = opened[k];
+    const status = openedAt
+      ? `<span style="color:#166534;font-weight:600">✓ Opened</span> <span style="color:var(--gray400)">${new Date(openedAt).toLocaleString()}</span>`
+      : `<span style="color:var(--gray400)">Not yet detected as opened</span>`;
+    return `<tr><td style="font-size:12px">${label}</td><td style="font-size:12px;color:var(--gray400)">${sentAt}</td><td style="font-size:12px">${status}</td></tr>`;
+  }).join('');
+  return `<div class="assess-card" style="margin-bottom:14px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:6px">✉️ Email Activity</div>
+    <table style="width:100%"><thead><tr><th style="font-size:11px">Template</th><th style="font-size:11px">Sent</th><th style="font-size:11px">Open Status</th></tr></thead><tbody>${rows}</tbody></table>
+    <div style="font-size:11px;color:var(--gray400);margin-top:6px">Open status is best-effort and only available for emails sent via "Send Automatically" — Gmail and some other mail apps block the tracking image, so "not yet detected" doesn't always mean unread.</div>
   </div>`;
 }
 
@@ -1871,11 +1899,11 @@ function buildSchedulingCard(a){
 
   return `<div class="assess-card" style="margin-bottom:18px">
     <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Scheduling</div>
-    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Enter a few candidate-facing time options (one per line), save, then send the candidate their personal scheduling link. They don't need to know about this app — it just looks like a simple page, same as the assessment forms.</div>
+    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Enter a few candidate-facing time options (one per line), save, then send the candidate their personal scheduling link. They don't need to know about this app — it just looks like a simple page, same as the assessment forms. Each option also gets added as a tentative event on the shared <strong>"ABBSS Interviews"</strong> calendar, so you can browse them there directly.</div>
     <label class="lbl">Time Options (one per line)</label>
     <textarea id="ivSlotsInput_${a.id}" style="min-height:80px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM">${slots.map(function(s){return s.label;}).join('\n')}</textarea>
     <div style="margin-top:8px;margin-bottom:12px">
-      <button class="btn-sm" style="background:#3b3f8c;color:#fff" onclick="saveInterviewSlots(${a.id})">💾 Save Time Options</button>
+      <button class="btn-sm" id="ivSaveBtn_${a.id}" style="background:#3b3f8c;color:#fff" onclick="saveInterviewSlots(${a.id})">💾 Save Time Options</button>
     </div>
     ${schedulingLink ? `<div style="margin-bottom:12px">
       <label class="lbl">Candidate Scheduling Link</label>
@@ -1891,23 +1919,34 @@ function buildSchedulingCard(a){
   </div>`;
 }
 
-function generateSchedulingTokenClient(){
-  return 'tok' + Date.now() + '_' + Math.random().toString(36).slice(2,10);
-}
-
-function saveInterviewSlots(id){
+// Saves the free-text time options for this applicant. Unlike most fields,
+// this can't be handled purely on the client -- creating (and later
+// updating/cleaning up) the matching "ABBSS Interviews" calendar entries has
+// to happen in Apps Script, so this calls the backend directly and waits for
+// it to hand back the real slot list (each with its own calendarEventId)
+// instead of guessing locally.
+async function saveInterviewSlots(id){
   var el = document.getElementById('ivSlotsInput_'+id);
   if(!el) return;
   var lines = el.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s;});
   if(!lines.length){ alert('Enter at least one time option, one per line.'); return; }
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- time options need that connection so the calendar entries can be created.'); return; }
+  var btn = document.getElementById('ivSaveBtn_'+id);
+  if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
+  var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines}});
+  if(btn){ btn.disabled=false; btn.innerHTML='💾 Save Time Options'; }
+  if(!res || !res.success){
+    alert('Could not save time options (' + (res && res.error || 'unknown error') + ').');
+    return;
+  }
   var apps=getApplicants();
   var a=apps.find(function(x){return x.id===id;});
-  if(!a) return;
-  a.interviewSlots = lines.map(function(label,i){ return {id:'slot'+i+'_'+Date.now(), label:label}; });
-  if(!a.schedulingToken) a.schedulingToken = generateSchedulingTokenClient();
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
-  showToast('✓ Interview time options saved');
+  if(a){
+    a.interviewSlots = res.slots;
+    a.schedulingToken = res.schedulingToken;
+    saveApplicants(apps);
+  }
+  showToast('✓ Interview time options saved — added to the ABBSS Interviews calendar');
   var content=document.getElementById('modalTabContent');
   if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
 }
@@ -3386,11 +3425,13 @@ function saveApplicant(d){
     // submission, or a confirmed interview slot). The client never has an
     // up-to-date copy of these, so always keep whatever is already in the
     // Sheet instead of letting an unrelated save (e.g. editing a note)
-    // blank them out. Interview Slots / Scheduling Token are the exception --
-    // those ARE set from the app by HR/David, so they come from d normally.
+    // blank them out. Interview Slots / Scheduling Token now belong here too --
+    // saveInterviewSlots() is the only thing that writes them, since it also
+    // has to create the matching Calendar events, which the generic save
+    // path here has no way to do.
     existing?(existing[43]||''):'',
-    d.interviewSlots?JSON.stringify(d.interviewSlots):'',
-    d.schedulingToken||'',
+    existing?(existing[44]||''):'',
+    existing?(existing[45]||''):'',
     existing?(existing[46]||''):'',
     existing?(existing[47]||''):'',
     existing?(existing[48]||''):'',
@@ -3520,6 +3561,7 @@ function doPost(e){
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
     else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
     else if(p.action==='confirmInterview')out=confirmInterview(p.data);
+    else if(p.action==='saveInterviewSlots')out=saveInterviewSlots(p.data);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -3729,6 +3771,79 @@ function handleSubmitAvailability(e){
   }
 }
 
+// Gets (or creates, once) a calendar dedicated to interview scheduling, kept
+// separate from anyone's personal calendar so it can be shared with the
+// whole team (Frances/Wen/David) without exposing personal events. Sharing
+// itself is a one-time manual step in Google Calendar's own settings --
+// Apps Script's basic Calendar service can't grant that automatically.
+function getOrCreateInterviewsCalendar(){
+  var name = 'ABBSS Interviews';
+  var cals = CalendarApp.getCalendarsByName(name);
+  if(cals && cals.length) return cals[0];
+  return CalendarApp.createCalendar(name);
+}
+
+function generateSchedulingTokenServer(){
+  return 'tok' + new Date().getTime() + '_' + Math.random().toString(36).slice(2,10);
+}
+
+// Called from the app when HR/David types in and saves the candidate-facing
+// time options. Creates one TENTATIVE event per option on the shared "ABBSS
+// Interviews" calendar (so the offered times are visible there right away,
+// not just after something is confirmed), re-using the scheduling token if
+// one already exists, and cleaning up any previous not-yet-confirmed
+// tentative events before creating the new set (so re-saving slots doesn't
+// leave stale calendar entries behind).
+function saveInterviewSlots(data){
+  try{
+    if(!data || !data.id || !data.labels || !data.labels.length) return {success:false, error:'Missing applicant id or time options.'};
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    if(!t) return {success:false, error:'Applicants sheet not found.'};
+    const rows=t.getDataRange().getValues();
+    const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(data.id); });
+    if(idx<=0) return {success:false, error:'Applicant not found.'};
+
+    var name = rows[idx][1] || '';
+    var position = rows[idx][4] || '';
+    var cal = getOrCreateInterviewsCalendar();
+
+    var oldSlots = [];
+    try{ oldSlots = rows[idx][44] ? JSON.parse(rows[idx][44]) : []; }catch(e){}
+    var confirmed = null;
+    try{ confirmed = rows[idx][49] ? JSON.parse(rows[idx][49]) : null; }catch(e){}
+    oldSlots.forEach(function(s){
+      if(s.calendarEventId && (!confirmed || String(confirmed.id)!==String(s.id))){
+        try{ var oldEv = cal.getEventById(s.calendarEventId); if(oldEv) oldEv.deleteEvent(); }catch(e){}
+      }
+    });
+
+    var newSlots = data.labels.map(function(label, i){
+      var slotId = 'slot' + i + '_' + new Date().getTime();
+      var calendarEventId = '';
+      try{
+        var parsed = parseSlotToDate(label);
+        if(parsed){
+          var ev = cal.createEvent('🗓️ TENTATIVE: ' + name + ' interview', parsed.start, parsed.end, {
+            description: 'Applicant: ' + name + '\nPosition: ' + position + '\nOption: ' + label + '\nStatus: Awaiting candidate response.'
+          });
+          try{ ev.setColor(CalendarApp.EventColor.YELLOW); }catch(e){}
+          calendarEventId = ev.getId();
+        }
+      }catch(e){ /* Calendar entry is best-effort -- the option still exists in the app either way */ }
+      return {id:slotId, label:label, calendarEventId:calendarEventId};
+    });
+
+    var schedulingToken = rows[idx][45] || generateSchedulingTokenServer();
+    t.getRange(idx+1, 45).setValue(JSON.stringify(newSlots));  // col 45 = index 44 (Interview Slots JSON)
+    t.getRange(idx+1, 46).setValue(schedulingToken);           // col 46 = index 45 (Scheduling Token)
+
+    return {success:true, slots:newSlots, schedulingToken:schedulingToken};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
 function recordAvailability(id, token, picks, contact){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');
@@ -3739,6 +3854,30 @@ function recordAvailability(id, token, picks, contact){
   t.getRange(idx+1, 47).setValue(JSON.stringify(picks||[])); // col 47 = index 46
   t.getRange(idx+1, 48).setValue(contact||'');               // col 48 = index 47
   t.getRange(idx+1, 49).setValue(new Date().toISOString());  // col 49 = index 48
+
+  // Reflect the candidate's response directly on the tentative Calendar
+  // entries -- so anyone glancing at the "ABBSS Interviews" calendar can see
+  // which options the candidate actually said work, without opening the app.
+  try{
+    var slots = rows[idx][44] ? JSON.parse(rows[idx][44]) : [];
+    var pickList = (picks||[]).map(String);
+    var name = rows[idx][1] || '';
+    var position = rows[idx][4] || '';
+    var cal = getOrCreateInterviewsCalendar();
+    slots.forEach(function(s){
+      if(!s.calendarEventId) return;
+      try{
+        var ev = cal.getEventById(s.calendarEventId);
+        if(!ev) return;
+        var isPicked = pickList.indexOf(String(s.id)) !== -1;
+        ev.setTitle((isPicked ? '✅ AVAILABLE: ' : '🗓️ TENTATIVE: ') + name + ' interview');
+        ev.setDescription('Applicant: ' + name + '\nPosition: ' + position + '\nOption: ' + s.label +
+          '\nStatus: ' + (isPicked ? 'Candidate confirmed this time works.' : 'Candidate did not select this time.') +
+          (contact ? ('\nViber/WhatsApp: ' + contact) : ''));
+      }catch(e){ /* a Calendar hiccup should never block recording the candidate's response */ }
+    });
+  }catch(e){}
+
   return true;
 }
 
@@ -3760,18 +3899,39 @@ function confirmInterview(data){
     var name = rows[idx][1] || '';
     var email = rows[idx][2] || '';
     var position = rows[idx][4] || '';
+    var cal = getOrCreateInterviewsCalendar();
+    var calendarEventId = slot.calendarEventId || '';
 
-    var calendarEventId = '';
     try{
-      var parsed = parseSlotToDate(slot.label);
-      if(parsed){
-        var cal = CalendarApp.getDefaultCalendar();
-        var ev = cal.createEvent('Interview: ' + name + (position?(' — '+position):''), parsed.start, parsed.end, {
-          description: 'Applicant: ' + name + '\nEmail: ' + email + '\nPosition: ' + position + (data.contact?('\nViber/WhatsApp: '+data.contact):'')
-        });
-        calendarEventId = ev.getId();
+      if(slot.calendarEventId){
+        var ev = cal.getEventById(slot.calendarEventId);
+        if(ev){
+          ev.setTitle('✅ CONFIRMED: Interview — ' + name + (position?(' ('+position+')'):''));
+          ev.setDescription('Applicant: ' + name + '\nEmail: ' + email + '\nPosition: ' + position + (data.contact?('\nViber/WhatsApp: '+data.contact):'') + '\nStatus: Confirmed.');
+          try{ ev.setColor(CalendarApp.EventColor.GREEN); }catch(e){}
+        }
+      } else {
+        // This option never got a Calendar entry when slots were first saved
+        // (its free-text label couldn't be parsed as a date at the time) --
+        // try once more here so a confirmation still gets a real event when possible.
+        var parsed = parseSlotToDate(slot.label);
+        if(parsed){
+          var newEv = cal.createEvent('✅ CONFIRMED: Interview — ' + name + (position?(' ('+position+')'):''), parsed.start, parsed.end, {
+            description: 'Applicant: ' + name + '\nEmail: ' + email + '\nPosition: ' + position + (data.contact?('\nViber/WhatsApp: '+data.contact):'')
+          });
+          try{ newEv.setColor(CalendarApp.EventColor.GREEN); }catch(e){}
+          calendarEventId = newEv.getId();
+        }
       }
-    }catch(e){ /* Calendar creation is a nice-to-have -- never block confirmation on it failing */ }
+      // Once one time is confirmed, the other offered options are no longer
+      // relevant -- remove their tentative Calendar entries so the shared
+      // calendar doesn't stay cluttered with unused options.
+      slots.forEach(function(s){
+        if(String(s.id)===String(slot.id)) return;
+        if(!s.calendarEventId) return;
+        try{ var oev = cal.getEventById(s.calendarEventId); if(oev) oev.deleteEvent(); }catch(e){}
+      });
+    }catch(e){ /* Calendar issues are never allowed to block confirming the interview itself */ }
 
     t.getRange(idx+1, 50).setValue(JSON.stringify(slot));     // col 50 = index 49
     t.getRange(idx+1, 51).setValue(new Date().toISOString()); // col 51 = index 50
