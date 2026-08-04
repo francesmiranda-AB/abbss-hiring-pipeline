@@ -3402,6 +3402,7 @@ const EMM_FORM_SHEET_ID = '1ZTh5NtZtxvcFfx1kmiW40s4jRyAZdz9T3sNhoZB3SEI';
 const EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 const GRIT_FORM_LINK = 'https://forms.gle/JwGGt8UWnR6NgFga8';
 const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
+const DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
 
 function scoreGrit(row){
   const rev=[0,2,4,5];const scores=[];
@@ -3641,6 +3642,7 @@ function doGet(e){
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
     else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
+    else if(a==='getDavidBusy')out=getDavidBusyBlocks(e.parameter.start, e.parameter.end);
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -3841,6 +3843,39 @@ function recordAssessmentView(id, which){
   // they FIRST looked at it.
   if(!views[which]) views[which] = new Date().toISOString();
   t.getRange(idx+1, 53).setValue(JSON.stringify(views));
+}
+
+// ============================================================
+// DAVID'S GOOGLE CALENDAR -- READ-ONLY CROSS-CHECK. This is deliberately
+// busy/free only -- it never reads or exposes event titles/descriptions,
+// even though David's sharing permission may technically allow more detail.
+// It only tells the Interview Calendar "something is already booked here,"
+// not what that something is. Nothing is ever written back to his calendar.
+//
+// Setup required (one-time, does not touch this file):
+// 1. David shares HIS Google Calendar with this script's own Google
+//    account (view permission, e.g. "See all event details" -- we only
+//    ever use the times, never the details).
+// 2. Whoever owns/deploys this Apps Script project must manually run any
+//    function once from the Apps Script editor (Run button, not just
+//    "Deploy") after this code is pasted in, so the one-time Calendar
+//    permission prompt appears and can be approved. Skipping this step is
+//    exactly what broke the earlier Calendar integration -- deploying a
+//    "New version" alone does not trigger that consent screen.
+// ============================================================
+function getDavidBusyBlocks(startIso, endIso){
+  try{
+    if(!startIso || !endIso) return {success:false, error:'Missing date range.'};
+    var cal = CalendarApp.getCalendarById(DAVID_CALENDAR_ID);
+    if(!cal) return {success:false, error:"David's calendar isn't shared with this app yet."};
+    var events = cal.getEvents(new Date(startIso), new Date(endIso));
+    var blocks = events.map(function(e){
+      return {start: e.getStartTime().toISOString(), end: e.getEndTime().toISOString()};
+    });
+    return {success:true, blocks:blocks};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
 }
 
 function handleViewAssessment(id, which){
@@ -5467,6 +5502,62 @@ var INTERVIEW_CAL_STATUS_META = {
   confirmed: {label:'Confirmed', bg:'#d1fae5', tone:'#166534', border:'#a3d9bc'}
 };
 
+// ============================================================
+// DAVID'S GOOGLE CALENDAR CROSS-CHECK (read-only, busy/free only)
+// ============================================================
+// Pulls David's own real Google Calendar so this screen can show, right
+// next to the proposed interview times, whether he's already got something
+// booked. Only busy/free blocks are ever fetched -- never event titles or
+// descriptions. This entirely depends on David having shared his calendar
+// and on the one-time Apps Script authorization step being done; if either
+// hasn't happened yet, every one of these calls just quietly returns
+// nothing and the calendar behaves exactly as it did before this existed --
+// no error is ever shown to HR or David for this.
+var davidBusyCache = {}; // key 'YYYY-M' -> array of {start:Date,end:Date}; undefined = not fetched yet, null = fetched but unavailable
+var DEFAULT_INTERVIEW_DURATION_MIN = 45; // slot labels are start-time only, so this is our best guess at length when checking for overlaps
+var interviewCalOverlayOpenFor = null; // {applicantId, slotId} while the detail overlay is open, so a late-arriving fetch can refresh it in place
+
+function getDavidBusyForMonth(year, month){
+  return davidBusyCache[year+'-'+month];
+}
+
+async function ensureDavidBusyLoaded(year, month){
+  var key = year+'-'+month;
+  if(davidBusyCache[key] !== undefined) return; // already fetched, or already known unavailable -- don't refetch every render
+  if(!SCRIPT_URL){ davidBusyCache[key] = null; return; }
+  davidBusyCache[key] = null; // mark as "in progress / unavailable" so overlapping calls don't double-fetch; overwritten below on success
+  try{
+    var start = new Date(year, month, 1);
+    var end = new Date(year, month+1, 1);
+    var res = await apiGet('getDavidBusy', {start:start.toISOString(), end:end.toISOString()});
+    if(res && res.success && Array.isArray(res.blocks)){
+      davidBusyCache[key] = res.blocks.map(function(b){ return {start:new Date(b.start), end:new Date(b.end)}; });
+    }
+    // else: David's calendar isn't shared yet, or the one-time Apps Script
+    // authorization hasn't been done -- leave this month as "unavailable"
+    // and say nothing. Nothing to fix here from the UI's side.
+  }catch(e){
+    // Same as above -- stays unavailable, silently.
+  }
+  if(interviewCalViewYear===year && interviewCalViewMonth===month) renderInterviewCalendar();
+  if(interviewCalOverlayOpenFor) openInterviewCalDetail(interviewCalOverlayOpenFor.applicantId, interviewCalOverlayOpenFor.slotId);
+}
+
+// Does this proposed slot collide with something already on David's real
+// calendar? Returns the colliding busy block ({start,end}) or null -- null
+// covers both "no conflict" and "no data available to check," which is the
+// right behavior either way (nothing to warn about).
+function findDavidOverlap(date, durationMin){
+  if(!date) return null;
+  var busy = getDavidBusyForMonth(date.getFullYear(), date.getMonth());
+  if(!busy) return null;
+  var slotStart = date, slotEnd = new Date(date.getTime() + durationMin*60000);
+  for(var i=0;i<busy.length;i++){
+    if(slotStart < busy[i].end && slotEnd > busy[i].start) return busy[i];
+  }
+  return null;
+}
+
 function changeInterviewCalMonth(delta){
   interviewCalViewMonth += delta;
   if(interviewCalViewMonth<0){ interviewCalViewMonth=11; interviewCalViewYear--; }
@@ -5491,6 +5582,8 @@ function renderInterviewCalendar(){
 
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var year = interviewCalViewYear, month = interviewCalViewMonth;
+  ensureDavidBusyLoaded(year, month); // fire-and-forget; re-renders itself once (if ever) the data arrives
+  var davidBusyThisMonth = getDavidBusyForMonth(year, month); // undefined/null = nothing to show yet
   var firstOfMonth = new Date(year, month, 1);
   var startWeekday = firstOfMonth.getDay(); // 0=Sun
   var daysInMonth = new Date(year, month+1, 0).getDate();
@@ -5534,9 +5627,15 @@ function renderInterviewCalendar(){
         timeStr + '<br><span style="font-weight:600;font-size:13px">' + i.applicantName + '</span>' + phoneLine +
       '</div>';
     }).join('');
+    var dayBusy = davidBusyThisMonth ? davidBusyThisMonth.filter(function(b){ return b.start.getDate()===dayNum; }) : [];
+    var busyHtml = dayBusy.length ? ('<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #ddd">' +
+      dayBusy.map(function(b){
+        return '<div style="font-size:11px;color:#888">🔒 '+b.start.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'–'+b.end.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' David busy</div>';
+      }).join('') +
+    '</div>') : '';
     cellsHtml += '<div style="min-height:110px;background:#fff;border:1.5px solid '+(isToday?'#3b3f8c':'#eee')+';padding:6px;overflow-y:auto">' +
       '<div style="font-weight:800;font-size:14px;color:'+(isToday?'#3b3f8c':'#888')+';margin-bottom:4px">'+dayNum+(isToday?' • Today':'')+'</div>' +
-      chips +
+      chips + busyHtml +
     '</div>';
   }
 
@@ -5550,11 +5649,13 @@ function renderInterviewCalendar(){
     }).join('') +
   '</div>') : '';
 
+  var davidLegendHtml = davidBusyThisMonth ? ('<div style="display:flex;align-items:center;gap:6px">' +
+    '<span style="width:16px;height:16px;border-radius:4px;background:#f4f4f4;border:1.5px dashed #ccc;display:inline-block"></span>🔒 David\'s existing calendar (busy times only)</div>') : '';
   var legendHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:13px">' +
     Object.keys(INTERVIEW_CAL_STATUS_META).map(function(k){
       var m = INTERVIEW_CAL_STATUS_META[k];
       return '<div style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:4px;background:'+m.bg+';border:1.5px solid '+m.border+';display:inline-block"></span>'+m.label+'</div>';
-    }).join('') + '</div>';
+    }).join('') + davidLegendHtml + '</div>';
 
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
     '<div style="font-size:19px;font-weight:800">'+monthNames[month]+' '+year+'</div>' +
@@ -5661,9 +5762,12 @@ function openInterviewCalDetail(applicantId, slotId){
   var slot = null;
   for(var i=0;i<slots.length;i++){ if(String(slots[i].id)===String(slotId)){ slot=slots[i]; break; } }
   if(!slot) return;
+  interviewCalOverlayOpenFor = {applicantId:applicantId, slotId:slotId};
   var confirmed = a.confirmedSlot && String(a.confirmedSlot.id)===String(slotId);
   var status = confirmed ? 'confirmed' : 'pending';
   var meta = INTERVIEW_CAL_STATUS_META[status];
+  var slotDate = clientParseSlotDate(slot.label);
+  if(slotDate) ensureDavidBusyLoaded(slotDate.getFullYear(), slotDate.getMonth()); // fire-and-forget; refreshes this overlay in place once (if ever) the data arrives
 
   var body = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">' +
       '<div><div style="font-size:20px;font-weight:800">'+a.name+'</div><div style="font-size:14px;color:var(--gray400)">'+(a.position||'No position')+'</div></div>' +
@@ -5677,6 +5781,13 @@ function openInterviewCalDetail(applicantId, slotId){
     body += '<div style="font-size:16px;font-weight:700;margin-bottom:14px">📞 '+a.candidateContact+'</div>';
   } else {
     body += '<div style="font-size:14px;color:var(--gray400);margin-bottom:14px">No phone number on file yet for this candidate.</div>';
+  }
+
+  if(!confirmed){
+    var overlap = findDavidOverlap(slotDate, DEFAULT_INTERVIEW_DURATION_MIN);
+    if(overlap){
+      body += '<div style="padding:10px 14px;border-radius:10px;background:#fef3c7;border:1.5px solid #fcd34d;font-size:14px;color:#92400e;margin-bottom:14px">⚠️ Heads up: this overlaps with something already on David\'s calendar ('+overlap.start.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'–'+overlap.end.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'). Double check with David before confirming.</div>';
+    }
   }
 
   if(confirmed){
@@ -5698,6 +5809,7 @@ function openInterviewCalDetail(applicantId, slotId){
 
 function closeInterviewCalOverlay(){
   document.getElementById('interviewCalOverlay').style.display = 'none';
+  interviewCalOverlayOpenFor = null;
 }
 
 async function confirmInterviewCalSlot(id, slotId){
