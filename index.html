@@ -495,6 +495,7 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
   <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> EOD Report</button>
   <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
+  <button class="nav-item" id="nav-interviewcal" onclick="showPage('interviewcal',this)"><span class="nav-icon">&#128197;</span> Interview Calendar</button>
   <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> EMM Grader</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
   <div class="sidebar-section">System</div>
@@ -709,6 +710,14 @@ tbody tr:last-child td{border-bottom:none}
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Where applicants come from, and which platforms actually lead to a hire. Click a row to see those applicants in the Tracker.</p>
   </div>
   <div id="sourcesContent"></div>
+</div>
+
+<div id="page-interviewcal" class="page">
+  <div style="margin-bottom:24px">
+    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Interview Calendar</h1>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Every applicant's proposed interview times in one place — no need to open each one individually. Click a name to jump to their Interview tab.</p>
+  </div>
+  <div id="interviewCalContent"></div>
 </div>
 
 <div id="page-grade" class="page">
@@ -1875,11 +1884,14 @@ function printEmmReport(id){
   setTimeout(function(){ try{w.focus(); w.print();}catch(e){} }, 600);
 }
 
-// Interview-scheduling card at the top of the Interview tab. HR/David types
-// free-text time options in, we generate a personal (no-login, no
-// app-knowledge-needed) link the candidate can open to check off times that
-// work and leave a Viber/WhatsApp number; David then picks one final slot,
-// which creates a Calendar event and emails the candidate a confirmation.
+// Interview-scheduling card at the top of the Interview tab. Fully native to
+// the app -- no Google Calendar involved. Two ways to collect availability:
+// (1) HR calls/texts the candidate directly and logs what they said right
+// here, or (2) HR sends the candidate a personal self-service link (no
+// login, no app knowledge needed -- same pattern as the assessment forms)
+// and the candidate checks off times themselves. Either way, the results
+// land in the same place, and David confirms one final time from here (or
+// from the aggregate Interview Calendar page).
 function buildSchedulingCard(a){
   const slots = a.interviewSlots || [];
   const picks = (a.candidateSlotPicks || []).map(String);
@@ -1892,21 +1904,24 @@ function buildSchedulingCard(a){
     const isPicked = picks.indexOf(String(s.id)) !== -1;
     const isConfirmed = confirmed && String(confirmed.id)===String(s.id);
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid ${isConfirmed?'#a3d9bc':'#e0e0e8'};background:${isConfirmed?'#eaf7f0':'#fff'};border-radius:8px;margin-bottom:6px">
-      <div style="font-size:13px">${s.label}${isPicked?' <span style="color:#166534;font-size:11px;font-weight:600">✓ candidate available</span>':''}${isConfirmed?' <span class="badge badge-pass" style="margin-left:6px">Confirmed</span>':''}</div>
+      <label style="font-size:13px;display:flex;align-items:center;gap:8px;cursor:${confirmed?'default':'pointer'}">
+        ${!confirmed ? `<input type="checkbox" class="ivManualPick_${a.id}" value="${s.id}" ${isPicked?'checked':''}>` : ''}
+        ${s.label}${isPicked?' <span style="color:#166534;font-size:11px;font-weight:600">✓ candidate available</span>':''}${isConfirmed?' <span class="badge badge-pass" style="margin-left:6px">Confirmed</span>':''}
+      </label>
       ${!confirmed ? `<button class="btn-sm" style="background:#3b3f8c;color:#fff;white-space:nowrap" onclick="confirmInterviewSlot(${a.id},'${s.id}')">Confirm This Time</button>` : ''}
     </div>`;
   }).join('');
 
   return `<div class="assess-card" style="margin-bottom:18px">
     <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Scheduling</div>
-    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Enter a few candidate-facing time options (one per line), save, then send the candidate their personal scheduling link. They don't need to know about this app — it just looks like a simple page, same as the assessment forms. Each option also gets added as a tentative event on the shared <strong>"ABBSS Interviews"</strong> calendar, so you can browse them there directly.</div>
+    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Type in a few time options (one per line) and save. Then either call/text the candidate yourself and check off what they said works below, or send them the self-service link so they pick themselves.</div>
     <label class="lbl">Time Options (one per line)</label>
     <textarea id="ivSlotsInput_${a.id}" style="min-height:80px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM">${slots.map(function(s){return s.label;}).join('\n')}</textarea>
     <div style="margin-top:8px;margin-bottom:12px">
       <button class="btn-sm" id="ivSaveBtn_${a.id}" style="background:#3b3f8c;color:#fff" onclick="saveInterviewSlots(${a.id})">💾 Save Time Options</button>
     </div>
     ${schedulingLink ? `<div style="margin-bottom:12px">
-      <label class="lbl">Candidate Scheduling Link</label>
+      <label class="lbl">Candidate Self-Service Link (optional)</label>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <input class="inp" readonly value="${schedulingLink}" style="flex:1;min-width:180px;font-size:12px" onclick="this.select()">
         <button class="btn-sm" onclick="navigator.clipboard.writeText('${schedulingLink}');showToast('✓ Link copied')">📋 Copy</button>
@@ -1914,23 +1929,51 @@ function buildSchedulingCard(a){
       </div>
     </div>` : ''}
     ${slots.length ? `<div style="margin-bottom:6px">${slotRows}</div>` : `<div style="font-size:12px;color:var(--gray400);margin-bottom:6px">No time options saved yet.</div>`}
-    ${(picks.length||contact) ? `<div style="font-size:12px;color:#555;margin-top:6px">Candidate response${submittedAt?(' — '+new Date(submittedAt).toLocaleString()):''}${contact?('. Viber/WhatsApp: <strong>'+contact+'</strong>'):''}</div>` : ''}
-    ${confirmed ? `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3">✓ Confirmed for <strong>${confirmed.label}</strong>${a.calendarEventId?' — Calendar event created.':' — Calendar event was not created (time format not recognized); please add it to the calendar manually.'}</div>` : ''}
+    ${!confirmed && slots.length ? `<div style="margin-bottom:12px">
+      <label class="lbl">Candidate's Phone Number (for the call/text you already did)</label>
+      <input class="inp" id="ivContactInput_${a.id}" value="${contact.replace(/"/g,'&quot;')}" placeholder="e.g. +63 917 123 4567" style="margin-bottom:8px">
+      <button class="btn-sm" style="background:#166534;color:#fff" onclick="saveCandidateResponse(${a.id})">📞 Save What the Candidate Told You</button>
+      <div style="font-size:11px;color:var(--gray400);margin-top:4px">Check the boxes above for whichever times they said work, enter their number, then save.</div>
+    </div>` : ''}
+    ${(picks.length||contact) ? `<div style="font-size:12px;color:#555;margin-top:6px">Candidate response${submittedAt?(' — '+new Date(submittedAt).toLocaleString()):''}${contact?('. Phone: <strong>'+contact+'</strong>'):''}</div>` : ''}
+    ${confirmed ? `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3">✓ Confirmed for <strong>${confirmed.label}</strong> — confirmation email sent.${contact?(' Remember to call <strong>'+contact+"</strong> to confirm they're prepared."):''}</div>` : ''}
   </div>`;
 }
 
-// Saves the free-text time options for this applicant. Unlike most fields,
-// this can't be handled purely on the client -- creating (and later
-// updating/cleaning up) the matching "ABBSS Interviews" calendar entries has
-// to happen in Apps Script, so this calls the backend directly and waits for
-// it to hand back the real slot list (each with its own calendarEventId)
-// instead of guessing locally.
+// HR/David logs what the candidate said over the phone/SMS directly --
+// re-uses the same recordAvailability() the self-service link uses, just
+// triggered from inside the app instead of from the candidate's own click.
+async function saveCandidateResponse(id){
+  var a = getApplicant(id);
+  if(!a) return;
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script.'); return; }
+  if(!a.schedulingToken){ alert('Save at least one time option first.'); return; }
+  var checked = document.querySelectorAll('.ivManualPick_'+id+':checked');
+  var picks = Array.prototype.map.call(checked, function(el){ return el.value; });
+  var contactEl = document.getElementById('ivContactInput_'+id);
+  var contact = contactEl ? contactEl.value.trim() : '';
+  var res = await apiPost('recordAvailability', {data:{id:id, token:a.schedulingToken, picks:picks, contact:contact}});
+  if(!res || !res.success){
+    alert('Could not save the candidate\'s response (' + (res && res.error || 'unknown error') + ').');
+    return;
+  }
+  showToast('✓ Candidate response saved');
+  await loadFromSheets();
+  var content=document.getElementById('modalTabContent');
+  if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
+}
+
+// Saves the free-text time options for this applicant. This calls the
+// backend (rather than just writing to local storage) so the real,
+// authoritative slot list -- including each option's best-effort parsed
+// date, used for sorting on the Interview Calendar page -- comes back and
+// stays in sync with what's in the Sheet.
 async function saveInterviewSlots(id){
   var el = document.getElementById('ivSlotsInput_'+id);
   if(!el) return;
   var lines = el.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s;});
   if(!lines.length){ alert('Enter at least one time option, one per line.'); return; }
-  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- time options need that connection so the calendar entries can be created.'); return; }
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script.'); return; }
   var btn = document.getElementById('ivSaveBtn_'+id);
   if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
   var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines}});
@@ -1946,7 +1989,7 @@ async function saveInterviewSlots(id){
     a.schedulingToken = res.schedulingToken;
     saveApplicants(apps);
   }
-  showToast('✓ Interview time options saved — added to the ABBSS Interviews calendar');
+  showToast('✓ Interview time options saved');
   var content=document.getElementById('modalTabContent');
   if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
 }
@@ -1955,10 +1998,10 @@ async function confirmInterviewSlot(id, slotId){
   var a=getApplicant(id);
   if(!a) return;
   if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- cannot confirm from here.'); return; }
-  if(!confirm('Confirm this interview time? This will try to create a Calendar event and will email the candidate a confirmation.')) return;
+  if(!confirm('Confirm this interview time? This will email the candidate a confirmation. You\'ll still need to call them separately to confirm they\'re prepared.')) return;
   var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:a.candidateContact||''}});
   if(res && res.success){
-    showToast('✓ Interview confirmed' + (res.calendarEventId?' — Calendar event created':' (Calendar event not created)'));
+    showToast('✓ Interview confirmed — confirmation email sent');
     await loadFromSheets();
     var content=document.getElementById('modalTabContent');
     if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
@@ -3425,10 +3468,8 @@ function saveApplicant(d){
     // submission, or a confirmed interview slot). The client never has an
     // up-to-date copy of these, so always keep whatever is already in the
     // Sheet instead of letting an unrelated save (e.g. editing a note)
-    // blank them out. Interview Slots / Scheduling Token now belong here too --
-    // saveInterviewSlots() is the only thing that writes them, since it also
-    // has to create the matching Calendar events, which the generic save
-    // path here has no way to do.
+    // blank them out. Interview Slots / Scheduling Token live here too --
+    // saveInterviewSlots() is the only thing that writes them.
     existing?(existing[43]||''):'',
     existing?(existing[44]||''):'',
     existing?(existing[45]||''):'',
@@ -3562,6 +3603,7 @@ function doPost(e){
     else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
     else if(p.action==='confirmInterview')out=confirmInterview(p.data);
     else if(p.action==='saveInterviewSlots')out=saveInterviewSlots(p.data);
+    else if(p.action==='recordAvailability')out={success:recordAvailability(p.data.id, p.data.token, p.data.picks, p.data.contact)};
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -3771,29 +3813,16 @@ function handleSubmitAvailability(e){
   }
 }
 
-// Gets (or creates, once) a calendar dedicated to interview scheduling, kept
-// separate from anyone's personal calendar so it can be shared with the
-// whole team (Frances/Wen/David) without exposing personal events. Sharing
-// itself is a one-time manual step in Google Calendar's own settings --
-// Apps Script's basic Calendar service can't grant that automatically.
-function getOrCreateInterviewsCalendar(){
-  var name = 'ABBSS Interviews';
-  var cals = CalendarApp.getCalendarsByName(name);
-  if(cals && cals.length) return cals[0];
-  return CalendarApp.createCalendar(name);
-}
-
 function generateSchedulingTokenServer(){
   return 'tok' + new Date().getTime() + '_' + Math.random().toString(36).slice(2,10);
 }
 
 // Called from the app when HR/David types in and saves the candidate-facing
-// time options. Creates one TENTATIVE event per option on the shared "ABBSS
-// Interviews" calendar (so the offered times are visible there right away,
-// not just after something is confirmed), re-using the scheduling token if
-// one already exists, and cleaning up any previous not-yet-confirmed
-// tentative events before creating the new set (so re-saving slots doesn't
-// leave stale calendar entries behind).
+// time options. This is fully native to the app/Sheet -- no external
+// Calendar involved, so no extra Google permission scopes are ever needed
+// for this feature. Each option gets a best-effort parsed date (startIso)
+// purely so the in-app Interview Calendar page can sort/group them; if a
+// label can't be parsed it still works, it just won't have a sortable date.
 function saveInterviewSlots(data){
   try{
     if(!data || !data.id || !data.labels || !data.labels.length) return {success:false, error:'Missing applicant id or time options.'};
@@ -3804,34 +3833,14 @@ function saveInterviewSlots(data){
     const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(data.id); });
     if(idx<=0) return {success:false, error:'Applicant not found.'};
 
-    var name = rows[idx][1] || '';
-    var position = rows[idx][4] || '';
-    var cal = getOrCreateInterviewsCalendar();
-
-    var oldSlots = [];
-    try{ oldSlots = rows[idx][44] ? JSON.parse(rows[idx][44]) : []; }catch(e){}
-    var confirmed = null;
-    try{ confirmed = rows[idx][49] ? JSON.parse(rows[idx][49]) : null; }catch(e){}
-    oldSlots.forEach(function(s){
-      if(s.calendarEventId && (!confirmed || String(confirmed.id)!==String(s.id))){
-        try{ var oldEv = cal.getEventById(s.calendarEventId); if(oldEv) oldEv.deleteEvent(); }catch(e){}
-      }
-    });
-
     var newSlots = data.labels.map(function(label, i){
       var slotId = 'slot' + i + '_' + new Date().getTime();
-      var calendarEventId = '';
+      var startIso = '';
       try{
         var parsed = parseSlotToDate(label);
-        if(parsed){
-          var ev = cal.createEvent('🗓️ TENTATIVE: ' + name + ' interview', parsed.start, parsed.end, {
-            description: 'Applicant: ' + name + '\nPosition: ' + position + '\nOption: ' + label + '\nStatus: Awaiting candidate response.'
-          });
-          try{ ev.setColor(CalendarApp.EventColor.YELLOW); }catch(e){}
-          calendarEventId = ev.getId();
-        }
-      }catch(e){ /* Calendar entry is best-effort -- the option still exists in the app either way */ }
-      return {id:slotId, label:label, calendarEventId:calendarEventId};
+        if(parsed) startIso = parsed.start.toISOString();
+      }catch(e){}
+      return {id:slotId, label:label, startIso:startIso};
     });
 
     var schedulingToken = rows[idx][45] || generateSchedulingTokenServer();
@@ -3854,33 +3863,14 @@ function recordAvailability(id, token, picks, contact){
   t.getRange(idx+1, 47).setValue(JSON.stringify(picks||[])); // col 47 = index 46
   t.getRange(idx+1, 48).setValue(contact||'');               // col 48 = index 47
   t.getRange(idx+1, 49).setValue(new Date().toISOString());  // col 49 = index 48
-
-  // Reflect the candidate's response directly on the tentative Calendar
-  // entries -- so anyone glancing at the "ABBSS Interviews" calendar can see
-  // which options the candidate actually said work, without opening the app.
-  try{
-    var slots = rows[idx][44] ? JSON.parse(rows[idx][44]) : [];
-    var pickList = (picks||[]).map(String);
-    var name = rows[idx][1] || '';
-    var position = rows[idx][4] || '';
-    var cal = getOrCreateInterviewsCalendar();
-    slots.forEach(function(s){
-      if(!s.calendarEventId) return;
-      try{
-        var ev = cal.getEventById(s.calendarEventId);
-        if(!ev) return;
-        var isPicked = pickList.indexOf(String(s.id)) !== -1;
-        ev.setTitle((isPicked ? '✅ AVAILABLE: ' : '🗓️ TENTATIVE: ') + name + ' interview');
-        ev.setDescription('Applicant: ' + name + '\nPosition: ' + position + '\nOption: ' + s.label +
-          '\nStatus: ' + (isPicked ? 'Candidate confirmed this time works.' : 'Candidate did not select this time.') +
-          (contact ? ('\nViber/WhatsApp: ' + contact) : ''));
-      }catch(e){ /* a Calendar hiccup should never block recording the candidate's response */ }
-    });
-  }catch(e){}
-
   return true;
 }
 
+// Finalizes one proposed slot as the confirmed interview time. Fully native
+// (Sheet-only) -- no Calendar API calls, so it can't fail on missing Google
+// permissions. Sends the candidate a confirmation email; texting them is a
+// manual step for now (see the Interview Calendar page, which surfaces their
+// phone number prominently once confirmed) until an SMS provider is set up.
 function confirmInterview(data){
   try{
     if(!data || !data.id || !data.slotId) return {success:false, error:'Missing applicant id or slot.'};
@@ -3899,43 +3889,10 @@ function confirmInterview(data){
     var name = rows[idx][1] || '';
     var email = rows[idx][2] || '';
     var position = rows[idx][4] || '';
-    var cal = getOrCreateInterviewsCalendar();
-    var calendarEventId = slot.calendarEventId || '';
-
-    try{
-      if(slot.calendarEventId){
-        var ev = cal.getEventById(slot.calendarEventId);
-        if(ev){
-          ev.setTitle('✅ CONFIRMED: Interview — ' + name + (position?(' ('+position+')'):''));
-          ev.setDescription('Applicant: ' + name + '\nEmail: ' + email + '\nPosition: ' + position + (data.contact?('\nViber/WhatsApp: '+data.contact):'') + '\nStatus: Confirmed.');
-          try{ ev.setColor(CalendarApp.EventColor.GREEN); }catch(e){}
-        }
-      } else {
-        // This option never got a Calendar entry when slots were first saved
-        // (its free-text label couldn't be parsed as a date at the time) --
-        // try once more here so a confirmation still gets a real event when possible.
-        var parsed = parseSlotToDate(slot.label);
-        if(parsed){
-          var newEv = cal.createEvent('✅ CONFIRMED: Interview — ' + name + (position?(' ('+position+')'):''), parsed.start, parsed.end, {
-            description: 'Applicant: ' + name + '\nEmail: ' + email + '\nPosition: ' + position + (data.contact?('\nViber/WhatsApp: '+data.contact):'')
-          });
-          try{ newEv.setColor(CalendarApp.EventColor.GREEN); }catch(e){}
-          calendarEventId = newEv.getId();
-        }
-      }
-      // Once one time is confirmed, the other offered options are no longer
-      // relevant -- remove their tentative Calendar entries so the shared
-      // calendar doesn't stay cluttered with unused options.
-      slots.forEach(function(s){
-        if(String(s.id)===String(slot.id)) return;
-        if(!s.calendarEventId) return;
-        try{ var oev = cal.getEventById(s.calendarEventId); if(oev) oev.deleteEvent(); }catch(e){}
-      });
-    }catch(e){ /* Calendar issues are never allowed to block confirming the interview itself */ }
 
     t.getRange(idx+1, 50).setValue(JSON.stringify(slot));     // col 50 = index 49
     t.getRange(idx+1, 51).setValue(new Date().toISOString()); // col 51 = index 50
-    t.getRange(idx+1, 52).setValue(calendarEventId);           // col 52 = index 51
+    t.getRange(idx+1, 52).setValue('');                       // col 52 = index 51 (unused now -- kept for schema stability)
 
     if(email){
       try{
@@ -3943,16 +3900,16 @@ function confirmInterview(data){
           'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + slot.label + '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS');
       }catch(e){ /* don't fail the whole confirmation just because the email didn't send */ }
     }
-    return {success:true, slotLabel:slot.label, calendarEventId:calendarEventId};
+    return {success:true, slotLabel:slot.label};
   }catch(e){
     return {success:false, error:e.message};
   }
 }
 
 // Best-effort parser for the free-text slot labels HR types in (e.g. "Mon,
-// Aug 10 - 2:00 PM"). If it can't confidently parse a date, the Calendar
-// event is just skipped -- the confirmation email and in-app record still
-// go through either way, so this is a nice-to-have, not a dependency.
+// Aug 10 - 2:00 PM"). Used only to sort/group entries on the in-app Interview
+// Calendar page -- if it can't confidently parse a date, the option still
+// works fine, it just won't have a specific date to sort by.
 function parseSlotToDate(label){
   try{
     var cleaned = String(label).replace(/–|—/g,'-');
@@ -4333,6 +4290,7 @@ function showPage(id, btn) {
   if (id === 'board') renderBoard();
   if (id === 'eod') renderEodReport();
   if (id === 'sources') renderSourcesReport();
+  if (id === 'interviewcal') renderInterviewCalendar();
   if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); }
 }
 
@@ -5298,6 +5256,87 @@ function renderSourcesReport(){
     '"Still In Progress" just means no final outcome yet on our end -- it is NOT one single person deciding. Depending on where each applicant is, it could mean: we\'re still waiting on their assessments or interview results (nothing to do yet), HR/the Operations Manager still needs to interview or review them (our team\'s turn to act), or -- only for AP/AR applicants already sent out -- the client is the one deciding. Open the Tracker to see exactly which one applies to each person.</div>';
   var el = document.getElementById('sourcesContent');
   if(el) el.innerHTML = html;
+}
+
+// ============================================================
+// INTERVIEW CALENDAR -- native, in-app aggregate view across every
+// applicant's proposed/confirmed interview times. No external Calendar
+// involved (that turned out to need Google permissions this app doesn't
+// have and was more setup than it was worth) -- this is just the app's own
+// data, laid out so David/HR can see everything at a glance instead of
+// opening each applicant one by one.
+// ============================================================
+function getInterviewCalendarEntries(){
+  var apps = getApplicants();
+  var entries = [];
+  apps.forEach(function(a){
+    var slots = a.interviewSlots || [];
+    if(!slots.length) return;
+    var confirmed = a.confirmedSlot || null;
+    var picks = (a.candidateSlotPicks || []).map(String);
+    var status = confirmed ? 'confirmed' : (picks.length ? 'responded' : 'awaiting');
+    // Sort key: confirmed slot's date if confirmed, else the earliest
+    // parseable proposed date, else push to the end (unparseable/no date).
+    var sortSlot = confirmed || slots.slice().sort(function(x,y){
+      if(!x.startIso) return 1; if(!y.startIso) return -1; return new Date(x.startIso)-new Date(y.startIso);
+    })[0];
+    entries.push({
+      applicant: a, status: status, slots: slots, picks: picks,
+      contact: a.candidateContact || '', confirmed: confirmed,
+      sortIso: (sortSlot && sortSlot.startIso) || null
+    });
+  });
+  // Actionable first (responded-but-not-confirmed), then awaiting response,
+  // then confirmed (soonest first) -- mirrors the "Your Tasks" ordering
+  // pattern already used on the Dashboard.
+  var order = {responded:0, awaiting:1, confirmed:2};
+  entries.sort(function(x,y){
+    if(order[x.status]!==order[y.status]) return order[x.status]-order[y.status];
+    if(x.sortIso && y.sortIso) return new Date(x.sortIso)-new Date(y.sortIso);
+    if(x.sortIso) return -1; if(y.sortIso) return 1;
+    return 0;
+  });
+  return entries;
+}
+
+function openApplicantInterviewTab(id){
+  openApplicant(id);
+  jumpToModalTab('interview', id);
+}
+
+function renderInterviewCalendar(){
+  var el = document.getElementById('interviewCalContent');
+  if(!el) return;
+  var entries = getInterviewCalendarEntries();
+  if(!entries.length){
+    el.innerHTML = '<div style="font-size:13px;color:var(--gray400);padding:24px;text-align:center">No interview time options have been saved yet. Add some from an applicant\'s Interview tab.</div>';
+    return;
+  }
+  var statusMeta = {
+    awaiting: {label:'Awaiting candidate response', bg:'#fff8e1', tone:'#b45309'},
+    responded: {label:'Candidate responded — needs confirming', bg:'#eef2ff', tone:'#3730a3'},
+    confirmed: {label:'Confirmed', bg:'#eaf7f0', tone:'#166534'}
+  };
+  var html = entries.map(function(e){
+    var a = e.applicant;
+    var meta = statusMeta[e.status];
+    var slotList = e.slots.map(function(s){
+      var isPicked = e.picks.indexOf(String(s.id))!==-1;
+      var isConfirmed = e.confirmed && String(e.confirmed.id)===String(s.id);
+      return '<div style="font-size:12px;padding:4px 0' + (isConfirmed?';font-weight:700;color:#166534':'') + '">' +
+        (isConfirmed?'✓ ':(isPicked?'• ':'&nbsp;&nbsp;')) + s.label + (isPicked && !isConfirmed ? ' <span style="color:#166534">(candidate available)</span>' : '') +
+      '</div>';
+    }).join('');
+    return '<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openApplicantInterviewTab('+a.id+')">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">' +
+        '<div><div style="font-weight:700;font-size:15px">'+a.name+'</div><div style="font-size:12px;color:var(--gray400)">'+(a.position||'No position')+'</div></div>' +
+        '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:'+meta.bg+';color:'+meta.tone+'">'+meta.label+'</span>' +
+      '</div>' +
+      '<div style="margin-top:8px">'+slotList+'</div>' +
+      (e.contact ? '<div style="font-size:12px;color:#555;margin-top:6px">📞 '+e.contact+(e.status==='confirmed'?' — remember to call to confirm they\'re prepared':'')+'</div>' : '') +
+    '</div>';
+  }).join('');
+  el.innerHTML = html;
 }
 
 // ============================================================
