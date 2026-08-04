@@ -1702,18 +1702,32 @@ function buildAssessmentViewSummary(a){
   const views = a.assessmentViews || {};
   const rows = [['grit','GRIT Assessment'], ['values','Value-Integrity Assessment']];
   if(a.requiresEmm) rows.push(['emm','AR EMM Cognitive Assessment']);
+  // Tracking only exists for links sent AFTER this feature shipped -- someone
+  // already in the pipeline before that (invited on the old, untracked
+  // links) will never get a click timestamp, even though they may have
+  // completed everything. Rather than show a flatly wrong "Not yet opened"
+  // for someone who clearly did open it, fall back to "Completed" whenever
+  // we already have a real score/submission for that assessment.
   const rowsHtml = rows.map(function(r){
     const key = r[0], label = r[1];
     const viewedAt = views[key];
+    var completedFallback = false;
+    if(!viewedAt){
+      if(key==='grit') completedFallback = !!(a.grit && a.grit.score);
+      else if(key==='values') completedFallback = !!(a.values && a.values.score);
+      else if(key==='emm') completedFallback = !!(a.emm && a.emm.graded);
+    }
     const status = viewedAt
       ? `<span style="color:#166534;font-weight:600">✓ Opened</span> <span style="color:var(--gray400)">${new Date(viewedAt).toLocaleString()}</span>`
-      : `<span style="color:var(--gray400)">Not yet opened</span>`;
+      : completedFallback
+        ? `<span style="color:#166534;font-weight:600">✓ Completed</span> <span style="color:var(--gray400)">(sent before this tracking existed)</span>`
+        : `<span style="color:var(--gray400)">Not yet opened</span>`;
     return `<tr><td style="font-size:12px">${label}</td><td style="font-size:12px">${status}</td></tr>`;
   }).join('');
   return `<div class="assess-card" style="margin-bottom:14px">
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">🔗 Assessment Link Status</div>
     <table style="width:100%"><thead><tr><th style="font-size:11px">Assessment</th><th style="font-size:11px">Opened?</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-    <div style="font-size:11px;color:var(--gray400);margin-top:6px">This is separate from the email open status above — it only lights up once the candidate actually clicks through to the form itself, not just the email.</div>
+    <div style="font-size:11px;color:var(--gray400);margin-top:6px">This is separate from the email open status above — it only lights up once the candidate actually clicks through to the form itself, not just the email. "Completed" means we don't have a click timestamp (their invite predates this feature) but their submitted score proves they got there.</div>
   </div>`;
 }
 
