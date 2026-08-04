@@ -1893,131 +1893,81 @@ function printEmmReport(id){
   setTimeout(function(){ try{w.focus(); w.print();}catch(e){} }, 600);
 }
 
-// Interview-scheduling card at the top of the Interview tab. Fully native to
-// the app -- no Google Calendar involved. Two ways to collect availability:
-// (1) HR calls/texts the candidate directly and logs what they said right
-// here, or (2) HR sends the candidate a personal self-service link (no
-// login, no app knowledge needed -- same pattern as the assessment forms)
-// and the candidate checks off times themselves. Either way, the results
-// land in the same place, and David confirms one final time from here (or
-// from the aggregate Interview Calendar page).
+// Interview-scheduling card at the top of the Interview tab. HR's job here
+// is just to record what the candidate said on the call: their preferred
+// time (plus a backup, if they gave one) and their Viber/WhatsApp number.
+// One field for each, one Save button -- that's it. HR does NOT confirm
+// anything here; confirming which time actually happens is David's decision,
+// made only on the Interview Calendar page. Keeping that one action in one
+// place (instead of also offering it here) is deliberate -- it removed the
+// duplicate "Confirm" step that used to sit right next to HR's data entry.
 function buildSchedulingCard(a){
   const slots = a.interviewSlots || [];
-  const picks = (a.candidateSlotPicks || []).map(String);
   const contact = a.candidateContact || '';
   const confirmed = a.confirmedSlot || null;
-  const submittedAt = a.availabilitySubmittedAt || null;
-  const schedulingLink = (SCRIPT_URL && a.schedulingToken) ? (SCRIPT_URL + '?action=pickSlot&id=' + a.id + '&token=' + a.schedulingToken) : '';
 
-  const slotRows = slots.map(function(s){
-    const isPicked = picks.indexOf(String(s.id)) !== -1;
+  const timesList = slots.length ? ('<div style="margin-bottom:10px">' + slots.map(function(s){
     const isConfirmed = confirmed && String(confirmed.id)===String(s.id);
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid ${isConfirmed?'#a3d9bc':'#e0e0e8'};background:${isConfirmed?'#eaf7f0':'#fff'};border-radius:8px;margin-bottom:6px">
-      <label style="font-size:13px;display:flex;align-items:center;gap:8px;cursor:${confirmed?'default':'pointer'}">
-        ${!confirmed ? `<input type="checkbox" class="ivManualPick_${a.id}" value="${s.id}" ${isPicked?'checked':''}>` : ''}
-        ${s.label}${isPicked?' <span style="color:#166534;font-size:11px;font-weight:600">✓ candidate available</span>':''}${isConfirmed?' <span class="badge badge-pass" style="margin-left:6px">Confirmed</span>':''}
-      </label>
-      ${!confirmed ? `<button class="btn-sm" style="background:#3b3f8c;color:#fff;white-space:nowrap" onclick="confirmInterviewSlot(${a.id},'${s.id}')">Confirm This Time</button>` : ''}
-    </div>`;
-  }).join('');
+    return `<div style="font-size:13px;padding:6px 10px;border-radius:6px;margin-bottom:4px;background:${isConfirmed?'#eaf7f0':'#f4f4f8'};color:${isConfirmed?'#166534':'#333'};font-weight:${isConfirmed?'700':'400'}">${isConfirmed?'✓ ':''}${s.label}${isConfirmed?' — Confirmed':''}</div>`;
+  }).join('') + '</div>') : '';
 
   return `<div class="assess-card" style="margin-bottom:18px">
-    <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Scheduling</div>
-    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Type in a few time options (one per line) and save. Then either call/text the candidate yourself and check off what they said works below, or send them the self-service link so they pick themselves.</div>
-    <label class="lbl">Time Options (one per line)</label>
-    <textarea id="ivSlotsInput_${a.id}" style="min-height:80px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM">${slots.map(function(s){return s.label;}).join('\n')}</textarea>
-    <div style="margin-top:8px;margin-bottom:12px">
-      <button class="btn-sm" id="ivSaveBtn_${a.id}" style="background:#3b3f8c;color:#fff" onclick="saveInterviewSlots(${a.id})">💾 Save Time Options</button>
-    </div>
-    ${schedulingLink ? `<div style="margin-bottom:12px">
-      <label class="lbl">Candidate Self-Service Link (optional)</label>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <input class="inp" readonly value="${schedulingLink}" style="flex:1;min-width:180px;font-size:12px" onclick="this.select()">
-        <button class="btn-sm" onclick="navigator.clipboard.writeText('${schedulingLink}');showToast('✓ Link copied')">📋 Copy</button>
-        <button class="btn-sm" style="background:#0f9d58;color:#fff" onclick="goToSchedulingEmail(${a.id})">✉️ Email This Link</button>
-      </div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Time</div>
+    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Call the candidate. Get their preferred time (and a backup, if they have one) plus their Viber/WhatsApp number. Enter both below and save — this sends it straight to David to confirm.</div>
+    <label class="lbl">Time(s) They're Available (most preferred first)</label>
+    <textarea id="ivSlotsInput_${a.id}" style="min-height:70px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM (backup)" ${confirmed?'disabled':''}>${slots.map(function(s){return s.label;}).join('\n')}</textarea>
+    <label class="lbl" style="margin-top:10px">Candidate's Viber/WhatsApp Number</label>
+    <input class="inp" id="ivContactInput_${a.id}" value="${contact.replace(/"/g,'&quot;')}" placeholder="e.g. +63 917 123 4567" ${confirmed?'disabled':''}>
+    ${!confirmed ? `<div style="margin-top:10px;margin-bottom:12px">
+      <button class="btn-sm" id="ivSaveBtn_${a.id}" style="background:#3b3f8c;color:#fff" onclick="saveInterviewInfo(${a.id})">💾 Save &amp; Send to David</button>
     </div>` : ''}
-    ${slots.length ? `<div style="margin-bottom:6px">${slotRows}</div>` : `<div style="font-size:12px;color:var(--gray400);margin-bottom:6px">No time options saved yet.</div>`}
-    ${!confirmed && slots.length ? `<div style="margin-bottom:12px">
-      <label class="lbl">Candidate's Phone Number (for the call/text you already did)</label>
-      <input class="inp" id="ivContactInput_${a.id}" value="${contact.replace(/"/g,'&quot;')}" placeholder="e.g. +63 917 123 4567" style="margin-bottom:8px">
-      <button class="btn-sm" style="background:#166534;color:#fff" onclick="saveCandidateResponse(${a.id})">📞 Save What the Candidate Told You</button>
-      <div style="font-size:11px;color:var(--gray400);margin-top:4px">Check the boxes above for whichever times they said work, enter their number, then save.</div>
-    </div>` : ''}
-    ${(picks.length||contact) ? `<div style="font-size:12px;color:#555;margin-top:6px">Candidate response${submittedAt?(' — '+new Date(submittedAt).toLocaleString()):''}${contact?('. Phone: <strong>'+contact+'</strong>'):''}</div>` : ''}
-    ${confirmed ? `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3">✓ Confirmed for <strong>${confirmed.label}</strong> — confirmation email sent.${contact?(' Remember to call <strong>'+contact+"</strong> to confirm they're prepared."):''}</div>` : ''}
+    ${timesList}
+    ${confirmed
+      ? `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3">✓ Confirmed for <strong>${confirmed.label}</strong> — confirmation email sent.${contact?(' Remember to call <strong>'+contact+"</strong> to confirm they're prepared."):''}</div>`
+      : (slots.length ? `<div style="font-size:12px;color:#b45309;font-weight:600">⏳ Waiting for David to confirm a time on the Interview Calendar.</div>` : '')}
   </div>`;
 }
 
-// HR/David logs what the candidate said over the phone/SMS directly --
-// re-uses the same recordAvailability() the self-service link uses, just
-// triggered from inside the app instead of from the candidate's own click.
-async function saveCandidateResponse(id){
-  var a = getApplicant(id);
-  if(!a) return;
-  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script.'); return; }
-  if(!a.schedulingToken){ alert('Save at least one time option first.'); return; }
-  var checked = document.querySelectorAll('.ivManualPick_'+id+':checked');
-  var picks = Array.prototype.map.call(checked, function(el){ return el.value; });
+// One click, one save: records the candidate's preferred time(s) and phone
+// number together, exactly as HR heard them on the call. Under the hood
+// this still calls two backend actions (creating the time options, then
+// recording the candidate's number against them), but from HR's side it's
+// a single action -- there's nothing further to "confirm" here, since
+// whatever's typed in is already what the candidate said.
+async function saveInterviewInfo(id){
+  var linesEl = document.getElementById('ivSlotsInput_'+id);
   var contactEl = document.getElementById('ivContactInput_'+id);
+  if(!linesEl) return;
+  var lines = linesEl.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s;});
   var contact = contactEl ? contactEl.value.trim() : '';
-  var res = await apiPost('recordAvailability', {data:{id:id, token:a.schedulingToken, picks:picks, contact:contact}});
-  if(!res || !res.success){
-    alert('Could not save the candidate\'s response (' + (res && res.error || 'unknown error') + ').');
-    return;
-  }
-  showToast('✓ Candidate response saved');
-  await loadFromSheets();
-  var content=document.getElementById('modalTabContent');
-  if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
-}
-
-// Saves the free-text time options for this applicant. This calls the
-// backend (rather than just writing to local storage) so the real,
-// authoritative slot list -- including each option's best-effort parsed
-// date, used for sorting on the Interview Calendar page -- comes back and
-// stays in sync with what's in the Sheet.
-async function saveInterviewSlots(id){
-  var el = document.getElementById('ivSlotsInput_'+id);
-  if(!el) return;
-  var lines = el.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s;});
-  if(!lines.length){ alert('Enter at least one time option, one per line.'); return; }
+  if(!lines.length){ alert('Enter at least the time the candidate prefers.'); return; }
   if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script.'); return; }
   var btn = document.getElementById('ivSaveBtn_'+id);
   if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
   var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines}});
-  if(btn){ btn.disabled=false; btn.innerHTML='💾 Save Time Options'; }
   if(!res || !res.success){
-    alert('Could not save time options (' + (res && res.error || 'unknown error') + ').');
+    if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Send to David'; }
+    alert('Could not save (' + (res && res.error || 'unknown error') + ').');
     return;
+  }
+  var allSlotIds = res.slots.map(function(s){ return s.id; });
+  var res2 = await apiPost('recordAvailability', {data:{id:id, token:res.schedulingToken, picks:allSlotIds, contact:contact}});
+  if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Send to David'; }
+  if(!res2 || !res2.success){
+    alert('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.');
   }
   var apps=getApplicants();
   var a=apps.find(function(x){return x.id===id;});
   if(a){
     a.interviewSlots = res.slots;
     a.schedulingToken = res.schedulingToken;
+    a.candidateSlotPicks = allSlotIds;
+    a.candidateContact = contact;
     saveApplicants(apps);
   }
-  showToast('✓ Interview time options saved');
+  showToast('✓ Saved — sent to David for scheduling');
   var content=document.getElementById('modalTabContent');
   if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
-}
-
-async function confirmInterviewSlot(id, slotId){
-  var a=getApplicant(id);
-  if(!a) return;
-  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- cannot confirm from here.'); return; }
-  if(!confirm('Confirm this interview time? This will email the candidate a confirmation. You\'ll still need to call them separately to confirm they\'re prepared.')) return;
-  var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:a.candidateContact||''}});
-  if(res && res.success){
-    showToast('✓ Interview confirmed — confirmation email sent');
-    await loadFromSheets();
-    var content=document.getElementById('modalTabContent');
-    if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
-    refreshModalStageInfo(id);
-  } else {
-    alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + ').');
-  }
 }
 
 function buildInterviewTab(a){
@@ -5300,6 +5250,11 @@ function clientParseSlotDate(label){
 // One row per (applicant, slot) that should actually be shown. Once an
 // applicant has a confirmed slot, their other proposed options are hidden
 // here entirely -- they're no longer relevant and would just be clutter.
+// Two states only: "pending" (HR has entered the candidate's time + phone
+// number, waiting on David) and "confirmed" (David picked one). There's no
+// third "awaiting response" state -- HR always gets the time and number
+// together on the same phone call, so the moment it's saved, it's already
+// ready for David to act on.
 function getInterviewCalendarInstances(){
   var apps = getApplicants();
   var out = [];
@@ -5307,16 +5262,14 @@ function getInterviewCalendarInstances(){
     var slots = a.interviewSlots || [];
     if(!slots.length) return;
     var confirmed = a.confirmedSlot || null;
-    var picks = (a.candidateSlotPicks || []).map(String);
     var relevantSlots = confirmed ? slots.filter(function(s){ return String(s.id)===String(confirmed.id); }) : slots;
     relevantSlots.forEach(function(s){
       var isConfirmed = confirmed && String(confirmed.id)===String(s.id);
-      var isPicked = picks.indexOf(String(s.id)) !== -1;
       var date = clientParseSlotDate(s.label);
       out.push({
         applicantId: a.id, applicantName: a.name, position: a.position||'', contact: a.candidateContact||'',
         slotId: s.id, slotLabel: s.label, date: date, smsSentAt: a.smsSentAt||'',
-        status: isConfirmed ? 'confirmed' : (isPicked ? 'responded' : 'awaiting')
+        status: isConfirmed ? 'confirmed' : 'pending'
       });
     });
   });
@@ -5324,8 +5277,7 @@ function getInterviewCalendarInstances(){
 }
 
 var INTERVIEW_CAL_STATUS_META = {
-  awaiting: {label:'Awaiting response', bg:'#fff3cd', tone:'#92400e', border:'#f5d78e'},
-  responded: {label:'Candidate said yes', bg:'#e0e7ff', tone:'#3730a3', border:'#c7d2fe'},
+  pending: {label:'Ready to confirm', bg:'#e0e7ff', tone:'#3730a3', border:'#c7d2fe'},
   confirmed: {label:'Confirmed', bg:'#d1fae5', tone:'#166534', border:'#a3d9bc'}
 };
 
@@ -5447,8 +5399,7 @@ function renderInterviewCalendar(){
 function renderInterviewCalSidebar(instances){
   var sidebar = document.getElementById('interviewCalSidebar');
   if(!sidebar) return;
-  var awaiting = instances.filter(function(i){ return i.status==='awaiting'; });
-  var responded = instances.filter(function(i){ return i.status==='responded'; });
+  var pending = instances.filter(function(i){ return i.status==='pending'; });
   var confirmed = instances.filter(function(i){ return i.status==='confirmed'; });
   confirmed.sort(function(x,y){
     if(x.date && y.date) return x.date-y.date;
@@ -5507,8 +5458,7 @@ function renderInterviewCalSidebar(instances){
   }
 
   sidebar.innerHTML =
-    section('🔵 Ready to Confirm', responded, 'Nobody\'s responded yet.', false, false) +
-    section('🟠 Awaiting Response', awaiting, 'Nobody waiting right now.', false, false) +
+    section('🔵 Ready to Confirm', pending, 'Nothing waiting on you right now.', false, false) +
     section('✅ Confirmed', confirmed, 'No confirmed interviews yet.', true, true);
 }
 
@@ -5526,9 +5476,7 @@ function openInterviewCalDetail(applicantId, slotId){
   for(var i=0;i<slots.length;i++){ if(String(slots[i].id)===String(slotId)){ slot=slots[i]; break; } }
   if(!slot) return;
   var confirmed = a.confirmedSlot && String(a.confirmedSlot.id)===String(slotId);
-  var picks = (a.candidateSlotPicks||[]).map(String);
-  var isPicked = picks.indexOf(String(slotId))!==-1;
-  var status = confirmed ? 'confirmed' : (isPicked ? 'responded' : 'awaiting');
+  var status = confirmed ? 'confirmed' : 'pending';
   var meta = INTERVIEW_CAL_STATUS_META[status];
 
   var body = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">' +
