@@ -715,9 +715,12 @@ tbody tr:last-child td{border-bottom:none}
 <div id="page-interviewcal" class="page">
   <div style="margin-bottom:16px">
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Interview Calendar</h1>
-    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Click any time on the calendar to see the details and confirm — everything happens right here, no need to go anywhere else.</p>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Click any time — on the calendar or in the list on the right — to see the details and confirm. Everything happens right here, no need to go anywhere else.</p>
   </div>
-  <div id="interviewCalContent"></div>
+  <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+    <div id="interviewCalContent" style="flex:1;min-width:520px"></div>
+    <div id="interviewCalSidebar" style="width:320px;flex-shrink:0"></div>
+  </div>
 </div>
 
 <div id="interviewCalOverlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,30,.55);z-index:9000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeInterviewCalOverlay()">
@@ -3393,7 +3396,7 @@ function setupSheet(){
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
       'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL',
       'Offer Details JSON','Status Changed At',
-      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','Calendar Event ID']);
+      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','SMS Sent At']);
     t.getRange(1,1,1,52).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
@@ -3484,7 +3487,12 @@ function saveApplicant(d){
     existing?(existing[48]||''):'',
     existing?(existing[49]||''):'',
     existing?(existing[50]||''):'',
-    existing?(existing[51]||''):''];
+    // Column 52 used to hold a Calendar Event ID back when this synced to
+    // Google Calendar -- now repurposed for "SMS Sent At", HR's manual
+    // one-click confirmation that they texted the candidate. This one IS
+    // client-set (same pattern as Emails Sent), since it's just a simple
+    // checkbox-style action, not something a server action computes.
+    d.smsSentAt||''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -3541,7 +3549,7 @@ function getAllApplicants(){
       emailsOpened:emailsOpened,
       interviewSlots:interviewSlots,schedulingToken:r[45]||'',
       candidateSlotPicks:candidateSlotPicks,candidateContact:r[47]||'',availabilitySubmittedAt:r[48]||'',
-      confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',calendarEventId:r[51]||''
+      confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',smsSentAt:r[51]||''
     };
   });
 }
@@ -5307,7 +5315,7 @@ function getInterviewCalendarInstances(){
       var date = clientParseSlotDate(s.label);
       out.push({
         applicantId: a.id, applicantName: a.name, position: a.position||'', contact: a.candidateContact||'',
-        slotId: s.id, slotLabel: s.label, date: date,
+        slotId: s.id, slotLabel: s.label, date: date, smsSentAt: a.smsSentAt||'',
         status: isConfirmed ? 'confirmed' : (isPicked ? 'responded' : 'awaiting')
       });
     });
@@ -5341,6 +5349,7 @@ function renderInterviewCalendar(){
   var instances = getInterviewCalendarInstances();
   var undated = instances.filter(function(i){ return !i.date; });
   var dated = instances.filter(function(i){ return !!i.date; });
+  renderInterviewCalSidebar(instances);
 
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var year = interviewCalViewYear, month = interviewCalViewMonth;
@@ -5379,9 +5388,12 @@ function renderInterviewCalendar(){
     var chips = dayEntries.map(function(i){
       var meta = INTERVIEW_CAL_STATUS_META[i.status];
       var timeStr = i.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      // Confirmed chips show the candidate's phone number right on the
+      // calendar itself -- no extra click needed to see it.
+      var phoneLine = (i.status==='confirmed' && i.contact) ? ('<br><span style="font-weight:600;font-size:12px">📞 '+i.contact+'</span>') : '';
       return '<div onclick="event.stopPropagation();openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" ' +
         'style="cursor:pointer;background:'+meta.bg+';border:1.5px solid '+meta.border+';color:'+meta.tone+';border-radius:8px;padding:6px 8px;margin-bottom:4px;font-size:14px;font-weight:700;line-height:1.25">' +
-        timeStr + '<br><span style="font-weight:600;font-size:13px">' + i.applicantName + '</span>' +
+        timeStr + '<br><span style="font-weight:600;font-size:13px">' + i.applicantName + '</span>' + phoneLine +
       '</div>';
     }).join('');
     cellsHtml += '<div style="min-height:110px;background:#fff;border:1.5px solid '+(isToday?'#3b3f8c':'#eee')+';padding:6px;overflow-y:auto">' +
@@ -5427,11 +5439,85 @@ function renderInterviewCalendar(){
   el.innerHTML = html;
 }
 
+// Sidebar next to the grid, so David never has to hunt across months to
+// find who needs attention: candidates ready to confirm (most actionable,
+// shown first), candidates still awaiting a response, and confirmed
+// interviews grouped by day (Today / Tomorrow / date) -- this last section
+// is the "who to call/text today" list, phone number included right there.
+function renderInterviewCalSidebar(instances){
+  var sidebar = document.getElementById('interviewCalSidebar');
+  if(!sidebar) return;
+  var awaiting = instances.filter(function(i){ return i.status==='awaiting'; });
+  var responded = instances.filter(function(i){ return i.status==='responded'; });
+  var confirmed = instances.filter(function(i){ return i.status==='confirmed'; });
+  confirmed.sort(function(x,y){
+    if(x.date && y.date) return x.date-y.date;
+    if(x.date) return -1; if(y.date) return 1;
+    return 0;
+  });
+
+  var today = new Date();
+  function dayLabel(d){
+    if(!d) return 'No specific date';
+    var t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((dd-t)/86400000);
+    if(diff===0) return 'Today';
+    if(diff===1) return 'Tomorrow';
+    if(diff===-1) return 'Yesterday';
+    return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  }
+
+  function pillRow(i, showConfirmedExtras){
+    var meta = INTERVIEW_CAL_STATUS_META[i.status];
+    var timeStr = i.date ? i.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : i.slotLabel;
+    var extras = '';
+    if(showConfirmedExtras){
+      if(i.contact) extras += '<div style="font-size:12px;font-weight:700;margin-top:2px">📞 '+i.contact+'</div>';
+      extras += i.smsSentAt
+        ? '<div style="font-size:11px;color:#166534;margin-top:2px">✓ HR sent a text</div>'
+        : '<div style="margin-top:4px"><button onclick="event.stopPropagation();markSmsSentFromCal('+i.applicantId+')" class="btn-sm" style="font-size:11px;padding:4px 8px;background:#166534;color:#fff">📱 Mark HR Sent Text</button></div>';
+    }
+    return '<div onclick="openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" style="cursor:pointer;background:'+meta.bg+';border:1.5px solid '+meta.border+';border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
+      '<div style="font-weight:700;font-size:13px;color:'+meta.tone+'">'+i.applicantName+'</div>' +
+      '<div style="font-size:12px;color:'+meta.tone+'">'+timeStr+'</div>' + extras +
+    '</div>';
+  }
+
+  function section(title, items, emptyText, groupByDay, showConfirmedExtras){
+    var body;
+    if(!items.length){
+      body = '<div style="font-size:12px;color:var(--gray400);padding:4px 0 8px">'+emptyText+'</div>';
+    } else if(groupByDay){
+      var groups = {};
+      var order = [];
+      items.forEach(function(i){
+        var lbl = dayLabel(i.date);
+        if(!groups[lbl]){ groups[lbl]=[]; order.push(lbl); }
+        groups[lbl].push(i);
+      });
+      body = order.map(function(lbl){
+        return '<div style="font-size:11px;font-weight:800;color:var(--gray400);text-transform:uppercase;margin:8px 0 4px">'+lbl+'</div>' +
+          groups[lbl].map(function(i){ return pillRow(i, showConfirmedExtras); }).join('');
+      }).join('');
+    } else {
+      body = items.map(function(i){ return pillRow(i, showConfirmedExtras); }).join('');
+    }
+    return '<div style="margin-bottom:18px"><div style="font-weight:800;font-size:14px;margin-bottom:6px">'+title+' <span style="color:var(--gray400);font-weight:600">('+items.length+')</span></div>' + body + '</div>';
+  }
+
+  sidebar.innerHTML =
+    section('🔵 Ready to Confirm', responded, 'Nobody\'s responded yet.', false, false) +
+    section('🟠 Awaiting Response', awaiting, 'Nobody waiting right now.', false, false) +
+    section('✅ Confirmed', confirmed, 'No confirmed interviews yet.', true, true);
+}
+
 // Opens the single self-contained overlay -- shows everything David needs
 // (name, position, time, phone number, status) and, if not yet confirmed, a
 // big Confirm button. Confirming here sends the candidate's confirmation
-// email immediately and updates both the overlay and the grid behind it in
-// place, so there is never a reason to navigate away from this page.
+// email immediately, declines the applicant's other proposed times, and
+// updates both the overlay and the grid/sidebar behind it in place, so
+// there is never a reason to navigate away from this page.
 function openInterviewCalDetail(applicantId, slotId){
   var a = getApplicant(applicantId);
   if(!a) return;
@@ -5460,11 +5546,16 @@ function openInterviewCalDetail(applicantId, slotId){
   }
 
   if(confirmed){
-    body += '<div style="padding:12px 14px;border-radius:10px;background:#eaf7f0;border:1.5px solid #a3d9bc;font-size:14px;color:#166534;margin-bottom:8px">✓ Confirmed — a confirmation email has been sent to the candidate.' +
+    body += '<div style="padding:12px 14px;border-radius:10px;background:#eaf7f0;border:1.5px solid #a3d9bc;font-size:14px;color:#166534;margin-bottom:10px">✓ Confirmed — a confirmation email has been sent to the candidate. Their other proposed times have been declined.' +
       (a.candidateContact ? ' Remember to call them to confirm they\'re prepared.' : '') + '</div>';
+    if(a.candidateContact){
+      body += a.smsSentAt
+        ? '<div style="font-size:13px;color:#166534;font-weight:700">✓ HR sent a text message ('+new Date(a.smsSentAt).toLocaleString()+')</div>'
+        : '<button class="btn btn-full" style="font-size:15px;padding:12px;background:#166534;color:#fff" onclick="markSmsSentFromCal('+a.id+')">📱 HR Sent Text Message — Mark Done</button>';
+    }
   } else {
     body += '<button id="interviewCalConfirmBtn" class="btn btn-primary btn-full" style="font-size:16px;padding:14px" onclick="confirmInterviewCalSlot('+a.id+',\''+String(slot.id).replace(/'/g,"\\'")+'\')">✓ Confirm This Time</button>' +
-      '<div style="font-size:12px;color:var(--gray400);margin-top:8px">This sends the candidate a confirmation email right away.</div>';
+      '<div style="font-size:12px;color:var(--gray400);margin-top:8px">This sends the candidate a confirmation email and declines their other proposed times.</div>';
   }
 
   document.getElementById('interviewCalOverlayBody').innerHTML = body;
@@ -5482,13 +5573,29 @@ async function confirmInterviewCalSlot(id, slotId){
   if(btn){ btn.disabled=true; btn.textContent='Confirming...'; }
   var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:(a&&a.candidateContact)||''}});
   if(res && res.success){
-    showToast('✓ Interview confirmed — confirmation email sent');
+    showToast('✓ Interview confirmed — confirmation email sent, other times declined');
     await loadFromSheets();
     renderInterviewCalendar();
     openInterviewCalDetail(id, slotId); // refresh the overlay in place to show the confirmed state
   } else {
     if(btn){ btn.disabled=false; btn.innerHTML='✓ Confirm This Time'; }
     alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + ').');
+  }
+}
+
+// HR's one-click "I already texted them" confirmation -- this app can't send
+// SMS itself, so this is just a record so nothing gets missed or double-sent.
+async function markSmsSentFromCal(id){
+  var apps = getApplicants();
+  var a = apps.find(function(x){ return x.id===id; });
+  if(!a) return;
+  a.smsSentAt = new Date().toISOString();
+  saveApplicants(apps);
+  syncApplicantToSheets(a);
+  showToast('✓ Marked as texted');
+  renderInterviewCalendar();
+  if(document.getElementById('interviewCalOverlay').style.display==='flex' && a.confirmedSlot){
+    openInterviewCalDetail(id, a.confirmedSlot.id);
   }
 }
 
