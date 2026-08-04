@@ -713,11 +713,17 @@ tbody tr:last-child td{border-bottom:none}
 </div>
 
 <div id="page-interviewcal" class="page">
-  <div style="margin-bottom:24px">
+  <div style="margin-bottom:16px">
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Interview Calendar</h1>
-    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Every applicant's proposed interview times in one place — no need to open each one individually. Click a name to jump to their Interview tab.</p>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Click any time on the calendar to see the details and confirm — everything happens right here, no need to go anywhere else.</p>
   </div>
   <div id="interviewCalContent"></div>
+</div>
+
+<div id="interviewCalOverlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,30,.55);z-index:9000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeInterviewCalOverlay()">
+  <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div id="interviewCalOverlayBody"></div>
+  </div>
 </div>
 
 <div id="page-grade" class="page">
@@ -5259,84 +5265,231 @@ function renderSourcesReport(){
 }
 
 // ============================================================
-// INTERVIEW CALENDAR -- native, in-app aggregate view across every
-// applicant's proposed/confirmed interview times. No external Calendar
-// involved (that turned out to need Google permissions this app doesn't
-// have and was more setup than it was worth) -- this is just the app's own
-// data, laid out so David/HR can see everything at a glance instead of
-// opening each applicant one by one.
+// INTERVIEW CALENDAR -- a real month-grid calendar, fully native to the app
+// (no Google Calendar). Built specifically so David can stay on ONE screen:
+// click a time on the grid, see the details (including the candidate's
+// phone number) and confirm right there in an overlay, no navigating to a
+// different page or opening the big applicant profile. Confirmed slots turn
+// green immediately, on the same grid.
+//
+// Dates are parsed fresh here on the client (not from the server's stored
+// startIso) so the day/time shown always matches whoever is looking at the
+// screen's own local time, instead of depending on the Apps Script
+// project's server-side timezone setting.
 // ============================================================
-function getInterviewCalendarEntries(){
+var interviewCalViewYear = new Date().getFullYear();
+var interviewCalViewMonth = new Date().getMonth(); // 0-11
+
+function clientParseSlotDate(label){
+  try{
+    var cleaned = String(label).replace(/–|—/g,'-');
+    var d = new Date(cleaned.replace(/-\s*/,' '));
+    if(isNaN(d.getTime())) return null;
+    return d;
+  }catch(e){ return null; }
+}
+
+// One row per (applicant, slot) that should actually be shown. Once an
+// applicant has a confirmed slot, their other proposed options are hidden
+// here entirely -- they're no longer relevant and would just be clutter.
+function getInterviewCalendarInstances(){
   var apps = getApplicants();
-  var entries = [];
+  var out = [];
   apps.forEach(function(a){
     var slots = a.interviewSlots || [];
     if(!slots.length) return;
     var confirmed = a.confirmedSlot || null;
     var picks = (a.candidateSlotPicks || []).map(String);
-    var status = confirmed ? 'confirmed' : (picks.length ? 'responded' : 'awaiting');
-    // Sort key: confirmed slot's date if confirmed, else the earliest
-    // parseable proposed date, else push to the end (unparseable/no date).
-    var sortSlot = confirmed || slots.slice().sort(function(x,y){
-      if(!x.startIso) return 1; if(!y.startIso) return -1; return new Date(x.startIso)-new Date(y.startIso);
-    })[0];
-    entries.push({
-      applicant: a, status: status, slots: slots, picks: picks,
-      contact: a.candidateContact || '', confirmed: confirmed,
-      sortIso: (sortSlot && sortSlot.startIso) || null
+    var relevantSlots = confirmed ? slots.filter(function(s){ return String(s.id)===String(confirmed.id); }) : slots;
+    relevantSlots.forEach(function(s){
+      var isConfirmed = confirmed && String(confirmed.id)===String(s.id);
+      var isPicked = picks.indexOf(String(s.id)) !== -1;
+      var date = clientParseSlotDate(s.label);
+      out.push({
+        applicantId: a.id, applicantName: a.name, position: a.position||'', contact: a.candidateContact||'',
+        slotId: s.id, slotLabel: s.label, date: date,
+        status: isConfirmed ? 'confirmed' : (isPicked ? 'responded' : 'awaiting')
+      });
     });
   });
-  // Actionable first (responded-but-not-confirmed), then awaiting response,
-  // then confirmed (soonest first) -- mirrors the "Your Tasks" ordering
-  // pattern already used on the Dashboard.
-  var order = {responded:0, awaiting:1, confirmed:2};
-  entries.sort(function(x,y){
-    if(order[x.status]!==order[y.status]) return order[x.status]-order[y.status];
-    if(x.sortIso && y.sortIso) return new Date(x.sortIso)-new Date(y.sortIso);
-    if(x.sortIso) return -1; if(y.sortIso) return 1;
-    return 0;
-  });
-  return entries;
+  return out;
 }
 
-function openApplicantInterviewTab(id){
-  openApplicant(id);
-  jumpToModalTab('interview', id);
+var INTERVIEW_CAL_STATUS_META = {
+  awaiting: {label:'Awaiting response', bg:'#fff3cd', tone:'#92400e', border:'#f5d78e'},
+  responded: {label:'Candidate said yes', bg:'#e0e7ff', tone:'#3730a3', border:'#c7d2fe'},
+  confirmed: {label:'Confirmed', bg:'#d1fae5', tone:'#166534', border:'#a3d9bc'}
+};
+
+function changeInterviewCalMonth(delta){
+  interviewCalViewMonth += delta;
+  if(interviewCalViewMonth<0){ interviewCalViewMonth=11; interviewCalViewYear--; }
+  if(interviewCalViewMonth>11){ interviewCalViewMonth=0; interviewCalViewYear++; }
+  renderInterviewCalendar();
+}
+
+function goToInterviewCalToday(){
+  var t = new Date();
+  interviewCalViewYear = t.getFullYear();
+  interviewCalViewMonth = t.getMonth();
+  renderInterviewCalendar();
 }
 
 function renderInterviewCalendar(){
   var el = document.getElementById('interviewCalContent');
   if(!el) return;
-  var entries = getInterviewCalendarEntries();
-  if(!entries.length){
-    el.innerHTML = '<div style="font-size:13px;color:var(--gray400);padding:24px;text-align:center">No interview time options have been saved yet. Add some from an applicant\'s Interview tab.</div>';
-    return;
-  }
-  var statusMeta = {
-    awaiting: {label:'Awaiting candidate response', bg:'#fff8e1', tone:'#b45309'},
-    responded: {label:'Candidate responded — needs confirming', bg:'#eef2ff', tone:'#3730a3'},
-    confirmed: {label:'Confirmed', bg:'#eaf7f0', tone:'#166534'}
-  };
-  var html = entries.map(function(e){
-    var a = e.applicant;
-    var meta = statusMeta[e.status];
-    var slotList = e.slots.map(function(s){
-      var isPicked = e.picks.indexOf(String(s.id))!==-1;
-      var isConfirmed = e.confirmed && String(e.confirmed.id)===String(s.id);
-      return '<div style="font-size:12px;padding:4px 0' + (isConfirmed?';font-weight:700;color:#166534':'') + '">' +
-        (isConfirmed?'✓ ':(isPicked?'• ':'&nbsp;&nbsp;')) + s.label + (isPicked && !isConfirmed ? ' <span style="color:#166534">(candidate available)</span>' : '') +
+  var instances = getInterviewCalendarInstances();
+  var undated = instances.filter(function(i){ return !i.date; });
+  var dated = instances.filter(function(i){ return !!i.date; });
+
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var year = interviewCalViewYear, month = interviewCalViewMonth;
+  var firstOfMonth = new Date(year, month, 1);
+  var startWeekday = firstOfMonth.getDay(); // 0=Sun
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  var today = new Date();
+  var isCurrentMonth = (today.getFullYear()===year && today.getMonth()===month);
+
+  // Bucket dated instances by day-of-month for this year/month only.
+  var byDay = {};
+  dated.forEach(function(i){
+    if(i.date.getFullYear()===year && i.date.getMonth()===month){
+      var day = i.date.getDate();
+      if(!byDay[day]) byDay[day] = [];
+      byDay[day].push(i);
+    }
+  });
+  Object.keys(byDay).forEach(function(day){
+    byDay[day].sort(function(x,y){ return x.date-y.date; });
+  });
+
+  var totalCells = Math.ceil((startWeekday+daysInMonth)/7)*7;
+  var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  var cellsHtml = '';
+  for(var c=0;c<totalCells;c++){
+    var dayNum = c-startWeekday+1;
+    var inMonth = dayNum>=1 && dayNum<=daysInMonth;
+    var isToday = inMonth && isCurrentMonth && dayNum===today.getDate();
+    if(!inMonth){
+      cellsHtml += '<div style="min-height:110px;background:#fafafa;border:1px solid #eee"></div>';
+      continue;
+    }
+    var dayEntries = byDay[dayNum] || [];
+    var chips = dayEntries.map(function(i){
+      var meta = INTERVIEW_CAL_STATUS_META[i.status];
+      var timeStr = i.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      return '<div onclick="event.stopPropagation();openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" ' +
+        'style="cursor:pointer;background:'+meta.bg+';border:1.5px solid '+meta.border+';color:'+meta.tone+';border-radius:8px;padding:6px 8px;margin-bottom:4px;font-size:14px;font-weight:700;line-height:1.25">' +
+        timeStr + '<br><span style="font-weight:600;font-size:13px">' + i.applicantName + '</span>' +
       '</div>';
     }).join('');
-    return '<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openApplicantInterviewTab('+a.id+')">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">' +
-        '<div><div style="font-weight:700;font-size:15px">'+a.name+'</div><div style="font-size:12px;color:var(--gray400)">'+(a.position||'No position')+'</div></div>' +
-        '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:'+meta.bg+';color:'+meta.tone+'">'+meta.label+'</span>' +
-      '</div>' +
-      '<div style="margin-top:8px">'+slotList+'</div>' +
-      (e.contact ? '<div style="font-size:12px;color:#555;margin-top:6px">📞 '+e.contact+(e.status==='confirmed'?' — remember to call to confirm they\'re prepared':'')+'</div>' : '') +
+    cellsHtml += '<div style="min-height:110px;background:#fff;border:1.5px solid '+(isToday?'#3b3f8c':'#eee')+';padding:6px;overflow-y:auto">' +
+      '<div style="font-weight:800;font-size:14px;color:'+(isToday?'#3b3f8c':'#888')+';margin-bottom:4px">'+dayNum+(isToday?' • Today':'')+'</div>' +
+      chips +
     '</div>';
-  }).join('');
+  }
+
+  var undatedHtml = undated.length ? ('<div style="margin-bottom:16px">' +
+    '<div style="font-weight:700;font-size:14px;margin-bottom:8px">⚠️ Needs a specific date (couldn\'t tell the exact day from the text entered)</div>' +
+    undated.map(function(i){
+      var meta = INTERVIEW_CAL_STATUS_META[i.status];
+      return '<div onclick="openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" style="cursor:pointer;display:inline-block;background:'+meta.bg+';border:1.5px solid '+meta.border+';color:'+meta.tone+';border-radius:8px;padding:8px 12px;margin:0 8px 8px 0;font-size:14px;font-weight:700">' +
+        i.applicantName + ' — ' + i.slotLabel +
+      '</div>';
+    }).join('') +
+  '</div>') : '';
+
+  var legendHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:13px">' +
+    Object.keys(INTERVIEW_CAL_STATUS_META).map(function(k){
+      var m = INTERVIEW_CAL_STATUS_META[k];
+      return '<div style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:4px;background:'+m.bg+';border:1.5px solid '+m.border+';display:inline-block"></span>'+m.label+'</div>';
+    }).join('') + '</div>';
+
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">' +
+    '<div style="font-size:19px;font-weight:800">'+monthNames[month]+' '+year+'</div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn-sm" style="font-size:15px;padding:8px 14px" onclick="changeInterviewCalMonth(-1)">◀ Prev</button>' +
+      '<button class="btn-sm" style="font-size:15px;padding:8px 14px" onclick="goToInterviewCalToday()">Today</button>' +
+      '<button class="btn-sm" style="font-size:15px;padding:8px 14px" onclick="changeInterviewCalMonth(1)">Next ▶</button>' +
+    '</div>' +
+  '</div>' +
+  legendHtml + undatedHtml +
+  '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:#eee;border:1px solid #eee">' +
+    dayNames.map(function(d){ return '<div style="background:#f4f4f8;padding:8px;text-align:center;font-weight:800;font-size:13px;color:#555">'+d+'</div>'; }).join('') +
+    cellsHtml +
+  '</div>';
+
+  if(!instances.length){
+    html += '<div style="font-size:14px;color:var(--gray400);padding:24px;text-align:center">No interview time options have been saved yet. Add some from an applicant\'s Interview tab.</div>';
+  }
+
   el.innerHTML = html;
+}
+
+// Opens the single self-contained overlay -- shows everything David needs
+// (name, position, time, phone number, status) and, if not yet confirmed, a
+// big Confirm button. Confirming here sends the candidate's confirmation
+// email immediately and updates both the overlay and the grid behind it in
+// place, so there is never a reason to navigate away from this page.
+function openInterviewCalDetail(applicantId, slotId){
+  var a = getApplicant(applicantId);
+  if(!a) return;
+  var slots = a.interviewSlots || [];
+  var slot = null;
+  for(var i=0;i<slots.length;i++){ if(String(slots[i].id)===String(slotId)){ slot=slots[i]; break; } }
+  if(!slot) return;
+  var confirmed = a.confirmedSlot && String(a.confirmedSlot.id)===String(slotId);
+  var picks = (a.candidateSlotPicks||[]).map(String);
+  var isPicked = picks.indexOf(String(slotId))!==-1;
+  var status = confirmed ? 'confirmed' : (isPicked ? 'responded' : 'awaiting');
+  var meta = INTERVIEW_CAL_STATUS_META[status];
+
+  var body = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">' +
+      '<div><div style="font-size:20px;font-weight:800">'+a.name+'</div><div style="font-size:14px;color:var(--gray400)">'+(a.position||'No position')+'</div></div>' +
+      '<button onclick="closeInterviewCalOverlay()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#999;line-height:1">&times;</button>' +
+    '</div>' +
+    '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--gray400);margin-bottom:2px">Proposed Time</div>' +
+    '<div style="font-size:18px;font-weight:700;margin-bottom:10px">'+slot.label+'</div>' +
+    '<div style="display:inline-block;font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;background:'+meta.bg+';color:'+meta.tone+';margin-bottom:14px">'+meta.label+'</div>';
+
+  if(a.candidateContact){
+    body += '<div style="font-size:16px;font-weight:700;margin-bottom:14px">📞 '+a.candidateContact+'</div>';
+  } else {
+    body += '<div style="font-size:14px;color:var(--gray400);margin-bottom:14px">No phone number on file yet for this candidate.</div>';
+  }
+
+  if(confirmed){
+    body += '<div style="padding:12px 14px;border-radius:10px;background:#eaf7f0;border:1.5px solid #a3d9bc;font-size:14px;color:#166534;margin-bottom:8px">✓ Confirmed — a confirmation email has been sent to the candidate.' +
+      (a.candidateContact ? ' Remember to call them to confirm they\'re prepared.' : '') + '</div>';
+  } else {
+    body += '<button id="interviewCalConfirmBtn" class="btn btn-primary btn-full" style="font-size:16px;padding:14px" onclick="confirmInterviewCalSlot('+a.id+',\''+String(slot.id).replace(/'/g,"\\'")+'\')">✓ Confirm This Time</button>' +
+      '<div style="font-size:12px;color:var(--gray400);margin-top:8px">This sends the candidate a confirmation email right away.</div>';
+  }
+
+  document.getElementById('interviewCalOverlayBody').innerHTML = body;
+  document.getElementById('interviewCalOverlay').style.display = 'flex';
+}
+
+function closeInterviewCalOverlay(){
+  document.getElementById('interviewCalOverlay').style.display = 'none';
+}
+
+async function confirmInterviewCalSlot(id, slotId){
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- cannot confirm from here.'); return; }
+  var a = getApplicant(id);
+  var btn = document.getElementById('interviewCalConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Confirming...'; }
+  var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:(a&&a.candidateContact)||''}});
+  if(res && res.success){
+    showToast('✓ Interview confirmed — confirmation email sent');
+    await loadFromSheets();
+    renderInterviewCalendar();
+    openInterviewCalDetail(id, slotId); // refresh the overlay in place to show the confirmed state
+  } else {
+    if(btn){ btn.disabled=false; btn.innerHTML='✓ Confirm This Time'; }
+    alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + ').');
+  }
 }
 
 // ============================================================
