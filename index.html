@@ -1944,18 +1944,42 @@ async function saveInterviewInfo(id){
   if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script.'); return; }
   var btn = document.getElementById('ivSaveBtn_'+id);
   if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
+
   var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines}});
   if(!res || !res.success){
-    if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
-    alert('Could not save (' + (res && res.error || 'unknown error') + ').');
-    return;
+    // Same class of issue as the calendar's Confirm button: the save may
+    // have actually gone through on Google's side even though the response
+    // didn't make it back cleanly. Re-check the Sheet directly (a plain
+    // read, not a retry -- retrying this particular action would generate a
+    // brand new set of slot IDs and risk duplicating what's already there)
+    // before telling HR it failed.
+    await loadFromSheets();
+    var recheck1 = getApplicant(id);
+    var savedLabels = recheck1 ? (recheck1.interviewSlots||[]).map(function(s){return s.label;}) : [];
+    if(savedLabels.length===lines.length && lines.every(function(l,i){return savedLabels[i]===l;})){
+      res = {success:true, slots:recheck1.interviewSlots, schedulingToken:recheck1.schedulingToken};
+    } else {
+      if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
+      alert('Could not save (' + (res && res.error || 'unknown error') + '). Please try again.');
+      return;
+    }
   }
+
   var allSlotIds = res.slots.map(function(s){ return s.id; });
   var res2 = await apiPost('recordAvailability', {data:{id:id, token:res.schedulingToken, picks:allSlotIds, contact:contact}});
   if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
   if(!res2 || !res2.success){
-    alert('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.');
+    // Same self-healing check for the phone-number save -- recordAvailability
+    // is a plain overwrite of the same fields, so a read-only re-check here
+    // is always safe (nothing gets duplicated by checking).
+    await loadFromSheets();
+    var recheck2 = getApplicant(id);
+    var actuallySaved = recheck2 && recheck2.candidateContact===contact;
+    if(!actuallySaved){
+      alert('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.');
+    }
   }
+
   var apps=getApplicants();
   var a=apps.find(function(x){return x.id===id;});
   if(a){
