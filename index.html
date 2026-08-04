@@ -5276,8 +5276,31 @@ var interviewCalViewMonth = new Date().getMonth(); // 0-11
 function clientParseSlotDate(label){
   try{
     var cleaned = String(label).replace(/–|—/g,'-');
-    var d = new Date(cleaned.replace(/-\s*/,' '));
+    // HR almost never types a year (e.g. "Wed, Aug 05, 3:00 PM") -- and when
+    // no year is present, the browser's own Date parser silently guesses
+    // the year 2001 instead of the current year. That's invisible in the
+    // sidebar (which doesn't group by month) but breaks the calendar grid:
+    // the entry gets bucketed into August 2001 and never appears on the
+    // real August 2026 page. Fix: explicitly inject the current year when
+    // none is present, before handing the string to Date().
+    var hasYear = /\b\d{4}\b/.test(cleaned);
+    var toParse = cleaned;
+    if(!hasYear){
+      var year = new Date().getFullYear();
+      var monthDayMatch = cleaned.match(/([A-Za-z]{3,9}\.?\s+\d{1,2})/);
+      if(monthDayMatch){
+        toParse = cleaned.replace(monthDayMatch[0], monthDayMatch[0] + ', ' + year);
+      }
+    }
+    var d = new Date(toParse.replace(/-\s*/,' '));
     if(isNaN(d.getTime())) return null;
+    if(!hasYear){
+      // If assuming this year puts the date more than a month in the past,
+      // HR was almost certainly scheduling into next year instead (e.g.
+      // typing a January date in late December).
+      var diffDays = (d - new Date()) / 86400000;
+      if(diffDays < -30) d.setFullYear(d.getFullYear()+1);
+    }
     return d;
   }catch(e){ return null; }
 }
