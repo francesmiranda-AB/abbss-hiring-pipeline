@@ -1913,13 +1913,13 @@ function buildSchedulingCard(a){
 
   return `<div class="assess-card" style="margin-bottom:18px">
     <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Time</div>
-    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Call the candidate. Get their preferred time (and a backup, if they have one) plus their Viber/WhatsApp number. Enter both below and save — this sends it straight to David to confirm.</div>
+    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Call the candidate. Get their preferred time (and a backup, if they have one) plus their Viber/WhatsApp number. Enter both below and save — this adds it to the Interview Calendar for David to confirm.</div>
     <label class="lbl">Time(s) They're Available (most preferred first)</label>
     <textarea id="ivSlotsInput_${a.id}" style="min-height:70px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM (backup)" ${confirmed?'disabled':''}>${slots.map(function(s){return s.label;}).join('\n')}</textarea>
     <label class="lbl" style="margin-top:10px">Candidate's Viber/WhatsApp Number</label>
     <input class="inp" id="ivContactInput_${a.id}" value="${contact.replace(/"/g,'&quot;')}" placeholder="e.g. +63 917 123 4567" ${confirmed?'disabled':''}>
     ${!confirmed ? `<div style="margin-top:10px;margin-bottom:12px">
-      <button class="btn-sm" id="ivSaveBtn_${a.id}" style="background:#3b3f8c;color:#fff" onclick="saveInterviewInfo(${a.id})">💾 Save &amp; Send to David</button>
+      <button class="btn-sm" id="ivSaveBtn_${a.id}" style="background:#3b3f8c;color:#fff" onclick="saveInterviewInfo(${a.id})">💾 Save &amp; Add to Calendar</button>
     </div>` : ''}
     ${timesList}
     ${confirmed
@@ -1946,13 +1946,13 @@ async function saveInterviewInfo(id){
   if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
   var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines}});
   if(!res || !res.success){
-    if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Send to David'; }
+    if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
     alert('Could not save (' + (res && res.error || 'unknown error') + ').');
     return;
   }
   var allSlotIds = res.slots.map(function(s){ return s.id; });
   var res2 = await apiPost('recordAvailability', {data:{id:id, token:res.schedulingToken, picks:allSlotIds, contact:contact}});
-  if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Send to David'; }
+  if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
   if(!res2 || !res2.success){
     alert('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.');
   }
@@ -1965,7 +1965,7 @@ async function saveInterviewInfo(id){
     a.candidateContact = contact;
     saveApplicants(apps);
   }
-  showToast('✓ Saved — sent to David for scheduling');
+  showToast('✓ Saved — added to the Interview Calendar');
   var content=document.getElementById('modalTabContent');
   if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
 }
