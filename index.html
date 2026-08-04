@@ -1847,6 +1847,88 @@ function printEmmReport(id){
   setTimeout(function(){ try{w.focus(); w.print();}catch(e){} }, 600);
 }
 
+// Interview-scheduling card at the top of the Interview tab. HR/David types
+// free-text time options in, we generate a personal (no-login, no
+// app-knowledge-needed) link the candidate can open to check off times that
+// work and leave a Viber/WhatsApp number; David then picks one final slot,
+// which creates a Calendar event and emails the candidate a confirmation.
+function buildSchedulingCard(a){
+  const slots = a.interviewSlots || [];
+  const picks = (a.candidateSlotPicks || []).map(String);
+  const contact = a.candidateContact || '';
+  const confirmed = a.confirmedSlot || null;
+  const submittedAt = a.availabilitySubmittedAt || null;
+  const schedulingLink = (SCRIPT_URL && a.schedulingToken) ? (SCRIPT_URL + '?action=pickSlot&id=' + a.id + '&token=' + a.schedulingToken) : '';
+
+  const slotRows = slots.map(function(s){
+    const isPicked = picks.indexOf(String(s.id)) !== -1;
+    const isConfirmed = confirmed && String(confirmed.id)===String(s.id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid ${isConfirmed?'#a3d9bc':'#e0e0e8'};background:${isConfirmed?'#eaf7f0':'#fff'};border-radius:8px;margin-bottom:6px">
+      <div style="font-size:13px">${s.label}${isPicked?' <span style="color:#166534;font-size:11px;font-weight:600">✓ candidate available</span>':''}${isConfirmed?' <span class="badge badge-pass" style="margin-left:6px">Confirmed</span>':''}</div>
+      ${!confirmed ? `<button class="btn-sm" style="background:#3b3f8c;color:#fff;white-space:nowrap" onclick="confirmInterviewSlot(${a.id},'${s.id}')">Confirm This Time</button>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="assess-card" style="margin-bottom:18px">
+    <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Scheduling</div>
+    <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Enter a few candidate-facing time options (one per line), save, then send the candidate their personal scheduling link. They don't need to know about this app — it just looks like a simple page, same as the assessment forms.</div>
+    <label class="lbl">Time Options (one per line)</label>
+    <textarea id="ivSlotsInput_${a.id}" style="min-height:80px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM">${slots.map(function(s){return s.label;}).join('\n')}</textarea>
+    <div style="margin-top:8px;margin-bottom:12px">
+      <button class="btn-sm" style="background:#3b3f8c;color:#fff" onclick="saveInterviewSlots(${a.id})">💾 Save Time Options</button>
+    </div>
+    ${schedulingLink ? `<div style="margin-bottom:12px">
+      <label class="lbl">Candidate Scheduling Link</label>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input class="inp" readonly value="${schedulingLink}" style="flex:1;min-width:180px;font-size:12px" onclick="this.select()">
+        <button class="btn-sm" onclick="navigator.clipboard.writeText('${schedulingLink}');showToast('✓ Link copied')">📋 Copy</button>
+        <button class="btn-sm" style="background:#0f9d58;color:#fff" onclick="goToSchedulingEmail(${a.id})">✉️ Email This Link</button>
+      </div>
+    </div>` : ''}
+    ${slots.length ? `<div style="margin-bottom:6px">${slotRows}</div>` : `<div style="font-size:12px;color:var(--gray400);margin-bottom:6px">No time options saved yet.</div>`}
+    ${(picks.length||contact) ? `<div style="font-size:12px;color:#555;margin-top:6px">Candidate response${submittedAt?(' — '+new Date(submittedAt).toLocaleString()):''}${contact?('. Viber/WhatsApp: <strong>'+contact+'</strong>'):''}</div>` : ''}
+    ${confirmed ? `<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3">✓ Confirmed for <strong>${confirmed.label}</strong>${a.calendarEventId?' — Calendar event created.':' — Calendar event was not created (time format not recognized); please add it to the calendar manually.'}</div>` : ''}
+  </div>`;
+}
+
+function generateSchedulingTokenClient(){
+  return 'tok' + Date.now() + '_' + Math.random().toString(36).slice(2,10);
+}
+
+function saveInterviewSlots(id){
+  var el = document.getElementById('ivSlotsInput_'+id);
+  if(!el) return;
+  var lines = el.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s;});
+  if(!lines.length){ alert('Enter at least one time option, one per line.'); return; }
+  var apps=getApplicants();
+  var a=apps.find(function(x){return x.id===id;});
+  if(!a) return;
+  a.interviewSlots = lines.map(function(label,i){ return {id:'slot'+i+'_'+Date.now(), label:label}; });
+  if(!a.schedulingToken) a.schedulingToken = generateSchedulingTokenClient();
+  saveApplicants(apps);
+  syncApplicantToSheets(a);
+  showToast('✓ Interview time options saved');
+  var content=document.getElementById('modalTabContent');
+  if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
+}
+
+async function confirmInterviewSlot(id, slotId){
+  var a=getApplicant(id);
+  if(!a) return;
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- cannot confirm from here.'); return; }
+  if(!confirm('Confirm this interview time? This will try to create a Calendar event and will email the candidate a confirmation.')) return;
+  var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:a.candidateContact||''}});
+  if(res && res.success){
+    showToast('✓ Interview confirmed' + (res.calendarEventId?' — Calendar event created':' (Calendar event not created)'));
+    await loadFromSheets();
+    var content=document.getElementById('modalTabContent');
+    if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
+    refreshModalStageInfo(id);
+  } else {
+    alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + ').');
+  }
+}
+
 function buildInterviewTab(a){
   const iv=a.interview||{};
   const questions=[
@@ -1913,6 +1995,8 @@ function buildInterviewTab(a){
     </div>`:`<div style="margin-top:10px;font-size:12px;color:var(--gray400)">Not yet recorded — pick a result once the interview is done.</div>`;
 
   return`
+    ${buildSchedulingCard(a)}
+
     <div style="font-size:14px;font-weight:700;color:var(--gray900);margin-bottom:2px">🎯 Interview Guide Questions</div>
     <div style="font-size:12px;color:var(--gray500);margin-bottom:10px">Reference for the interviewer — no need to score each one. Use these to guide the conversation, then write your overall notes and pick a result below.</div>
     ${qCards}
@@ -2881,6 +2965,23 @@ Thank you for completing these requirements. We look forward to working with you
 Warm regards,
 HR Team
 ABBSS`
+  },
+  interview_availability:{
+    subject:'[ABBSS] Please Share Your Interview Availability — {position}',
+    body:`Dear {name},
+
+Congratulations on passing the required assessments for the {position} role at ABBSS! The next step is to schedule your interview.
+
+Please use the link below to let us know which of the available times work best for you:
+{schedulinglink}
+
+Once you've submitted your availability, our team will confirm one final time by email.
+
+If none of the times work for you, please reply to this email and let us know.
+
+Warm regards,
+HR Team
+ABBSS`
   }
 };
 
@@ -2895,7 +2996,8 @@ const EMAIL_TEMPLATE_LABELS={
   offer:'Next Steps / Offer',
   job_offer:'Job Offer',
   contract:'Contract',
-  pre_onboarding:'Pre-Onboarding Requirements'
+  pre_onboarding:'Pre-Onboarding Requirements',
+  interview_availability:'Interview Availability Request'
 };
 function setEmailTemplate(key){
   currentTemplate=key;
@@ -2938,7 +3040,9 @@ async function sendEmailAutomatically(){
   var sentByName=(document.getElementById('sentByPicker') && document.getElementById('sentByPicker').value) || '';
   if(!sentByName){ alert('Please select who is sending this email (Frances, Wen, or David) so replies go to the right inbox.'); return; }
   var replyTo=TEAM_DIRECTORY[sentByName] || '';
-  var payload={to:to, subject:subject, body:body, replyTo:replyTo};
+  // applicantId + templateKey let the backend attach a best-effort open-tracking
+  // pixel -- only meaningful for "Send Automatically", not "Open in Gmail".
+  var payload={to:to, subject:subject, body:body, replyTo:replyTo, applicantId:currentEmailApplicantId, templateKey:currentTemplate};
   if(currentTemplate==='assessment'){
     // This template's wording already says "the assessment file attached to this email" --
     // actually attach the blank EMM template so that's true, instead of leaving the
@@ -3013,9 +3117,10 @@ function updateEmail(){
   const rateEl=document.getElementById('et-rate');
   const rate=(rateEl&&rateEl.value)||'[RATE]';
   const t=EMAIL_TEMPLATES[currentTemplate];
+  const schedulingLink=currentSchedulingLink||'[SCHEDULING LINK]';
   const fill=(s)=>s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
     .replace(/{jd}/g,jd).replace(/{startdate}/g,startdate).replace(/{signatory}/g,signatory)
-    .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate);
+    .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate).replace(/{schedulinglink}/g,schedulingLink);
   document.getElementById('emailSubject').value=fill(t.subject);
   document.getElementById('emailBody').textContent=fill(t.body);
 }
@@ -3109,6 +3214,34 @@ function goToOfferEmail(id, templateKey){
   setEmailTemplate(templateKey);
 }
 
+// Holds the candidate-facing scheduling link for whichever applicant is
+// currently being emailed, so updateEmail() can drop it into {schedulinglink}.
+let currentSchedulingLink=null;
+
+// Jumps from the Interview tab's scheduling card to a pre-filled "Please
+// share your availability" email, carrying over the personal scheduling
+// link that was just generated for this applicant.
+function goToSchedulingEmail(id){
+  var a=getApplicant(id);
+  if(!a) return;
+  if(!a.schedulingToken || !a.interviewSlots || !a.interviewSlots.length){
+    alert('Add and save at least one interview time slot for this applicant first.');
+    return;
+  }
+  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- the scheduling link needs that connection to work.'); return; }
+  currentSchedulingLink = SCRIPT_URL + '?action=pickSlot&id=' + encodeURIComponent(a.id) + '&token=' + encodeURIComponent(a.schedulingToken);
+  closeModal();
+  showPage('email',document.getElementById('nav-email'));
+  document.getElementById('et-name').value=a.name||'';
+  document.getElementById('et-position').value=a.position||'';
+  var emailEl=document.getElementById('et-email');
+  if(emailEl) emailEl.value=a.email||'';
+  var deadlineEl=document.getElementById('et-deadline');
+  if(deadlineEl) deadlineEl.value='';
+  currentEmailApplicantId=id;
+  setEmailTemplate('interview_availability');
+}
+
 // ============================================================
 // EXPORT CSV
 // ============================================================
@@ -3171,8 +3304,9 @@ function setupSheet(){
       'Interview Result','Decision Notes','Resume Notes','Created At',
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
       'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL',
-      'Offer Details JSON','Status Changed At']);
-    t.getRange(1,1,1,43).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'Offer Details JSON','Status Changed At',
+      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','Calendar Event ID']);
+    t.getRange(1,1,1,52).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -3228,6 +3362,7 @@ function saveApplicant(d){
   let t=ss.getSheetByName('Applicants');if(!t){setupSheet();t=ss.getSheetByName('Applicants');}
   const rows=t.getDataRange().getValues();
   const idx=rows.findIndex((r,i)=>i>0&&String(r[0])===String(d.id));
+  const existing = idx>0 ? rows[idx] : null;
   // Cap catWrong so a very poor EMM result can't produce a cell too large for Sheets to store
   let emmForSync=d.emm||null;
   if(emmForSync&&emmForSync.catWrong&&emmForSync.catWrong.length>300){
@@ -3245,7 +3380,23 @@ function saveApplicant(d){
     d.interview?JSON.stringify(d.interview):'',emmForSync?JSON.stringify(emmForSync):'',
     d.emailsSent?JSON.stringify(d.emailsSent):'',
     d.cvUrl||'',d.cvFileId||'',d.cvFileName||'',d.cvUploadedAt||'',d.grit?.perseverance||'',d.grit?.consistency||'',d.enteredBy||'',d.emmReceivedAt||'',d.department||'',d.emmFileUrl||'',
-    d.offerDetails?JSON.stringify(d.offerDetails):'',d.statusChangedAt||''];
+    d.offerDetails?JSON.stringify(d.offerDetails):'',d.statusChangedAt||'',
+    // Columns 43+ hold data that only our own server-side actions ever write
+    // (an email-open pixel hit, a candidate's public scheduling-page
+    // submission, or a confirmed interview slot). The client never has an
+    // up-to-date copy of these, so always keep whatever is already in the
+    // Sheet instead of letting an unrelated save (e.g. editing a note)
+    // blank them out. Interview Slots / Scheduling Token are the exception --
+    // those ARE set from the app by HR/David, so they come from d normally.
+    existing?(existing[43]||''):'',
+    d.interviewSlots?JSON.stringify(d.interviewSlots):'',
+    d.schedulingToken||'',
+    existing?(existing[46]||''):'',
+    existing?(existing[47]||''):'',
+    existing?(existing[48]||''):'',
+    existing?(existing[49]||''):'',
+    existing?(existing[50]||''):'',
+    existing?(existing[51]||''):''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -3278,6 +3429,14 @@ function getAllApplicants(){
     if(r[30]){ try{ emailsSent=JSON.parse(r[30]); }catch(e){} }
     let offerDetails={};
     if(r[41]){ try{ offerDetails=JSON.parse(r[41]); }catch(e){} }
+    let emailsOpened={};
+    if(r[43]){ try{ emailsOpened=JSON.parse(r[43]); }catch(e){} }
+    let interviewSlots=[];
+    if(r[44]){ try{ interviewSlots=JSON.parse(r[44]); }catch(e){} }
+    let candidateSlotPicks=[];
+    if(r[46]){ try{ candidateSlotPicks=JSON.parse(r[46]); }catch(e){} }
+    let confirmedSlot=null;
+    if(r[49]){ try{ confirmedSlot=JSON.parse(r[49]); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
@@ -3290,7 +3449,11 @@ function getAllApplicants(){
       emailsSent:emailsSent,
       cvUrl:r[31]||'',cvFileId:r[32]||'',cvFileName:r[33]||'',cvUploadedAt:r[34]||'',
       emmReceivedAt:r[38]||'',department:r[39]||'',emmFileUrl:r[40]||'',
-      offerDetails:offerDetails,statusChangedAt:r[42]||''
+      offerDetails:offerDetails,statusChangedAt:r[42]||'',
+      emailsOpened:emailsOpened,
+      interviewSlots:interviewSlots,schedulingToken:r[45]||'',
+      candidateSlotPicks:candidateSlotPicks,candidateContact:r[47]||'',availabilitySubmittedAt:r[48]||'',
+      confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',calendarEventId:r[51]||''
     };
   });
 }
@@ -3325,6 +3488,12 @@ function uploadCV(d){
 }
 
 function doGet(e){
+  // trackOpen (tracking-pixel image) and pickSlot (candidate scheduling page)
+  // return non-JSON responses (binary image / HTML), so they must bypass
+  // the JSON-wrap block entirely.
+  const a0=e.parameter.action;
+  if(a0==='trackOpen') return trackEmailOpen(e.parameter.id, e.parameter.t);
+  if(a0==='pickSlot') return renderSchedulingPage(e.parameter.id, e.parameter.token);
   try{
     const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
@@ -3338,12 +3507,19 @@ function doGet(e){
 }
 
 function doPost(e){
+  // The candidate scheduling page submits a plain HTML <form> (not JSON),
+  // so it arrives as e.parameter.formAction rather than JSON postData.
+  // Check for that first and return HTML, bypassing the JSON-wrap block.
+  if(e.parameter && e.parameter.formAction==='submitAvailability'){
+    return handleSubmitAvailability(e);
+  }
   try{
     const p=JSON.parse(e.postData.contents);let out={};
     if(p.action==='saveApplicant')out=saveApplicant(p.data);
     else if(p.action==='uploadCV')out=uploadCV(p.data);
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
     else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
+    else if(p.action==='confirmInterview')out=confirmInterview(p.data);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -3448,11 +3624,183 @@ function sendApplicantEmail(data){
       );
       options.attachments = [blob];
     }
-    MailApp.sendEmail(data.to, data.subject||'', data.body||'', options);
+    var plainBody = data.body || '';
+    // Best-effort open tracking: wrap the plain-text body as simple HTML and
+    // append an invisible 1x1 pixel that pings us back when (if) it loads.
+    // Many inboxes (especially Gmail) block or pre-fetch remote images, so
+    // this can under- or over-report -- treat it as a rough signal only,
+    // never as proof someone did or didn't read the email.
+    if(data.applicantId && data.templateKey){
+      var escapedBody = plainBody.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      var pixelUrl = ScriptApp.getService().getUrl() + '?action=trackOpen&id=' + encodeURIComponent(data.applicantId) + '&t=' + encodeURIComponent(data.templateKey);
+      options.htmlBody = escapedBody + '<img src="' + pixelUrl + '" width="1" height="1" style="display:none" alt="">';
+    }
+    MailApp.sendEmail(data.to, data.subject||'', plainBody, options);
     return {success:true};
   }catch(e){
     return {success:false, error:e.message};
   }
+}
+
+// ============================================================
+// EMAIL-OPEN TRACKING (best-effort -- see caveats above)
+// ============================================================
+function trackEmailOpen(id, tKey){
+  try{ logEmailOpen(id, tKey); }catch(e){ /* never let tracking break the pixel response */ }
+  var gifB64 = 'R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+  return Utilities.newBlob(Utilities.base64Decode(gifB64), 'image/gif', 'pixel.gif');
+}
+
+function logEmailOpen(id, tKey){
+  if(!id || !tKey) return;
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return;
+  const rows=t.getDataRange().getValues();
+  const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(id); });
+  if(idx<=0) return;
+  var opened={};
+  try{ opened = rows[idx][43] ? JSON.parse(rows[idx][43]) : {}; }catch(e){}
+  // Only record the FIRST open per template -- repeat image loads (some
+  // clients re-fetch on every scroll/reopen) shouldn't overwrite the
+  // original timestamp.
+  if(!opened[tKey]) opened[tKey] = new Date().toISOString();
+  t.getRange(idx+1, 44).setValue(JSON.stringify(opened));
+}
+
+// ============================================================
+// CANDIDATE-FACING INTERVIEW SCHEDULING (no login, no knowledge of the
+// internal app needed -- just a plain link, same as the assessment forms).
+// ============================================================
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderSchedulingPage(id, token){
+  try{
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    const rows=t.getDataRange().getValues();
+    const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(id); });
+    if(idx<=0 || !token || String(rows[idx][45])!==String(token)){
+      return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Link not valid</h2><p>This scheduling link is invalid or has expired. Please contact HR for a new one.</p></div>');
+    }
+    var name = rows[idx][1] || '';
+    var slots = [];
+    try{ slots = rows[idx][44] ? JSON.parse(rows[idx][44]) : []; }catch(e){}
+    if(!slots.length){
+      return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>No times available yet</h2><p>Our team hasn\'t added interview times yet — please check back soon or contact HR.</p></div>');
+    }
+    var checkboxes = slots.map(function(s){
+      return '<label style="display:block;padding:10px 14px;margin-bottom:8px;border:1px solid #ddd;border-radius:8px;cursor:pointer">' +
+        '<input type="checkbox" name="slot" value="' + escapeHtml(String(s.id)) + '" style="margin-right:10px"> ' + escapeHtml(s.label) +
+      '</label>';
+    }).join('');
+    var html = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:40px auto;padding:0 16px">' +
+      '<h2>Interview Scheduling' + (name?(' — '+escapeHtml(name)):'') + '</h2>' +
+      '<p style="color:#555">Please check all the times below that work for you, then submit. Our team will confirm one final time by email.</p>' +
+      '<form method="POST" action="' + ScriptApp.getService().getUrl() + '">' +
+      '<input type="hidden" name="formAction" value="submitAvailability">' +
+      '<input type="hidden" name="id" value="' + escapeHtml(String(id)) + '">' +
+      '<input type="hidden" name="token" value="' + escapeHtml(String(token)) + '">' +
+      checkboxes +
+      '<div style="margin:16px 0"><label style="font-weight:bold;display:block;margin-bottom:6px">Viber or WhatsApp Number (optional)</label>' +
+      '<input type="text" name="contact" placeholder="e.g. +63 917 123 4567" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box"></div>' +
+      '<button type="submit" style="background:#3b3f8c;color:#fff;border:none;padding:12px 20px;border-radius:8px;font-size:15px;cursor:pointer">Submit My Availability</button>' +
+      '</form></div>';
+    return HtmlService.createHtmlOutput(html);
+  }catch(e){
+    return HtmlService.createHtmlOutput('<p>Something went wrong loading this page. Please contact HR directly.</p>');
+  }
+}
+
+function handleSubmitAvailability(e){
+  try{
+    var id = e.parameter.id, token = e.parameter.token;
+    var contact = e.parameter.contact || '';
+    var picks = (e.parameters && e.parameters.slot) ? e.parameters.slot : [];
+    var ok = recordAvailability(id, token, picks, contact);
+    if(!ok){
+      return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Link not valid</h2><p>This scheduling link is invalid or has expired. Please contact HR for a new one.</p></div>');
+    }
+    return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center"><h2>Thank you!</h2><p>Your available times have been recorded. Our team will follow up shortly to confirm your interview.</p></div>');
+  }catch(err){
+    return HtmlService.createHtmlOutput('<p>Something went wrong. Please contact HR directly.</p>');
+  }
+}
+
+function recordAvailability(id, token, picks, contact){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return false;
+  const rows=t.getDataRange().getValues();
+  const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(id); });
+  if(idx<=0 || !token || String(rows[idx][45])!==String(token)) return false;
+  t.getRange(idx+1, 47).setValue(JSON.stringify(picks||[])); // col 47 = index 46
+  t.getRange(idx+1, 48).setValue(contact||'');               // col 48 = index 47
+  t.getRange(idx+1, 49).setValue(new Date().toISOString());  // col 49 = index 48
+  return true;
+}
+
+function confirmInterview(data){
+  try{
+    if(!data || !data.id || !data.slotId) return {success:false, error:'Missing applicant id or slot.'};
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    if(!t) return {success:false, error:'Applicants sheet not found.'};
+    const rows=t.getDataRange().getValues();
+    const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(data.id); });
+    if(idx<=0) return {success:false, error:'Applicant not found.'};
+    var slots=[];
+    try{ slots = rows[idx][44] ? JSON.parse(rows[idx][44]) : []; }catch(e){}
+    var slot = null;
+    for(var i=0;i<slots.length;i++){ if(String(slots[i].id)===String(data.slotId)){ slot=slots[i]; break; } }
+    if(!slot) return {success:false, error:"That time slot was not found on this applicant's list."};
+
+    var name = rows[idx][1] || '';
+    var email = rows[idx][2] || '';
+    var position = rows[idx][4] || '';
+
+    var calendarEventId = '';
+    try{
+      var parsed = parseSlotToDate(slot.label);
+      if(parsed){
+        var cal = CalendarApp.getDefaultCalendar();
+        var ev = cal.createEvent('Interview: ' + name + (position?(' — '+position):''), parsed.start, parsed.end, {
+          description: 'Applicant: ' + name + '\nEmail: ' + email + '\nPosition: ' + position + (data.contact?('\nViber/WhatsApp: '+data.contact):'')
+        });
+        calendarEventId = ev.getId();
+      }
+    }catch(e){ /* Calendar creation is a nice-to-have -- never block confirmation on it failing */ }
+
+    t.getRange(idx+1, 50).setValue(JSON.stringify(slot));     // col 50 = index 49
+    t.getRange(idx+1, 51).setValue(new Date().toISOString()); // col 51 = index 50
+    t.getRange(idx+1, 52).setValue(calendarEventId);           // col 52 = index 51
+
+    if(email){
+      try{
+        MailApp.sendEmail(email, '[ABBSS] Interview Confirmed — ' + position,
+          'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + slot.label + '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS');
+      }catch(e){ /* don't fail the whole confirmation just because the email didn't send */ }
+    }
+    return {success:true, slotLabel:slot.label, calendarEventId:calendarEventId};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// Best-effort parser for the free-text slot labels HR types in (e.g. "Mon,
+// Aug 10 - 2:00 PM"). If it can't confidently parse a date, the Calendar
+// event is just skipped -- the confirmation email and in-app record still
+// go through either way, so this is a nice-to-have, not a dependency.
+function parseSlotToDate(label){
+  try{
+    var cleaned = String(label).replace(/–|—/g,'-');
+    var start = new Date(cleaned.replace(/-\s*/,' '));
+    if(isNaN(start.getTime())) return null;
+    var end = new Date(start.getTime() + 60*60*1000); // default 1-hour block
+    return {start:start, end:end};
+  }catch(e){ return null; }
 }
 
 function authorizeMailSending(){
@@ -4539,9 +4887,13 @@ function renderTrackerTable(apps) {
 function getEmmBadge(a){
   if(!a.requiresEmm) return { label:'N/A', bg:'#f1f1f4', tone:'#9ca3af' };
   if(a.emm && a.emm.graded){
+    // HR wants the actual score visible at a glance, not just pass/fail --
+    // show the percentage right in the badge instead of making them open the
+    // profile to see it.
+    var pct = (a.emm.overallPct!==null && a.emm.overallPct!==undefined && a.emm.overallPct!=='') ? Math.round(parseFloat(a.emm.overallPct)) + '%' : '';
     return a.emm.pass
-      ? { label:'✓ Passed', bg:'#e8f5e9', tone:'#166534' }
-      : { label:'✗ Failed', bg:'#fdecea', tone:'#b52a2a' };
+      ? { label:'✓ Passed' + (pct?' ('+pct+')':''), bg:'#e8f5e9', tone:'#166534' }
+      : { label:'✗ Failed' + (pct?' ('+pct+')':''), bg:'#fdecea', tone:'#b52a2a' };
   }
   if(a.emmReceivedAt) return { label:'Needs Grading', bg:'#f3e8ff', tone:'#6d28d9' };
   return { label:'Not Submitted', bg:'#fff8e1', tone:'#b45309' };
