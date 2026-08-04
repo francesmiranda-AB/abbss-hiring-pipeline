@@ -1654,6 +1654,7 @@ function buildProfileTab(a){
   ${buildStageHistory(a)}
   ${(()=>{const info=getLastEmailSentInfo(a);return info?`<div style="margin-bottom:12px;font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px 12px;border-radius:8px">✓ Last email sent: <strong>${info.label}</strong> — ${new Date(info.date).toLocaleString()}</div>`:`<div style="margin-bottom:12px;font-size:12px;color:var(--gray400)">No emails marked as sent yet.</div>`;})()}
   ${buildEmailActivitySummary(a)}
+  ${buildAssessmentViewSummary(a)}
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn-sm btn-blue" onclick="setEmailAndSwitch('${a.name}','${a.position||''}',${a.requiresEmm||false},'${a.email}',${a.id})">📧 Generate Assessment Email</button>
     <button class="btn-sm btn-red" onclick="deleteApplicant(${a.id})">🗑 Delete Record</button>
@@ -1684,6 +1685,35 @@ function buildEmailActivitySummary(a){
     <div style="font-weight:700;font-size:13px;margin-bottom:6px">✉️ Email Activity</div>
     <table style="width:100%"><thead><tr><th style="font-size:11px">Template</th><th style="font-size:11px">Sent</th><th style="font-size:11px">Open Status</th></tr></thead><tbody>${rows}</tbody></table>
     <div style="font-size:11px;color:var(--gray400);margin-top:6px">Open status is best-effort and only available for emails sent via "Send Automatically" — Gmail and some other mail apps block the tracking image, so "not yet detected" doesn't always mean unread.</div>
+  </div>`;
+}
+
+// Separate question from "did they open the email" above: "did they
+// actually click through to the GRIT/Values/EMM form itself." Every
+// assessment link in an invite or reminder email now routes through a
+// tracking redirect first, so this lights up the moment the candidate
+// clicks -- shown once at least one assessment-related email has gone out,
+// so a brand-new applicant that hasn't been invited yet doesn't show three
+// "Not yet opened" rows with nothing to compare them to.
+function buildAssessmentViewSummary(a){
+  const sent = a.emailsSent || {};
+  const anyAssessmentEmailSent = sent.assessment || sent.assessment_no_emm || sent.reminder || sent.autoReminder;
+  if(!anyAssessmentEmailSent) return '';
+  const views = a.assessmentViews || {};
+  const rows = [['grit','GRIT Assessment'], ['values','Value-Integrity Assessment']];
+  if(a.requiresEmm) rows.push(['emm','AR EMM Cognitive Assessment']);
+  const rowsHtml = rows.map(function(r){
+    const key = r[0], label = r[1];
+    const viewedAt = views[key];
+    const status = viewedAt
+      ? `<span style="color:#166534;font-weight:600">✓ Opened</span> <span style="color:var(--gray400)">${new Date(viewedAt).toLocaleString()}</span>`
+      : `<span style="color:var(--gray400)">Not yet opened</span>`;
+    return `<tr><td style="font-size:12px">${label}</td><td style="font-size:12px">${status}</td></tr>`;
+  }).join('');
+  return `<div class="assess-card" style="margin-bottom:14px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:6px">🔗 Assessment Link Status</div>
+    <table style="width:100%"><thead><tr><th style="font-size:11px">Assessment</th><th style="font-size:11px">Opened?</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <div style="font-size:11px;color:var(--gray400);margin-top:6px">This is separate from the email open status above — it only lights up once the candidate actually clicks through to the form itself, not just the email.</div>
   </div>`;
 }
 
@@ -2847,18 +2877,18 @@ Thank you for your interest in the {position} role at ABBSS. We are pleased to i
 Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
 1. GRIT Assessment (approx. 5 minutes)
-   Link: https://forms.gle/JwGGt8UWnR6NgFga8
+   Link: {gritlink}
    → Your results will be recorded automatically.
 
 2. Value-Integrity Assessment (approx. 10 minutes)
-   Link: https://forms.gle/RH5HGDDvPL9H5YvRA
+   Link: {valueslink}
    → Your results will be recorded automatically.
 
 3. AR EMM Cognitive Assessment (approx. 30–45 minutes)
    → Please find the blank assessment file attached to this email.
    Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
    Format: Save your completed file as AR_Assessment_{name}.xlsx.
-   Submit here (do not reply to this email with the file): https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform
+   Submit here (do not reply to this email with the file): {emmlink}
    Deadline: Please submit the completed file within 24 hours of this invitation, or as soon as possible.
 
 We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
@@ -2874,9 +2904,9 @@ ABBSS`
 This is a friendly reminder that we have not yet received your completed assessments for the {position} role.
 
 As a reminder, please submit:
-• GRIT form (online submission)
-• Value-Integrity form (online submission)
-• Completed AR EMM Excel assessment — submit here: https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform
+• GRIT form: {gritlink}
+• Value-Integrity form: {valueslink}
+• Completed AR EMM Excel assessment — submit here: {emmlink}
 
 The deadline is 24 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
 
@@ -2925,11 +2955,11 @@ Thank you for your interest in the {position} role at ABBSS. We are pleased to i
 Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
 1. GRIT Assessment (approx. 5 minutes)
-   Link: https://forms.gle/JwGGt8UWnR6NgFga8
+   Link: {gritlink}
    → Your results will be recorded automatically.
 
 2. Value-Integrity Assessment (approx. 10 minutes)
-   Link: https://forms.gle/RH5HGDDvPL9H5YvRA
+   Link: {valueslink}
    → Your results will be recorded automatically.
 
 Please complete both forms within 24 hours of this invitation — your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
@@ -3183,9 +3213,25 @@ function updateEmail(){
   const rate=(rateEl&&rateEl.value)||'[RATE]';
   const t=EMAIL_TEMPLATES[currentTemplate];
   const schedulingLink=currentSchedulingLink||'[SCHEDULING LINK]';
+  // Personalized assessment links: routed through the Apps Script tracking
+  // redirect (same pattern as the email-open pixel) so we can tell whether
+  // the candidate actually opened the GRIT/Values/EMM form, not just the
+  // email. Only possible once this is tied to a real applicant and Sheets
+  // is connected -- otherwise fall back to the plain, untracked links so
+  // previewing or copy-pasting the email never breaks.
+  const gritLink = (SCRIPT_URL && currentEmailApplicantId!=null)
+    ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=grit')
+    : 'https://forms.gle/JwGGt8UWnR6NgFga8';
+  const valuesLink = (SCRIPT_URL && currentEmailApplicantId!=null)
+    ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=values')
+    : 'https://forms.gle/RH5HGDDvPL9H5YvRA';
+  const emmLink = (SCRIPT_URL && currentEmailApplicantId!=null)
+    ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=emm')
+    : 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
   const fill=(s)=>s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
     .replace(/{jd}/g,jd).replace(/{startdate}/g,startdate).replace(/{signatory}/g,signatory)
-    .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate).replace(/{schedulinglink}/g,schedulingLink);
+    .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate).replace(/{schedulinglink}/g,schedulingLink)
+    .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink);
   document.getElementById('emailSubject').value=fill(t.subject);
   document.getElementById('emailBody').textContent=fill(t.body);
 }
@@ -3340,6 +3386,8 @@ const GRIT_SHEET_ID   = '1sU7HPe9Nn69RdHyuCrpisCKdGTDHNO3c0furVEqgfFk';
 const VALUES_SHEET_ID = '16jRYZIFG_5O2Dh-7Wvj4MKVfsDV9FsOIXKPJiTFYCbc';
 const EMM_FORM_SHEET_ID = '1ZTh5NtZtxvcFfx1kmiW40s4jRyAZdz9T3sNhoZB3SEI';
 const EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
+const GRIT_FORM_LINK = 'https://forms.gle/JwGGt8UWnR6NgFga8';
+const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
 
 function scoreGrit(row){
   const rev=[0,2,4,5];const scores=[];
@@ -3370,8 +3418,8 @@ function setupSheet(){
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
       'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL',
       'Offer Details JSON','Status Changed At',
-      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','SMS Sent At']);
-    t.getRange(1,1,1,52).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','SMS Sent At','Assessment Views JSON']);
+    t.getRange(1,1,1,53).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -3466,7 +3514,11 @@ function saveApplicant(d){
     // one-click confirmation that they texted the candidate. This one IS
     // client-set (same pattern as Emails Sent), since it's just a simple
     // checkbox-style action, not something a server action computes.
-    d.smsSentAt||''];
+    d.smsSentAt||'',
+    // Column 53 ("Assessment Views JSON") is server-only, same reasoning as
+    // columns 43-50 above -- only recordAssessmentView() (triggered when a
+    // candidate actually clicks a tracked assessment link) ever writes it.
+    existing?(existing[52]||''):''];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -3507,6 +3559,8 @@ function getAllApplicants(){
     if(r[46]){ try{ candidateSlotPicks=JSON.parse(r[46]); }catch(e){} }
     let confirmedSlot=null;
     if(r[49]){ try{ confirmedSlot=JSON.parse(r[49]); }catch(e){} }
+    let assessmentViews={};
+    if(r[52]){ try{ assessmentViews=JSON.parse(r[52]); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
@@ -3523,7 +3577,8 @@ function getAllApplicants(){
       emailsOpened:emailsOpened,
       interviewSlots:interviewSlots,schedulingToken:r[45]||'',
       candidateSlotPicks:candidateSlotPicks,candidateContact:r[47]||'',availabilitySubmittedAt:r[48]||'',
-      confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',smsSentAt:r[51]||''
+      confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',smsSentAt:r[51]||'',
+      assessmentViews:assessmentViews
     };
   });
 }
@@ -3564,6 +3619,7 @@ function doGet(e){
   const a0=e.parameter.action;
   if(a0==='trackOpen') return trackEmailOpen(e.parameter.id, e.parameter.t);
   if(a0==='pickSlot') return renderSchedulingPage(e.parameter.id, e.parameter.token);
+  if(a0==='viewAssessment') return handleViewAssessment(e.parameter.id, e.parameter.which);
   try{
     const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
@@ -3738,6 +3794,55 @@ function logEmailOpen(id, tKey){
   // original timestamp.
   if(!opened[tKey]) opened[tKey] = new Date().toISOString();
   t.getRange(idx+1, 44).setValue(JSON.stringify(opened));
+}
+
+// ============================================================
+// ASSESSMENT-LINK VIEW TRACKING (best-effort, same idea as the email-open
+// pixel above, but for "did they actually open the GRIT/Values/EMM form" --
+// a separate question from "did they open the email" or "did they submit
+// it"). Google Forms can't report views on their own, so every assessment
+// link in an email now points here first: this records a first-viewed
+// timestamp, then immediately forwards the candidate on to the real form.
+// If anything about the recording fails, the candidate must still reach
+// the form -- tracking is never allowed to block them.
+// ============================================================
+var ASSESSMENT_LINK_TARGETS = {grit: GRIT_FORM_LINK, values: VALUES_FORM_LINK, emm: EMM_RESPONDER_LINK};
+
+function assessmentLinkFor(scriptUrl, id, which){
+  return scriptUrl + '?action=viewAssessment&id=' + encodeURIComponent(id) + '&which=' + encodeURIComponent(which);
+}
+
+function recordAssessmentView(id, which){
+  if(!id || !which) return;
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return;
+  const rows=t.getDataRange().getValues();
+  const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(id); });
+  if(idx<=0) return;
+  var views={};
+  try{ views = rows[idx][52] ? JSON.parse(rows[idx][52]) : {}; }catch(e){}
+  // First view only, same reasoning as logEmailOpen -- a candidate re-opening
+  // the link later (e.g. to double check something) shouldn't overwrite when
+  // they FIRST looked at it.
+  if(!views[which]) views[which] = new Date().toISOString();
+  t.getRange(idx+1, 53).setValue(JSON.stringify(views));
+}
+
+function handleViewAssessment(id, which){
+  var target = ASSESSMENT_LINK_TARGETS[which];
+  if(!target){
+    return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Link not valid</h2><p>This assessment link is missing information. Please contact HR for a new one.</p></div>');
+  }
+  try{ recordAssessmentView(id, which); }catch(e){ /* never let tracking block the candidate from reaching the form */ }
+  var safeTarget = String(target).replace(/"/g,'&quot;');
+  var html = '<!doctype html><html><head><meta http-equiv="refresh" content="0;url=' + safeTarget + '">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0"></head>' +
+    '<body style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555">' +
+    '<h2>Taking you to the assessment&hellip;</h2>' +
+    '<p>If you are not redirected automatically, <a href="' + safeTarget + '">click here to continue</a>.</p>' +
+    '</body></html>';
+  return HtmlService.createHtmlOutput(html);
 }
 
 // ============================================================
@@ -4052,7 +4157,7 @@ function checkAssessmentCompliance(){
     }
     if(hoursElapsed>=REMINDER_HOURS && !emailsSent.autoReminder && !emailsSent.reminder){
       try{
-        sendComplianceReminderEmail(r[2],r[1],r[4],r[37]);
+        sendComplianceReminderEmail(r[2],r[1],r[4],r[37],r[0]);
         emailsSent.autoReminder=now.toISOString();
         t.getRange(i+1,31).setValue(JSON.stringify(emailsSent));
         reminders++;
@@ -4096,15 +4201,24 @@ function restoreCompliantApplicants(){
   return 'Restored '+restored+' applicant(s): '+names.join(', ');
 }
 
-function sendComplianceReminderEmail(email,name,position,enteredBy){
+function sendComplianceReminderEmail(email,name,position,enteredBy,id){
   if(!email) return;
   const subject='[ABBSS] Reminder: Assessment Deadline Approaching \u2014 '+(position||'Your Application');
+  // Route each link through the tracking redirect (same one the manual
+  // invite emails use) so a reminder click also counts as an assessment
+  // view -- but only when we actually have an applicant id and a deployed
+  // script URL to build the link from; otherwise fall back to the plain
+  // form links so the reminder can never go out broken.
+  var scriptUrl = id ? ScriptApp.getService().getUrl() : '';
+  var gritLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'grit') : GRIT_FORM_LINK;
+  var valuesLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'values') : VALUES_FORM_LINK;
+  var emmLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'emm') : EMM_RESPONDER_LINK;
   const body='Dear '+(name||'Applicant')+',\n\n'
     +'This is a reminder that we have not yet received your completed assessments for the '+(position||'')+' role.\n\n'
     +'Please complete and submit the following within 24 hours of your original invitation:\n'
-    +'1. GRIT Assessment: https://forms.gle/JwGGt8UWnR6NgFga8\n'
-    +'2. Value-Integrity Assessment: https://forms.gle/RH5HGDDvPL9H5YvRA\n'
-    +'3. AR EMM Cognitive Assessment: complete the attached Excel file, then submit it here: '+EMM_RESPONDER_LINK+'\n\n'
+    +'1. GRIT Assessment: '+gritLink+'\n'
+    +'2. Value-Integrity Assessment: '+valuesLink+'\n'
+    +'3. AR EMM Cognitive Assessment: complete the attached Excel file, then submit it here: '+emmLink+'\n\n'
     +'If we do not receive all of the above within the 24-hour window, your application will be marked as Non-Compliant and archived.\n\n'
     +'If you have already submitted these, please disregard this message.\n\n'
     +'Warm regards,\nHR Team\nABBSS';
