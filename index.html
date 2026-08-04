@@ -3850,6 +3850,17 @@ function confirmInterview(data){
     for(var i=0;i<slots.length;i++){ if(String(slots[i].id)===String(data.slotId)){ slot=slots[i]; break; } }
     if(!slot) return {success:false, error:"That time slot was not found on this applicant's list."};
 
+    // Idempotency guard: if this exact slot is already the confirmed one
+    // (e.g. a double-click, or a retry after a network hiccup made the app
+    // think the first attempt failed), don't re-send the candidate a
+    // duplicate confirmation email -- just report success with what's
+    // already on record.
+    var existingConfirmed = null;
+    try{ existingConfirmed = rows[idx][49] ? JSON.parse(rows[idx][49]) : null; }catch(e){}
+    if(existingConfirmed && String(existingConfirmed.id)===String(data.slotId)){
+      return {success:true, slotLabel:existingConfirmed.label, alreadyConfirmed:true};
+    }
+
     var name = rows[idx][1] || '';
     var email = rows[idx][2] || '';
     var position = rows[idx][4] || '';
@@ -5525,10 +5536,27 @@ async function confirmInterviewCalSlot(id, slotId){
     await loadFromSheets();
     renderInterviewCalendar();
     openInterviewCalDetail(id, slotId); // refresh the overlay in place to show the confirmed state
-  } else {
-    if(btn){ btn.disabled=false; btn.innerHTML='✓ Confirm This Time'; }
-    alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + ').');
+    return;
   }
+  // The request may have actually gone through on Google's side even though
+  // the response back to the browser failed (a network hiccup, a slow
+  // reconnect after redeploying, etc.) -- Apps Script keeps running
+  // server-side regardless of whether the client is still listening. Before
+  // alarming the user with an error, re-check the Sheet directly: if it
+  // turns out the slot IS confirmed there, this was a false alarm, not an
+  // actual failure -- showing an error here would risk someone clicking
+  // Confirm again and sending the candidate a duplicate email.
+  await loadFromSheets();
+  var refreshed = getApplicant(id);
+  var actuallyConfirmed = refreshed && refreshed.confirmedSlot && String(refreshed.confirmedSlot.id)===String(slotId);
+  if(actuallyConfirmed){
+    showToast('✓ Interview confirmed — confirmation email sent, other times declined');
+    renderInterviewCalendar();
+    openInterviewCalDetail(id, slotId);
+    return;
+  }
+  if(btn){ btn.disabled=false; btn.innerHTML='✓ Confirm This Time'; }
+  alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + '). Please try again in a moment.');
 }
 
 // HR's one-click "I already texted them" confirmation -- this app can't send
