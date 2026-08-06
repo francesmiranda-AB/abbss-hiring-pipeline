@@ -608,38 +608,31 @@ tbody tr:last-child td{border-bottom:none}
         <option value="">All Sources</option>
         <option>Seek</option><option>Indeed</option><option>Facebook</option><option>LinkedIn</option><option>JobStreet</option><option>Referral</option><option>Walk-in</option><option>Other</option>
       </select>
-      <select class="filter-inp" id="filterStage" onchange="filterTracker()" title="Stage numbers mean different things for AP/AR vs Sales &amp; Marketing -- use the Pipeline Step filter below for exact wording">
-        <option value="">All Stages (by number)</option>
-        <option value="1">Stage 1</option>
-        <option value="2">Stage 2</option>
-        <option value="3">Stage 3</option>
-        <option value="4">Stage 4</option>
-        <option value="5">Stage 5</option>
-        <option value="6">Stage 6</option>
-        <option value="7">Stage 7</option>
-        <option value="8">Stage 8</option>
-        <option value="9">Stage 9 (AP/AR only)</option>
+      <select class="filter-inp" id="filterCandidateStage" onchange="filterTracker()">
+        <option value="">All Candidate Stages</option>
+        <option value="__not_migrated__">⚠ Not migrated yet</option>
+        <option value="New Application">New Application</option>
+        <option value="CV Screening">CV Screening</option>
+        <option value="Preliminary Interview">Preliminary Interview</option>
+        <option value="Assessment Sent">Assessment Sent</option>
+        <option value="Waiting for Assessment">Waiting for Assessment</option>
+        <option value="Assessment Review">Assessment Review</option>
+        <option value="Initial Interview">Initial Interview</option>
+        <option value="Endorsed to Client">Endorsed to Client</option>
+        <option value="Final Interview">Final Interview</option>
+        <option value="Waiting for Client Decision">Waiting for Client Decision</option>
+        <option value="Job Offer">Job Offer</option>
+        <option value="Hired">Hired</option>
+        <option value="Closed - Rejected">Closed - Rejected</option>
+        <option value="Closed - Withdrawn">Closed - Withdrawn</option>
       </select>
-      <select class="filter-inp" id="filterPipeline" onchange="filterTracker()">
-        <option value="">All Pipeline Steps</option>
-        <option value="pl_a_stage1">AP/AR Team: Application Received</option>
-        <option value="pl_a_stage2">AP/AR Team: TO DO — Send Assessments</option>
-        <option value="pl_a_stage3">AP/AR Team: WAITING — Assessments</option>
-        <option value="pl_a_stage3_pending_emm">AP/AR Team: TO DO — Grade EMM Test</option>
-        <option value="pl_a_stage3_failed">AP/AR Team: TO DO — Decide Reject/Hold (assessments)</option>
-        <option value="pl_a_stage4">AP/AR Team: TO DO — Interview Them (Ops Manager)</option>
-        <option value="pl_a_stage5">AP/AR Team: TO DO — Finish Ops Manager Interview</option>
-        <option value="pl_a_stage5_fail">AP/AR Team: TO DO — Decide Reject/Hold (interview)</option>
-        <option value="pl_a_stage6">AP/AR Team: TO DO — Send to Client</option>
-        <option value="pl_a_stage7">AP/AR Team: WAITING — Client's Decision</option>
-        <option value="pl_b_stage1">Sales Team: Application Received</option>
-        <option value="pl_b_stage2">Sales Team: WAITING — Assessments</option>
-        <option value="pl_b_stage2_failed">Sales Team: TO DO — Decide Reject/Hold (assessments)</option>
-        <option value="pl_b_stage3">Sales Team: TO DO — Interview Them (HR)</option>
-        <option value="pl_b_stage4">Sales Team: TO DO — Finish HR Interview</option>
-        <option value="pl_b_stage5">Sales Team: TO DO — Finish PM Interview</option>
-        <option value="pl_b_stage6">Sales Team: TO DO — Finish CEO Interview</option>
-        <option value="pl_joboffer">Job Offer Sent</option>
+      <select class="filter-inp" id="filterRoleCategory" onchange="filterTracker()">
+        <option value="">All Roles</option>
+        <option value="__unassigned__">(No role set)</option>
+        <option value="AR Specialist">AR Specialist</option>
+        <option value="AP Specialist">AP Specialist</option>
+        <option value="Refunds Specialist">Refunds Specialist</option>
+        <option value="FP&amp;A Specialist">FP&amp;A Specialist</option>
       </select>
       <select class="filter-inp" id="filterResult" onchange="filterTracker()">
         <option value="">All Results</option>
@@ -688,6 +681,13 @@ tbody tr:last-child td{border-bottom:none}
     <select class="filter-inp" id="boardDeptFilter" onchange="renderBoard()">
       <option value="">All Departments</option>
       <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
+    </select>
+    <select class="filter-inp" id="boardRoleFilter" onchange="renderBoard()">
+      <option value="">All Roles</option>
+      <option value="AR Specialist">AR Specialist</option>
+      <option value="AP Specialist">AP Specialist</option>
+      <option value="Refunds Specialist">Refunds Specialist</option>
+      <option value="FP&amp;A Specialist">FP&amp;A Specialist</option>
     </select>
   </div>
   <div id="boardColumns" style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;align-items:flex-start"></div>
@@ -1378,8 +1378,8 @@ function filterTracker(){
   const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
   const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
   const sourceF=document.getElementById('filterSource')?document.getElementById('filterSource').value:'';
-  const stageF=document.getElementById('filterStage').value;
-  const pipelineF=document.getElementById('filterPipeline')?document.getElementById('filterPipeline').value:'';
+  const stageF=document.getElementById('filterCandidateStage')?document.getElementById('filterCandidateStage').value:'';
+  const roleF=document.getElementById('filterRoleCategory')?document.getElementById('filterRoleCategory').value:'';
   const resultF=document.getElementById('filterResult').value;
   const statusF=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
   const gritF=document.getElementById('filterGrit')?document.getElementById('filterGrit').value:'';
@@ -1389,15 +1389,17 @@ function filterTracker(){
   if(deptF)apps=apps.filter(a=>a.department===deptF);
   if(posF)apps=apps.filter(a=>(a.position||'').toLowerCase().includes(posF));
   if(sourceF)apps=apps.filter(a=>(a.source||'')===sourceF);
-  if(stageF)apps=apps.filter(a=>a.stage===parseInt(stageF) && (a.overallStatus||'In Progress')==='In Progress');
-  if(pipelineF)apps=apps.filter(a=>getPipelineStep(a).key===pipelineF);
+  if(stageF==='__not_migrated__')apps=apps.filter(a=>!a.candidateStage);
+  else if(stageF)apps=apps.filter(a=>a.candidateStage===stageF);
+  if(roleF==='__unassigned__')apps=apps.filter(a=>!a.roleCategory);
+  else if(roleF)apps=apps.filter(a=>a.roleCategory===roleF);
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
   if(resultF==='fail')apps=apps.filter(a=>a.emm&&a.emm.pass===false);
   if(statusF)apps=apps.filter(a=>(a.overallStatus||'In Progress')===statusF);
   if(gritF)apps=apps.filter(a=>gritOutcome(a.grit&&a.grit.score).label===gritF);
   if(valuesF)apps=apps.filter(a=>valuesOutcome(a.values&&a.values.score,(a.values&&a.values.confScore)||'',(a.values&&a.values.intScore)||'').label===valuesF);
   if(sortF==='name')apps.sort((a,b)=>a.name.localeCompare(b.name));
-  else if(sortF==='stage')apps.sort((a,b)=>b.stage-a.stage);
+  else if(sortF==='stage')apps.sort((a,b)=>CANDIDATE_STAGES.indexOf(b.candidateStage||'')-CANDIDATE_STAGES.indexOf(a.candidateStage||''));
   else apps.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   renderTrackerTable(apps);
 }
@@ -5120,6 +5122,42 @@ var ROLE_CONFIG = {
 };
 var ROLE_OPTIONS = Object.keys(ROLE_CONFIG);
 var NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Final Interview','Follow up Client','Send Job Offer','Prepare Contract','None'];
+
+// Display colors for the 14 candidate stages -- used by the Tracker badge,
+// Tracker filter, and Kanban board, so all three read the exact same
+// vocabulary (no more separate pl_a/pl_b labels drifting from this one).
+// Grouped by rough phase: application/screening (gray), interviews (blue),
+// assessments (purple), client hand-off (teal/amber), outcomes (green/red).
+var CANDIDATE_STAGE_META = {
+  'New Application': { tone:'#475569', bg:'#f1f5f9' },
+  'CV Screening': { tone:'#475569', bg:'#f1f5f9' },
+  'Preliminary Interview': { tone:'#1e40af', bg:'#eef2ff' },
+  'Assessment Sent': { tone:'#6d28d9', bg:'#f3e8ff' },
+  'Waiting for Assessment': { tone:'#b45309', bg:'#fff8e1' },
+  'Assessment Review': { tone:'#6d28d9', bg:'#f3e8ff' },
+  'Initial Interview': { tone:'#1e40af', bg:'#eef2ff' },
+  'Endorsed to Client': { tone:'#0f766e', bg:'#f0fdfa' },
+  'Final Interview': { tone:'#1e40af', bg:'#eef2ff' },
+  'Waiting for Client Decision': { tone:'#b45309', bg:'#fff8e1' },
+  'Job Offer': { tone:'#047857', bg:'#e8f5e9' },
+  'Hired': { tone:'#166534', bg:'#e8f5e9' },
+  'Closed - Rejected': { tone:'#b52a2a', bg:'#fdecea' },
+  'Closed - Withdrawn': { tone:'#6b7280', bg:'#f1f1f4' }
+};
+
+// Single source of truth for "what stage badge does this applicant show" --
+// Tracker rows, Tracker filter, and the Kanban board all call this instead
+// of each re-deriving it their own way. Records that haven't been through
+// the one-time stage migration yet (candidateStage still blank) get a
+// distinct "Not migrated yet" badge rather than silently falling back to
+// the old pl_a/pl_b wording, so it's obvious at a glance which records still
+// need the migration run (Settings -> Run Stage Migration).
+function getCandidateStageBadge(a){
+  var stage = a && a.candidateStage;
+  var meta = CANDIDATE_STAGE_META[stage];
+  if(meta) return { key:stage, label:stage, tone:meta.tone, bg:meta.bg };
+  return { key:'__not_migrated__', label:'Not migrated yet', tone:'#6b7280', bg:'#f1f1f4' };
+}
 var CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
 var DEFAULT_NEXT_ACTION_BY_STAGE = {
   'New Application':'Screen CV','CV Screening':'Call Candidate','Preliminary Interview':'Schedule Preliminary Interview',
@@ -5860,16 +5898,18 @@ function renderTrackerTable(apps) {
   }
   var rows = apps.map(function(a) {
     var av = getAvatar(a.name);
-    var st = getApplicantStatusLine(a);
+    var st = getCandidateStageBadge(a);
     var sla = getSlaStatus(a);
     // One clear badge is the primary (and usually only) thing shown per row --
-    // the same wording used on the Dashboard, so the vocabulary never drifts
-    // between screens. Stage number, progress bar, and full detail are one
+    // the same wording used on the Dashboard and Board, so the vocabulary
+    // never drifts between screens. Stage history and full detail are one
     // click away in the quick view (openStatusQuickView) instead of being
-    // crammed into every row.
+    // crammed into every row. Next Action shows right under it since that's
+    // the one field HR actually needs to act on day to day.
     var stageStatusInner =
       '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">' + st.label + '</span>' +
-      (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:5px;font-weight:700">' + sla.label + '</div>' : '');
+      (a.nextAction ? '<div style="font-size:11px;color:#1e40af;margin-top:5px;font-weight:700">Next: ' + a.nextAction + '</div>' : '') +
+      (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:3px;font-weight:700">' + sla.label + '</div>' : '');
     var stageStatusCell = '<div onclick="openStatusQuickView(' + a.id + ', event)" style="cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px" title="Click for a larger view">' + stageStatusInner + '</div>';
     var emm = getEmmBadge(a);
     var emmCell = '<span style="background:' + emm.bg + ';color:' + emm.tone + ';font-weight:800;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block;white-space:nowrap">' + emm.label + '</span>';
@@ -5912,29 +5952,32 @@ function getEmmBadge(a){
 }
 
 // ============================================================
-// PIPELINE BOARD -- one column per exact pipeline step (see
-// getPipelineStep/PIPELINE_CARD_DEFS), plus the four outcome columns at the
-// end. Both tracks (AP/AR and Sales and Marketing) show up correctly because
-// the column list is driven by the same track-aware getPipelineStep() used
-// everywhere else -- there's no separate "board logic" to keep in sync.
+// PIPELINE BOARD -- one column per candidate stage (the same 14-stage list
+// and colors used by the Tracker badge/filter, via CANDIDATE_STAGES /
+// CANDIDATE_STAGE_META / getCandidateStageBadge), so there's exactly one
+// place that defines "what are the stages and what do they look like" for
+// the whole app. A leading "Not migrated yet" column only shows up if any
+// records still haven't been through the one-time stage migration, so
+// there's nowhere for a record to silently disappear to.
 // Every column always shows, even at zero -- that way the board reads as a
 // map of the whole pipeline, and an empty column is a clear "nothing to
 // check here" signal rather than looking like a missing step.
 // ============================================================
-var BOARD_OUTCOME_DEFS = [
-  { key:'pl_hired', label:'Hired', color:'#166534' },
-  { key:'pl_rejected', label:'Rejected', color:'#b52a2a' },
-  { key:'pl_hold', label:'On Hold', color:'#b45309' },
-  { key:'pl_noncompliant', label:'Non Compliant', color:'#6b7280' }
-];
 function renderBoard(){
   var apps = getApplicants();
   var deptF = document.getElementById('boardDeptFilter') ? document.getElementById('boardDeptFilter').value : '';
+  var roleF = document.getElementById('boardRoleFilter') ? document.getElementById('boardRoleFilter').value : '';
   if(deptF) apps = apps.filter(function(a){ return a.department===deptF; });
+  if(roleF) apps = apps.filter(function(a){ return a.roleCategory===roleF; });
 
-  var allDefs = PIPELINE_CARD_DEFS.concat(BOARD_OUTCOME_DEFS);
-  var cols = allDefs.map(function(d){
-    return { def:d, apps: apps.filter(function(a){ return getPipelineStep(a).key===d.key; }) };
+  var notMigrated = apps.filter(function(a){ return !a.candidateStage; });
+  var stageDefs = CANDIDATE_STAGES.map(function(s){ return { key:s, label:s, color:(CANDIDATE_STAGE_META[s]||{}).tone||'#475569' }; });
+  if(notMigrated.length){
+    stageDefs = [{ key:'__not_migrated__', label:'⚠ Not migrated yet', color:'#6b7280' }].concat(stageDefs);
+  }
+  var cols = stageDefs.map(function(d){
+    var colApps = d.key==='__not_migrated__' ? notMigrated : apps.filter(function(a){ return a.candidateStage===d.key; });
+    return { def:d, apps: colApps };
   });
 
   var el = document.getElementById('boardColumns');
@@ -5945,6 +5988,7 @@ function renderBoard(){
       return '<div onclick="openApplicant(' + a.id + ')" style="cursor:pointer;background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:13px">' + a.name + '</div></div>' +
         '<div style="font-size:11px;color:var(--gray500)">' + (a.position||'No position') + (a.department?' &middot; '+a.department:'') + '</div>' +
+        (a.nextAction ? '<div style="font-size:11px;color:#1e40af;margin-top:3px;font-weight:600">Next: ' + a.nextAction + '</div>' : '') +
       '</div>';
     }).join('') || '<div style="border:1.5px dashed var(--gray200);border-radius:10px;padding:16px 8px;text-align:center;font-size:11px;color:var(--gray400)">Nobody here right now</div>';
     return '<div style="flex:0 0 240px;background:var(--gray50);border-radius:12px;padding:10px;opacity:' + (isEmpty?'.55':'1') + '">' +
