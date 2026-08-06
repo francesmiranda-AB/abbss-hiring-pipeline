@@ -1054,9 +1054,24 @@ async function syncApplicantToSheets(applicant) {
     // .error -- either the backend's own rejection reason, or (via
     // parseApiResponse) the actual HTTP status/response snippet when Apps
     // Script didn't return usable JSON at all.
-    const errMsg = res === null
+    let errMsg = res === null
       ? 'Not connected — check the Apps Script URL in Settings.'
       : (res && res.error) ? res.error : 'The server rejected this record but did not say why.';
+    // "Failed to fetch" specifically means the browser never got a response
+    // at all -- the request either never reached Apps Script or was rejected
+    // before completing. That's the fingerprint of a payload that's too big
+    // to send, not a server-side rejection. This record's LOCAL copy on this
+    // device can carry stray bulk data (a pasted resume/EMM dump, huge
+    // notes, etc.) that never made it into the shared Sheet precisely
+    // because it's too large to push -- which otherwise looks identical to a
+    // plain dropped connection. Surfacing the actual size here turns that
+    // guess into a fact.
+    if(res && res._networkFailure){
+      try{
+        const kb = Math.round(JSON.stringify(applicant).length/1024);
+        if(kb > 150) errMsg += ` — this record's local data is ${kb}KB, unusually large. Check for a huge pasted note, résumé text, or assessment result on this candidate's profile.`;
+      } catch(e){}
+    }
     setSyncFailedFlag(applicant.id, true, errMsg);
   }
 }
