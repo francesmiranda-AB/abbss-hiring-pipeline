@@ -6366,6 +6366,7 @@ function eodBigStat(value, label, color){
 
 function eodSummaryBar(rolesData, roleNames){
   var totalActive = 0, green = 0, yellow = 0, red = 0, attention = [];
+  var combinedProgress = {}, combinedClosed = {Rejected:0, Withdrawn:0, Hired:0};
   roleNames.forEach(function(r){
     var b = rolesData[r];
     totalActive += b.activeCandidates;
@@ -6373,16 +6374,56 @@ function eodSummaryBar(rolesData, roleNames){
     if(s==='green') green++;
     else if(s==='yellow'){ yellow++; attention.push(r); }
     else if(s==='red'){ red++; attention.push(r); }
+    // Roll every role's Today's Progress into one pipeline-wide total, in
+    // the same stage order as CANDIDATE_STAGES, so there's a single at-a-
+    // glance line above the per-role cards -- closest to the flat mockup
+    // Frances originally sketched, just aggregated instead of hand-counted.
+    Object.keys(b.todaysProgress||{}).forEach(function(k){
+      combinedProgress[k]=(combinedProgress[k]||0)+b.todaysProgress[k];
+    });
+    if(b.closedToday){
+      combinedClosed.Rejected+=b.closedToday.Rejected||0;
+      combinedClosed.Withdrawn+=b.closedToday.Withdrawn||0;
+      combinedClosed.Hired+=b.closedToday.Hired||0;
+    }
   });
-  return '<div class="card" style="margin-bottom:16px;display:flex;gap:26px;flex-wrap:wrap;align-items:center">' +
-    eodBigStat(totalActive, 'Active Candidates', 'var(--gray900)') +
-    eodBigStat(roleNames.length, 'Hiring Roles', 'var(--gray900)') +
-    eodBigStat(green, 'On Track', '#166534') +
-    eodBigStat(yellow, 'Needs Attention', '#b45309') +
-    eodBigStat(red, 'At Risk', '#b52a2a') +
-    (attention.length
-      ? '<div style="flex:1;min-width:220px;font-size:13px;color:var(--gray600)"><strong>Needs a look:</strong> '+attention.join(', ')+'</div>'
-      : '<div style="flex:1;min-width:220px;font-size:13px;color:#166534;font-weight:600">Everything on track.</div>') +
+
+  // Same plain-English labels the backend's TODAYS_PROGRESS_STAGE_LABELS
+  // produces (New Application->New Applications, etc.), in pipeline order --
+  // that backend map lives inside the Apps Script mirror string, not in
+  // frontend scope, so it's repeated here rather than referenced directly.
+  var progressOrder = ['New Applications','CVs Screened','Preliminary Interviews','Assessments Sent','Assessments Completed','Initial Interviews','Endorsed to Client'];
+  var progressKeys = progressOrder.filter(function(k){ return combinedProgress[k]>0; });
+  var closedBits = [];
+  if(combinedClosed.Hired) closedBits.push(combinedClosed.Hired+' Hired');
+  if(combinedClosed.Rejected) closedBits.push(combinedClosed.Rejected+' Rejected');
+  if(combinedClosed.Withdrawn) closedBits.push(combinedClosed.Withdrawn+' Withdrawn');
+
+  var progressLine;
+  if(!progressKeys.length && !closedBits.length){
+    progressLine = '<div style="font-size:13px;color:var(--gray400)">Nothing moved today yet.</div>';
+  } else {
+    progressLine = progressKeys.map(function(k){
+      return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--gray100);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--gray700);margin:3px 6px 0 0">'+combinedProgress[k]+' '+k+'</span>';
+    }).join('');
+    if(closedBits.length) progressLine += '<span style="font-size:12px;color:var(--gray500);margin-left:4px">Closed today: '+closedBits.join(' &middot; ')+'</span>';
+  }
+
+  return '<div class="card" style="margin-bottom:16px">' +
+    '<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:center">' +
+      eodBigStat(totalActive, 'Active Candidates', 'var(--gray900)') +
+      eodBigStat(roleNames.length, 'Hiring Roles', 'var(--gray900)') +
+      eodBigStat(green, 'On Track', '#166534') +
+      eodBigStat(yellow, 'Needs Attention', '#b45309') +
+      eodBigStat(red, 'At Risk', '#b52a2a') +
+      (attention.length
+        ? '<div style="flex:1;min-width:220px;font-size:13px;color:var(--gray600)"><strong>Needs a look:</strong> '+attention.join(', ')+'</div>'
+        : '<div style="flex:1;min-width:220px;font-size:13px;color:#166534;font-weight:600">Everything on track.</div>') +
+    '</div>' +
+    '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--gray100)">' +
+      '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">Today\'s Progress &mdash; all roles combined</div>' +
+      progressLine +
+    '</div>' +
   '</div>';
 }
 
