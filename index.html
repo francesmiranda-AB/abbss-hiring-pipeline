@@ -3273,7 +3273,7 @@ async function sendEmailAutomatically(){
   var replyTo=TEAM_DIRECTORY[sentByName] || '';
   // applicantId + templateKey let the backend attach a best-effort open-tracking
   // pixel -- only meaningful for "Send Automatically", not "Open in Gmail".
-  var payload={to:to, subject:subject, body:body, replyTo:replyTo, applicantId:currentEmailApplicantId, templateKey:currentTemplate};
+  var payload={to:to, subject:subject, body:body, replyTo:replyTo, senderName:sentByName, applicantId:currentEmailApplicantId, templateKey:currentTemplate};
   if(currentTemplate==='assessment'){
     // This template's wording already says "the assessment file attached to this email" --
     // actually attach the blank EMM template so that's true, instead of leaving the
@@ -4379,7 +4379,17 @@ function sendApplicantEmail(data){
   if(!data || !data.to) return {success:false, error:'Missing recipient email address.'};
   try{
     var replyTo = (data.replyTo && String(data.replyTo).trim()) || DEFAULT_REPLY_TO;
-    var options = {replyTo: replyTo};
+    // Gmail always sends AS whichever Google account authorized this script
+    // (that can't be changed per-send -- it's a Google Workspace/Apps Script
+    // constraint, not something this code controls). What CAN be fixed is
+    // the display name: without it, every email shows the bare authorized
+    // address with no name at all, so picking "Wen" in the Sent By dropdown
+    // looked like it did nothing. Setting the name option makes Gmail show
+    // "Wennielyn Pungasi <actual-address>" instead -- combined with the
+    // reply-to above, this is as close to "sent as Wen" as Apps Script
+    // allows without Wen deploying and authorizing her own copy of this
+    // script under her own Google account.
+    var options = {replyTo: replyTo, name: (data.senderName && String(data.senderName).trim()) || 'ABBSS HR Team'};
     if(data.attachmentBase64){
       var blob = Utilities.newBlob(
         Utilities.base64Decode(data.attachmentBase64),
@@ -4670,7 +4680,8 @@ function confirmInterview(data){
     if(email){
       try{
         MailApp.sendEmail(email, '[ABBSS] Interview Confirmed — ' + position,
-          'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + slot.label + '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS');
+          'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + slot.label + '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS',
+          {replyTo: DEFAULT_REPLY_TO, name: 'ABBSS HR Team'});
       }catch(e){ /* don't fail the whole confirmation just because the email didn't send */ }
     }
     return {success:true, slotLabel:slot.label};
@@ -4895,7 +4906,7 @@ function sendComplianceReminderEmail(email,name,position,enteredBy,id){
   // attribute it to whoever entered this applicant's record so the reply reaches
   // the actual person responsible for that candidate, not just whoever authorized the script.
   const replyTo = TEAM_DIRECTORY[enteredBy] || DEFAULT_REPLY_TO;
-  MailApp.sendEmail(email,subject,body,{replyTo: replyTo});
+  MailApp.sendEmail(email,subject,body,{replyTo: replyTo, name: enteredBy || 'ABBSS HR Team'});
 }
 
 function installComplianceTrigger(){
@@ -4907,7 +4918,6 @@ function installComplianceTrigger(){
   ScriptApp.newTrigger('checkAssessmentCompliance').timeBased().everyMinutes(15).create();
   return 'Compliance trigger installed (runs every 15 minutes)';
 }`;
-
 function saveScriptUrl(){
   const url = document.getElementById('scriptUrlInput').value.trim();
   if(!url){showSettingsMsg('Please enter a URL.','#b52a2a');return;}
