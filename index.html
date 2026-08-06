@@ -3939,6 +3939,7 @@ function buildMigrationPlanRows(){
   for(let i=1;i<data.length;i++){
     const r=data[i];
     if(!r[0]) continue;
+    if(r[9]==='Deleted') continue; // soft-deleted/test rows -- never give these a Candidate Stage
     const alreadyMigrated = !!r[53]; // Candidate Stage already set -- skip, don't clobber manual edits
     if(alreadyMigrated) continue;
     const newStage=deriveNewStageForRow(r);
@@ -4102,7 +4103,11 @@ function isToday(iso){
 
 function getRoleDashboardData(){
   try{
-    const apps=getAllApplicants();
+    // "Deleted" is a soft-delete status the app already hides everywhere on
+    // the frontend (getApplicants() filters it out) -- but this backend
+    // report reads getAllApplicants() directly, so without this same filter
+    // a deleted/test record could still show up on the Executive Dashboard.
+    const apps=getAllApplicants().filter(function(a){ return a.overallStatus!=='Deleted'; });
     const now=new Date();
     const byRole={};
     function ensureRole(role){
