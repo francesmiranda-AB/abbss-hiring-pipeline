@@ -949,6 +949,15 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div id="stageMigV3Msg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
   </div>
+  <div class="card card-accent-blue" style="max-width:700px">
+    <div class="card-header"><div class="card-title-lg">Fix Migration Timestamps</div></div>
+    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The Candidate Stage migration above used to stamp every record it touched with today's date, which made the Executive Dashboard's "Today's Progress" look like dozens of people moved stages today when really they were just being migrated. That's now fixed going forward — new migrations leave the date honestly blank unless it's a brand-new application (where the real received date is used instead). This tool is the one-time cleanup for records already migrated under the old, inaccurate behavior: it finds any record whose stage date looks fabricated (set to today, with no real history behind it) and clears it, or backfills the true received date if it's a new application. Preview first — nothing changes until you click Apply. Safe to run more than once; once there's nothing left to fix, Preview will say so.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="previewMigrationDateFixUI()">👀 Preview (no changes)</button>
+      <button class="btn btn-primary" id="dateFixApplyBtn" style="display:none" onclick="applyMigrationDateFixUI()">✓ Apply Fix</button>
+    </div>
+    <div id="dateFixMsg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
+  </div>
   <details class="card" style="max-width:700px">
     <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">⚙️ Technical Setup (IT / one-time only — click to expand)</summary>
     <div style="margin-top:16px">
@@ -3948,7 +3957,7 @@ function buildMigrationPlanRows(){
       rowIndex:i+1, id:r[0], name:r[1],
       oldPlStage:parseInt(r[8])||1, oldDepartment:r[39]||'', oldOverallStatus:r[9]||'In Progress',
       newStage:newStage, newNextAction:DEFAULT_NEXT_ACTION_BY_STAGE[newStage]||'None',
-      suggestedRole:suggestedRole
+      suggestedRole:suggestedRole, createdAt:r[27]||''
     });
   }
   return plan;
@@ -3987,9 +3996,93 @@ function migrateStageModelV3(){
     const plan=buildMigrationPlanRows();
     plan.forEach(function(p){
       t.getRange(p.rowIndex,54,1,3).setValues([[p.newStage, p.newNextAction, p.suggestedRole]]);
-      t.getRange(p.rowIndex,58).setValue(JSON.stringify([[p.newStage, new Date().toISOString()]].reduce(function(o,pair){ o[pair[0]]=pair[1]; return o; },{})));
+      // Deliberately NOT new Date() here. The old model never tracked a
+      // per-stage entry date, so for most stages we have no real historical
+      // timestamp to write -- stamping "now" would make Today's Progress on
+      // the Executive Dashboard show these as having moved today, when they
+      // actually reached that stage days/weeks/months ago; they're just
+      // getting labeled today. "New Application" is the one exception: the
+      // existing Created At value IS the true, accurate date they reached
+      // it, so that one gets backfilled for real. Every other stage is left
+      // with no stage-date entry at all -- honestly "unknown" instead of a
+      // fabricated "today". avg-days-in-stage/overdue for these will show
+      // as unknown until the candidate's stage is next changed for real.
+      var stageDates = {};
+      if(p.newStage==='New Application' && p.createdAt){
+        stageDates[p.newStage] = p.createdAt;
+      }
+      t.getRange(p.rowIndex,58).setValue(JSON.stringify(stageDates));
     });
     return {success:true, migrated:plan.length};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// ============================================================
+// FIX MIGRATION TIMESTAMPS -- one-time cleanup for anyone who already ran
+// migrateStageModelV3() before this fix existed, which stamped "now" as the
+// stage-entry date for every migrated row. That made the Executive
+// Dashboard's Today's Progress count old, pre-existing candidates as if
+// they'd moved stage today, inflating the numbers shown to leadership.
+// This only touches rows that look exactly like that artifact: the
+// Candidate Stage Dates JSON has exactly one entry, it matches the
+// candidate's current stage, it's dated today, AND the candidate's actual
+// Created At date is NOT today (a real same-day applicant is left alone --
+// their "moved today" reading is genuine). Same dry-run-first pattern as the
+// original migration.
+// ============================================================
+function buildMigrationDateFixPlan(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return [];
+  const data=t.getDataRange().getValues();
+  const now=new Date();
+  function isTodayIso(iso){
+    if(!iso) return false;
+    const d=new Date(iso);
+    if(isNaN(d.getTime())) return false;
+    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+  }
+  const plan=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i];
+    if(!r[0]) continue;
+    const stage=r[53];
+    if(!stage) continue; // never migrated -- nothing to fix
+    const createdAt=r[27]||'';
+    let dates={};
+    try{ dates = r[57] ? JSON.parse(r[57]) : {}; }catch(e){ dates = {}; }
+    const keys=Object.keys(dates);
+    const looksFabricated = keys.length===1 && keys[0]===stage && isTodayIso(dates[stage]) && !isTodayIso(createdAt);
+    if(!looksFabricated) continue;
+    const fixedDates = (stage==='New Application' && createdAt) ? { 'New Application': createdAt } : {};
+    plan.push({ rowIndex:i+1, id:r[0], name:r[1], stage:stage, oldDate:dates[stage], newDate:fixedDates[stage]||null, createdAt:createdAt });
+  }
+  return plan;
+}
+
+function previewMigrationDateFix(){
+  try{
+    const plan=buildMigrationDateFixPlan();
+    return {success:true, totalToFix:plan.length,
+      sample:plan.slice(0,20).map(function(p){ return {name:p.name, stage:p.stage, oldDate:p.oldDate, newDate:p.newDate, createdAt:p.createdAt}; })};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+function applyMigrationDateFix(){
+  try{
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    if(!t) return {success:false, error:'Applicants sheet not found'};
+    const plan=buildMigrationDateFixPlan();
+    plan.forEach(function(p){
+      const fixedDates = p.newDate ? (function(){ const o={}; o[p.stage]=p.newDate; return o; })() : {};
+      t.getRange(p.rowIndex,58).setValue(JSON.stringify(fixedDates));
+    });
+    return {success:true, fixed:plan.length};
   }catch(e){
     return {success:false, error:e.message};
   }
@@ -4260,6 +4353,7 @@ function doGet(e){
     else if(a==='getDavidBusy')out=getDavidBusyBlocks(e.parameter.start, e.parameter.end);
     else if(a==='getUnmatchedEmm')out=getUnmatchedEmmSubmissions();
     else if(a==='previewStageMigrationV3')out=previewStageMigrationV3();
+    else if(a==='previewMigrationDateFix')out=previewMigrationDateFix();
     else if(a==='getRoleDashboard')out=getRoleDashboardData();
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
@@ -4283,6 +4377,7 @@ function doPost(e){
     else if(p.action==='saveInterviewSlots')out=saveInterviewSlots(p.data);
     else if(p.action==='recordAvailability')out={success:recordAvailability(p.data.id, p.data.token, p.data.picks, p.data.contact)};
     else if(p.action==='runStageMigrationV3')out=migrateStageModelV3();
+    else if(p.action==='applyMigrationDateFix')out=applyMigrationDateFix();
     else if(p.action==='setRoleHealthOverride')out=setRoleHealthOverride(p.data.role, p.data.status, p.data.reason, p.data.setBy, p.data.pmNote);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
@@ -5766,6 +5861,71 @@ async function applyCandidateStageMigration(){
     if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
     if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
     if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
+  } else {
+    if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
+  }
+}
+
+async function previewMigrationDateFixUI(){
+  var msgEl = document.getElementById('dateFixMsg');
+  var applyBtn = document.getElementById('dateFixApplyBtn');
+  if(!msgEl) return;
+  if(!SCRIPT_URL){
+    msgEl.style.display='block';
+    msgEl.innerHTML = '<span style="color:#b45309">Connect Google Sheets above first — this runs against your shared Sheet.</span>';
+    return;
+  }
+  msgEl.style.display='block';
+  msgEl.innerHTML = 'Checking for fabricated dates&hellip;';
+  if(applyBtn) applyBtn.style.display='none';
+
+  var res = await apiGet('previewMigrationDateFix');
+  if(!res || !res.success){
+    msgEl.innerHTML = '<span style="color:#b52a2a">Could not preview: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
+    return;
+  }
+  window._dateFixPreview = res;
+
+  if(res.totalToFix === 0){
+    msgEl.innerHTML = '<span style="color:#166534">✓ Nothing to fix — no fabricated timestamps found.</span>';
+    return;
+  }
+
+  var sampleRows = res.sample.map(function(p){
+    return '<tr><td style="padding:5px 8px;font-size:12px">'+p.name+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px">'+p.stage+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px;color:#b52a2a">'+(p.oldDate?new Date(p.oldDate).toLocaleDateString():'')+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px;color:#166534">'+(p.newDate?new Date(p.newDate).toLocaleDateString():'<span style="color:var(--gray500)">cleared (unknown)</span>')+'</td></tr>';
+  }).join('');
+
+  msgEl.innerHTML =
+    '<div style="font-weight:700;margin-bottom:10px;color:var(--gray900)">' + res.totalToFix + ' record(s) have a fabricated "moved today" date &mdash; nothing has changed yet, this is a preview.</div>' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">First 20 examples</div>' +
+    '<div class="table-wrap" style="max-height:240px;overflow:auto"><table><thead><tr><th style="padding:5px 8px;font-size:11px">Name</th><th style="padding:5px 8px;font-size:11px">Stage</th><th style="padding:5px 8px;font-size:11px">Wrong date (now)</th><th style="padding:5px 8px;font-size:11px">Corrected to</th></tr></thead><tbody>' + sampleRows + '</tbody></table></div>' +
+    '<div style="margin-top:10px;font-size:12px;color:var(--gray500)">"New Application" records get backfilled with their real received date. Every other stage gets cleared to unknown rather than left showing a made-up date.</div>';
+
+  if(applyBtn) applyBtn.style.display='inline-block';
+}
+
+async function applyMigrationDateFixUI(){
+  var preview = window._dateFixPreview;
+  var msgEl = document.getElementById('dateFixMsg');
+  if(!preview || !preview.totalToFix){
+    showToast('Run Preview first.');
+    return;
+  }
+  if(!confirm('Correct the fabricated "moved today" timestamp on ' + preview.totalToFix + ' record(s)? This only touches dates the old migration wrote incorrectly today — real stage history is never changed.')) return;
+
+  if(msgEl) msgEl.innerHTML = 'Applying&hellip;';
+  var res = await apiPost('applyMigrationDateFix', {});
+  if(res && res.success){
+    showToast('✓ Fixed ' + res.fixed + ' record(s).');
+    if(msgEl) msgEl.innerHTML = '<span style="color:#166534">✓ Done &mdash; ' + res.fixed + ' record(s) corrected. The Executive Dashboard\'s Today\'s Progress will no longer count these as moved today.</span>';
+    var applyBtn = document.getElementById('dateFixApplyBtn');
+    if(applyBtn) applyBtn.style.display='none';
+    window._dateFixPreview = null;
+    if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
+    if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
   } else {
     if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
   }
