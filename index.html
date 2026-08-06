@@ -1632,6 +1632,7 @@ function buildProfileTab(a){
     </div>
     <div><label class="lbl">Date Received</label><div style="font-size:14px">${a.dateReceived||'—'}</div></div>
   </div>
+  ${buildCandidateStagePanel(a)}
   <div style="margin-bottom:12px">
     <label class="lbl">Resume Notes</label>
     <textarea id="resumeNotesInput_${a.id}" onchange="updateField(${a.id},'resumeNotes',this.value)" style="min-height:60px">${a.resumeNotes||''}</textarea>
@@ -3480,6 +3481,66 @@ const GRIT_FORM_LINK = 'https://forms.gle/JwGGt8UWnR6NgFga8';
 const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
 const DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
 
+// ============================================================
+// CANDIDATE STAGE MODEL V3 -- replaces the old pl_a_stageN/pl_b_stageN +
+// Overall Status combo with a single manual field HR sets directly. There
+// is deliberately no auto-advance logic here: HR picks whatever stage is
+// currently true, and Next Action separately; everything else (dashboards,
+// EOD, health) is calculated FROM those two fields plus timestamps, never
+// the other way around.
+//
+// Interview stages are named by SEQUENCE (Preliminary / Initial / Final),
+// not by who conducts them -- because who conducts them differs by
+// department: Operations runs HR -> Operations Manager -> Client, while
+// other roles run HR -> Project Manager -> CEO. Keeping the stage names
+// generic means one clean list works for both; INTERVIEW_ROUNDS_BY_DEPARTMENT
+// below is what tells the UI who to actually show for each round.
+const CANDIDATE_STAGES = ['New Application','CV Screening','Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Endorsed to Client','Final Interview','Waiting for Client Decision','Job Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+const CLOSED_STAGES = ['Hired','Closed - Rejected','Closed - Withdrawn'];
+// Keys match the real values in the Department dropdown ('Operations',
+// 'Sales and Marketing', plus Finance/HR/IT/Other which this pipeline
+// model doesn't apply to today).
+const INTERVIEW_ROUNDS_BY_DEPARTMENT = {
+  'Operations': { preliminary:'HR', initial:'Operations Manager', final:'Client' },
+  'Sales and Marketing': { preliminary:'HR', initial:'Project Manager', final:'CEO' }
+};
+// requiresClientFinal:false means this role never goes through Endorsed to
+// Client / Final Interview / Waiting for Client Decision at all -- it's an
+// internal hire, so the Operations Manager's decision after Initial
+// Interview goes straight to Job Offer. FP&A is the example given when this
+// was designed; the rest default to true. Starter list -- trivial to edit.
+const ROLE_CONFIG = {
+  'AR Specialist': { requiresClientFinal:true },
+  'AP Specialist': { requiresClientFinal:true },
+  'Refunds Specialist': { requiresClientFinal:true },
+  'FP&A Specialist': { requiresClientFinal:false }
+};
+const ROLE_OPTIONS = Object.keys(ROLE_CONFIG);
+const NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Final Interview','Follow up Client','Send Job Offer','Prepare Contract','None'];
+const CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
+// Suggested default when a stage is first set -- HR can always change it.
+const DEFAULT_NEXT_ACTION_BY_STAGE = {
+  'New Application':'Screen CV','CV Screening':'Call Candidate','Preliminary Interview':'Schedule Preliminary Interview',
+  'Assessment Sent':'Follow up Candidate','Waiting for Assessment':'Follow up Candidate','Assessment Review':'Review Assessment',
+  'Initial Interview':'Schedule Initial Interview','Endorsed to Client':'Follow up Client','Final Interview':'Schedule Final Interview',
+  'Waiting for Client Decision':'Follow up Client','Job Offer':'Send Job Offer','Hired':'None',
+  'Closed - Rejected':'None','Closed - Withdrawn':'None'
+};
+// How many days a candidate should typically spend in each active stage
+// before it counts as overdue. Feeds "overdue reminders" on the dashboard --
+// deliberately generous starter numbers, easy to tighten later once there's
+// real data on how long things actually take.
+const STAGE_SLA_DAYS = {
+  'New Application':2,'CV Screening':2,'Preliminary Interview':3,'Assessment Sent':1,
+  'Waiting for Assessment':3,'Assessment Review':2,'Initial Interview':3,'Endorsed to Client':3,
+  'Final Interview':3,'Waiting for Client Decision':5,'Job Offer':3
+};
+// A candidate whose Next Action is literally "follow up" something is the
+// clearest, most direct signal that HR has work to do on them right now --
+// distinct from "overdue," which is purely time-based regardless of Next Action.
+const FOLLOW_UP_ACTIONS = ['Follow up Candidate','Follow up Client'];
+const ROLE_HEALTH_SHEET_NAME = 'RoleHealth';
+
 function scoreGrit(row){
   const rev=[0,2,4,5];const scores=[];
   for(let i=0;i<10;i++){const r=parseFloat(row[4+i]);if(isNaN(r))continue;scores.push(rev.includes(i)?6-r:r);}
@@ -3509,8 +3570,9 @@ function setupSheet(){
       'Interview Full JSON','EMM Full JSON','Emails Sent JSON',
       'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL',
       'Offer Details JSON','Status Changed At',
-      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','SMS Sent At','Assessment Views JSON']);
-    t.getRange(1,1,1,53).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','SMS Sent At','Assessment Views JSON',
+      'Candidate Stage','Next Action','Role Category','Closed Reason','Candidate Stage Dates JSON']);
+    t.getRange(1,1,1,58).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -3607,6 +3669,21 @@ function getUnmatchedEmmSubmissions(){
   }
 }
 
+// setupSheet() only writes headers on a brand-new, empty sheet -- it never
+// retrofits new columns onto a sheet that already has data (which is every
+// real sheet in production). This adds the 5 new V3 columns' headers if
+// they aren't there yet, safe to call every time (no-op once already done).
+function ensureCandidateStageColumns(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return;
+  const headerRow=t.getRange(1,1,1,Math.max(t.getLastColumn(),58)).getValues()[0];
+  if(!headerRow[53]){
+    t.getRange(1,54,1,5).setValues([['Candidate Stage','Next Action','Role Category','Closed Reason','Candidate Stage Dates JSON']]);
+    t.getRange(1,54,1,5).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+  }
+}
+
 function saveApplicant(d){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   let t=ss.getSheetByName('Applicants');if(!t){setupSheet();t=ss.getSheetByName('Applicants');}
@@ -3655,7 +3732,26 @@ function saveApplicant(d){
     // Column 53 ("Assessment Views JSON") is server-only, same reasoning as
     // columns 43-50 above -- only recordAssessmentView() (triggered when a
     // candidate actually clicks a tracked assessment link) ever writes it.
-    existing?(existing[52]||''):''];
+    existing?(existing[52]||''):'',
+    // Columns 54-56 (Candidate Stage / Next Action / Role Category) are
+    // plain client-set fields -- HR picks them from dropdowns, same as
+    // Department. Column 57 (Closed Reason) likewise.
+    d.candidateStage||'', d.nextAction||'', d.roleCategory||'', d.closedReason||'',
+    // Column 58 (Candidate Stage Dates JSON) is the one exception: it's
+    // computed here server-side, not client-set, so it stays reliable no
+    // matter which device/browser changed the stage. We diff the incoming
+    // stage against whatever was already stored and only stamp a new
+    // timestamp the moment the stage actually changes -- this is what
+    // "average days in stage" is computed from later.
+    (function(){
+      let dates={};
+      if(existing && existing[57]){ try{ dates=JSON.parse(existing[57]); }catch(e){} }
+      const oldStage = existing ? (existing[53]||'') : '';
+      const newStage = d.candidateStage||'';
+      if(newStage && newStage!==oldStage) dates[newStage]=new Date().toISOString();
+      return JSON.stringify(dates);
+    })()
+  ];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -3698,6 +3794,8 @@ function getAllApplicants(){
     if(r[49]){ try{ confirmedSlot=JSON.parse(r[49]); }catch(e){} }
     let assessmentViews={};
     if(r[52]){ try{ assessmentViews=JSON.parse(r[52]); }catch(e){} }
+    let candidateStageDates={};
+    if(r[57]){ try{ candidateStageDates=JSON.parse(r[57]); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
@@ -3715,9 +3813,354 @@ function getAllApplicants(){
       interviewSlots:interviewSlots,schedulingToken:r[45]||'',
       candidateSlotPicks:candidateSlotPicks,candidateContact:r[47]||'',availabilitySubmittedAt:r[48]||'',
       confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',smsSentAt:r[51]||'',
-      assessmentViews:assessmentViews
+      assessmentViews:assessmentViews,
+      candidateStage:r[53]||'',nextAction:r[54]||'',roleCategory:r[55]||'',closedReason:r[56]||'',
+      candidateStageDates:candidateStageDates
     };
   });
+}
+
+// ============================================================
+// STAGE MODEL V3 MIGRATION -- one-time move from pl_a_stageN/pl_b_stageN +
+// Overall Status onto the single Candidate Stage field. This only ever
+// reads the SIMPLE, deterministic columns (numeric Stage, Department,
+// Overall Status, and whether GRIT/Values scores are present) -- it
+// deliberately does NOT try to reproduce the old frontend's pass/fail
+// scoring logic, because getting that subtly wrong would silently
+// mis-migrate people. Anything genuinely ambiguous collapses into
+// "Assessment Review," which is the one bucket HR should sanity-check
+// after migrating (the preview below shows exactly how many land there).
+function deriveNewStageForRow(r){
+  const overallStatus = r[9]||'In Progress';
+  if(overallStatus==='Hired') return 'Hired';
+  if(overallStatus==='Rejected') return 'Closed - Rejected';
+  // NonCompliant and Hold are NOT terminal in the new model -- they keep
+  // whatever active stage they're actually at, and become visible instead
+  // as an overdue/needs-follow-up flag (computed elsewhere from timestamps),
+  // rather than a separate archived status bucket.
+  const dept = String(r[39]||'');
+  // Matches the frontend's own isTrackB(a) exactly: Track B is only ever
+  // department === 'Sales and Marketing'; everything else (Operations,
+  // blank, Finance/HR/IT/Other) defaults to the Track A pipeline, same as
+  // the live app already does today.
+  const isTrackA = dept!=='Sales and Marketing';
+  const stage = parseInt(r[8])||1;
+  const hasGrit = r[13]!==''&&r[13]!==null&&r[13]!==undefined;
+  const hasValues = r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+  const answersIn = hasGrit && hasValues;
+  // Track A (Operations/AP-AR): HR runs the Preliminary round informally
+  // between stage 1 and 2, Operations Manager runs Initial (stage 4-5),
+  // Client runs Final (folded into "Send to Client" -> stage 6-7 today,
+  // since the old model never separated "sent" from "interviewed").
+  if(isTrackA){
+    if(stage<=1) return 'New Application';
+    if(stage===2) return 'Preliminary Interview';
+    if(stage===3) return answersIn ? 'Assessment Review' : 'Waiting for Assessment';
+    if(stage===4||stage===5) return 'Initial Interview'; // Operations Manager
+    if(stage===6) return 'Endorsed to Client';
+    if(stage>=7) return 'Waiting for Client Decision';
+  } else {
+    // Track B (Sales & Marketing / other roles): HR runs Preliminary
+    // (stage 3-4), the Project Manager runs Initial (stage 5), the CEO
+    // runs Final (stage 6).
+    if(stage<=1) return 'New Application';
+    if(stage===2) return answersIn ? 'Assessment Review' : 'Waiting for Assessment';
+    if(stage===3||stage===4) return 'Preliminary Interview'; // HR
+    if(stage===5) return 'Initial Interview'; // Frances specifically
+    if(stage>=6) return 'Final Interview'; // CEO
+  }
+  return 'New Application';
+}
+
+// Best-effort only -- HR should review and correct after migrating. Leaves
+// it blank rather than guess wrong when the position text doesn't clearly
+// match one of the seed roles.
+function suggestRoleForPosition(position){
+  const p=String(position||'').toLowerCase();
+  if(p.indexOf('ar ')>=0 || p.indexOf('accounts receivable')>=0 || /\bar\b/.test(p)) return 'AR Specialist';
+  if(p.indexOf('ap ')>=0 || p.indexOf('accounts payable')>=0 || /\bap\b/.test(p)) return 'AP Specialist';
+  if(p.indexOf('refund')>=0) return 'Refunds Specialist';
+  if(p.indexOf('fp&a')>=0 || p.indexOf('fpa')>=0 || p.indexOf('financial plan')>=0) return 'FP&A Specialist';
+  return '';
+}
+
+function buildMigrationPlanRows(){
+  ensureCandidateStageColumns();
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  const t=ss.getSheetByName('Applicants');
+  if(!t) return [];
+  const data=t.getDataRange().getValues();
+  const plan=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i];
+    if(!r[0]) continue;
+    const alreadyMigrated = !!r[53]; // Candidate Stage already set -- skip, don't clobber manual edits
+    if(alreadyMigrated) continue;
+    const newStage=deriveNewStageForRow(r);
+    const suggestedRole=suggestRoleForPosition(r[4]);
+    plan.push({
+      rowIndex:i+1, id:r[0], name:r[1],
+      oldPlStage:parseInt(r[8])||1, oldDepartment:r[39]||'', oldOverallStatus:r[9]||'In Progress',
+      newStage:newStage, newNextAction:DEFAULT_NEXT_ACTION_BY_STAGE[newStage]||'None',
+      suggestedRole:suggestedRole
+    });
+  }
+  return plan;
+}
+
+// Dry run -- no writes. Returns counts per new stage plus per suggested
+// role, so HR can sanity-check the mapping against real data before
+// anything actually changes.
+function previewStageMigrationV3(){
+  try{
+    const plan=buildMigrationPlanRows();
+    const countsByStage={};
+    const countsByRole={};
+    CANDIDATE_STAGES.forEach(function(s){ countsByStage[s]=0; });
+    plan.forEach(function(p){
+      countsByStage[p.newStage]=(countsByStage[p.newStage]||0)+1;
+      const roleKey=p.suggestedRole||'(unassigned -- needs manual review)';
+      countsByRole[roleKey]=(countsByRole[roleKey]||0)+1;
+    });
+    return {success:true, totalToMigrate:plan.length, countsByStage:countsByStage, countsByRole:countsByRole,
+      sample:plan.slice(0,20).map(function(p){ return {name:p.name, oldPlStage:p.oldPlStage, oldDepartment:p.oldDepartment, oldOverallStatus:p.oldOverallStatus, newStage:p.newStage, newNextAction:p.newNextAction, suggestedRole:p.suggestedRole}; })};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// Applies the same plan the preview shows. Safe to re-run: only touches
+// rows where Candidate Stage is still blank, so it never overwrites a stage
+// someone has already set (manually or from a prior partial run).
+function migrateStageModelV3(){
+  try{
+    ensureCandidateStageColumns();
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    if(!t) return {success:false, error:'Applicants sheet not found'};
+    const plan=buildMigrationPlanRows();
+    plan.forEach(function(p){
+      t.getRange(p.rowIndex,54,1,3).setValues([[p.newStage, p.newNextAction, p.suggestedRole]]);
+      t.getRange(p.rowIndex,58).setValue(JSON.stringify([[p.newStage, new Date().toISOString()]].reduce(function(o,pair){ o[pair[0]]=pair[1]; return o; },{})));
+    });
+    return {success:true, migrated:plan.length};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// ============================================================
+// ROLE HEALTH -- 🟢/🟡/🔴 per role, for the Executive Dashboard. Auto-
+// calculated from the same aggregation as the rest of the dashboard, but
+// always overridable by the PM: an override is stored separately (its own
+// sheet) so the UI can show both the system's read AND the PM's actual
+// call, clearly labeled as a "PM override" rather than pretending the
+// override IS the automatic calculation.
+// ============================================================
+function ensureRoleHealthSheet(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  let t=ss.getSheetByName(ROLE_HEALTH_SHEET_NAME);
+  if(!t){
+    t=ss.insertSheet(ROLE_HEALTH_SHEET_NAME);
+    t.appendRow(['Role','Override Status','Override Reason','Set By','Set At','PM Note']);
+    t.getRange(1,1,1,6).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+    t.setFrozenRows(1);
+  } else if(t.getLastColumn()<6){
+    // Retrofit the PM Note column onto a sheet created before it existed.
+    t.getRange(1,6).setValue('PM Note');
+    t.getRange(1,6).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+  }
+  return t;
+}
+
+function getRoleHealthOverrides(){
+  const t=ensureRoleHealthSheet();
+  const data=t.getDataRange().getValues();
+  const out={};
+  for(let i=1;i<data.length;i++){
+    const r=data[i];
+    if(!r[0]) continue;
+    // A PM Note can exist even with no health override -- always surface it,
+    // separately from whether status/reason are set.
+    if(r[1] || r[5]) out[r[0]]={status:r[1]||'', reason:r[2]||'', setBy:r[3]||'', setAt:r[4]||'', pmNote:r[5]||''};
+  }
+  return out;
+}
+
+// status: 'green'|'yellow'|'red', or '' to CLEAR an existing override and
+// go back to the automatic calculation. pmNote is independent of status --
+// you can leave a note without overriding the color, or vice versa.
+function setRoleHealthOverride(role, status, reason, setBy, pmNote){
+  try{
+    const t=ensureRoleHealthSheet();
+    const data=t.getDataRange().getValues();
+    let rowIdx=-1;
+    for(let i=1;i<data.length;i++){ if(data[i][0]===role){ rowIdx=i+1; break; } }
+    const existing = rowIdx>0 ? data[rowIdx-1] : null;
+    // undefined means "leave this field as-is" (e.g. only updating the PM
+    // Note); an explicit '' means "clear it". Only fields the caller actually
+    // passed get changed -- this lets a note-only update leave the health
+    // override untouched, and vice versa.
+    const existingStatus = existing ? (existing[1]||'') : '';
+    const existingReason = existing ? (existing[2]||'') : '';
+    const existingNote = existing ? (existing[5]||'') : '';
+    const rowVals=[
+      role,
+      status!==undefined?status:existingStatus,
+      reason!==undefined?reason:existingReason,
+      setBy||'',
+      new Date().toISOString(),
+      pmNote!==undefined?pmNote:existingNote
+    ];
+    if(rowIdx>0) t.getRange(rowIdx,1,1,6).setValues([rowVals]);
+    else t.appendRow(rowVals);
+    return {success:true};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// Deliberately simple, transparent rules -- always paired with a plain-
+// English reason so nobody has to trust a black box. The "exactly one
+// active candidate" rule is hard-coded regardless of anything else, same
+// as the FP&A example this was designed around.
+function computeAutoHealthForRole(bucket){
+  if(bucket.activeCandidates===0) return {status:'red', reason:'No active candidates in the pipeline.'};
+  if(bucket.activeCandidates===1) return {status:'yellow', reason:'Only one active candidate in the pipeline.'};
+  if(bucket.overdueReminders.length>0) return {status:'yellow', reason:bucket.overdueReminders.length+' candidate(s) past the expected time in their current stage.'};
+  return {status:'green', reason:'Healthy pipeline.'};
+}
+
+// ============================================================
+// PER-ROLE DASHBOARD AGGREGATION -- the single function both the Dashboard
+// and the Executive EOD are built on. HR only ever sets Candidate Stage +
+// Next Action by hand (see Candidate Stage Model V3 above); everything
+// here is calculated FROM that, never the other way around.
+// ============================================================
+// Maps CANDIDATE_STAGES to the plain-English "Today's Progress" metric
+// names from the Executive Dashboard spec. "Initial Interviews" (not "PM
+// Interviews") deliberately, since Initial Interview is run by the
+// Operations Manager for Operations roles and the PM for others -- calling
+// it "PM Interviews" everywhere would be wrong for half the pipeline.
+const TODAYS_PROGRESS_STAGE_LABELS = {
+  'New Application':'New Applications', 'CV Screening':'CVs Screened',
+  'Preliminary Interview':'Preliminary Interviews', 'Assessment Sent':'Assessments Sent',
+  'Assessment Review':'Assessments Completed', 'Initial Interview':'Initial Interviews',
+  'Endorsed to Client':'Endorsed to Client'
+};
+
+function isToday(iso){
+  if(!iso) return false;
+  const d=new Date(iso), now=new Date();
+  return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+}
+
+function getRoleDashboardData(){
+  try{
+    const apps=getAllApplicants();
+    const now=new Date();
+    const byRole={};
+    function ensureRole(role){
+      if(!byRole[role]) byRole[role]={
+        role:role, activeCandidates:0, stageCounts:{}, candidates:[],
+        needingFollowUp:[], overdueReminders:[], todaysProgress:{}, closedToday:{Rejected:0,Withdrawn:0,Hired:0},
+        _stageDaysSum:{}, _stageDaysCount:{}, _nextActionTally:{}
+      };
+      return byRole[role];
+    }
+    apps.forEach(function(a){
+      const role=a.roleCategory || '(Unassigned)';
+      const stage=a.candidateStage || '(Not set)';
+      const bucket=ensureRole(role);
+      const isClosed=CLOSED_STAGES.indexOf(stage)>=0;
+      if(!isClosed) bucket.activeCandidates++;
+      bucket.stageCounts[stage]=(bucket.stageCounts[stage]||0)+1;
+
+      const dates=a.candidateStageDates||{};
+      const enteredAt=dates[stage];
+      const daysInStage=enteredAt ? Math.round(((now-new Date(enteredAt))/86400000)*10)/10 : null;
+      if(!isClosed && daysInStage!==null){
+        bucket._stageDaysSum[stage]=(bucket._stageDaysSum[stage]||0)+daysInStage;
+        bucket._stageDaysCount[stage]=(bucket._stageDaysCount[stage]||0)+1;
+      }
+
+      const slaDays=STAGE_SLA_DAYS[stage];
+      const isOverdue=!isClosed && daysInStage!==null && slaDays!==undefined && daysInStage>slaDays;
+
+      const summary={id:a.id, name:a.name, stage:stage, nextAction:a.nextAction||'', daysInStage:daysInStage};
+      bucket.candidates.push(summary);
+
+      if(!isClosed){
+        if(FOLLOW_UP_ACTIONS.indexOf(a.nextAction)>=0) bucket.needingFollowUp.push(summary);
+        if(isOverdue) bucket.overdueReminders.push(Object.assign({slaDays:slaDays}, summary));
+        if(a.nextAction) bucket._nextActionTally[a.nextAction]=(bucket._nextActionTally[a.nextAction]||0)+1;
+      }
+
+      // Today's Progress -- count every stage this candidate entered TODAY,
+      // not just their current one, so a candidate who moved through
+      // several stages today (e.g. screened AND interviewed same day)
+      // correctly shows up in each relevant count.
+      Object.keys(dates).forEach(function(stageName){
+        if(!isToday(dates[stageName])) return;
+        const label=TODAYS_PROGRESS_STAGE_LABELS[stageName];
+        if(label) bucket.todaysProgress[label]=(bucket.todaysProgress[label]||0)+1;
+        if(stageName==='Closed - Rejected') bucket.closedToday.Rejected++;
+        if(stageName==='Closed - Withdrawn') bucket.closedToday.Withdrawn++;
+        if(stageName==='Hired') bucket.closedToday.Hired++;
+      });
+    });
+
+    const overrides=getRoleHealthOverrides();
+    Object.keys(byRole).forEach(function(role){
+      const b=byRole[role];
+      b.avgDaysInStage={};
+      Object.keys(b._stageDaysSum).forEach(function(stage){
+        b.avgDaysInStage[stage]=Math.round((b._stageDaysSum[stage]/b._stageDaysCount[stage])*10)/10;
+      });
+      delete b._stageDaysSum; delete b._stageDaysCount;
+
+      // Auto-derived "Next Action" summary for the role as a whole -- the
+      // 3 most common next actions among its active candidates, so
+      // whoever's reading the EOD sees "what to do" without opening every
+      // record. This is separate from any per-candidate Next Action.
+      b.nextActionSummary=Object.keys(b._nextActionTally)
+        .map(function(action){ return {action:action, count:b._nextActionTally[action]}; })
+        .sort(function(x,y){ return y.count-x.count; })
+        .slice(0,3);
+      delete b._nextActionTally;
+
+      // Auto-derived blockers -- overdue candidates grouped by stage, so
+      // "3 candidates stuck at Initial Interview" reads as one line instead
+      // of three separate reminders.
+      const overdueByStage={};
+      b.overdueReminders.forEach(function(c){
+        if(!overdueByStage[c.stage]) overdueByStage[c.stage]={count:0, daysSum:0};
+        overdueByStage[c.stage].count++;
+        overdueByStage[c.stage].daysSum+=(c.daysInStage||0);
+      });
+      b.blockers=Object.keys(overdueByStage).map(function(stage){
+        const o=overdueByStage[stage];
+        const avg=Math.round((o.daysSum/o.count)*10)/10;
+        return o.count+' candidate(s) stuck at '+stage+' (avg '+avg+' days)';
+      });
+
+      const auto=computeAutoHealthForRole(b);
+      b.autoHealth=auto;
+      const ov=overrides[role];
+      if(ov && ov.status){
+        b.health={status:ov.status, reason:ov.reason, source:'PM override', setBy:ov.setBy, setAt:ov.setAt};
+      } else {
+        b.health=Object.assign({source:'auto'}, auto);
+      }
+      // PM Note is shown as its own field in the UI, not folded into
+      // blockers -- it might just be context, not necessarily a blocker.
+      b.pmNote=(ov && ov.pmNote) || '';
+    });
+
+    return {success:true, roles:byRole};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
 }
 
 function getGritLabel(s){if(s>=4)return'HIGH GRIT';if(s>=3)return'MODERATE GRIT';return'LOW GRIT';}
@@ -3766,6 +4209,8 @@ function doGet(e){
     else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
     else if(a==='getDavidBusy')out=getDavidBusyBlocks(e.parameter.start, e.parameter.end);
     else if(a==='getUnmatchedEmm')out=getUnmatchedEmmSubmissions();
+    else if(a==='previewStageMigrationV3')out=previewStageMigrationV3();
+    else if(a==='getRoleDashboard')out=getRoleDashboardData();
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -3787,6 +4232,8 @@ function doPost(e){
     else if(p.action==='confirmInterview')out=confirmInterview(p.data);
     else if(p.action==='saveInterviewSlots')out=saveInterviewSlots(p.data);
     else if(p.action==='recordAvailability')out={success:recordAvailability(p.data.id, p.data.token, p.data.picks, p.data.contact)};
+    else if(p.action==='runStageMigrationV3')out=migrateStageModelV3();
+    else if(p.action==='setRoleHealthOverride')out=setRoleHealthOverride(p.data.role, p.data.status, p.data.reason, p.data.setBy, p.data.pmNote);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -4409,8 +4856,7 @@ function installComplianceTrigger(){
   // late, so the gap between "they answered" and "the app shows it" is short.
   ScriptApp.newTrigger('checkAssessmentCompliance').timeBased().everyMinutes(15).create();
   return 'Compliance trigger installed (runs every 15 minutes)';
-}
-`;
+}`;
 
 function saveScriptUrl(){
   const url = document.getElementById('scriptUrlInput').value.trim();
@@ -4638,6 +5084,153 @@ var TEAM_DIRECTORY = {
   'David Latimer': 'operations@ab-businesssupport.com'
 };
 var EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
+
+// ============================================================
+// CANDIDATE STAGE MODEL V3 (frontend copy -- kept in sync with the same
+// constants in Code.gs by hand, same pattern as TEAM_DIRECTORY above).
+// Stage is a manual field HR sets directly; there is no auto-advance here.
+// ============================================================
+var CANDIDATE_STAGES = ['New Application','CV Screening','Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Endorsed to Client','Final Interview','Waiting for Client Decision','Job Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+var CLOSED_STAGES = ['Hired','Closed - Rejected','Closed - Withdrawn'];
+var INTERVIEW_ROUNDS_BY_DEPARTMENT = {
+  'Operations': { preliminary:'HR', initial:'Operations Manager', final:'Client' },
+  'Sales and Marketing': { preliminary:'HR', initial:'Project Manager', final:'CEO' }
+};
+var ROLE_CONFIG = {
+  'AR Specialist': { requiresClientFinal:true },
+  'AP Specialist': { requiresClientFinal:true },
+  'Refunds Specialist': { requiresClientFinal:true },
+  'FP&A Specialist': { requiresClientFinal:false }
+};
+var ROLE_OPTIONS = Object.keys(ROLE_CONFIG);
+var NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Final Interview','Follow up Client','Send Job Offer','Prepare Contract','None'];
+var CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
+var DEFAULT_NEXT_ACTION_BY_STAGE = {
+  'New Application':'Screen CV','CV Screening':'Call Candidate','Preliminary Interview':'Schedule Preliminary Interview',
+  'Assessment Sent':'Follow up Candidate','Waiting for Assessment':'Follow up Candidate','Assessment Review':'Review Assessment',
+  'Initial Interview':'Schedule Initial Interview','Endorsed to Client':'Follow up Client','Final Interview':'Schedule Final Interview',
+  'Waiting for Client Decision':'Follow up Client','Job Offer':'Send Job Offer','Hired':'None',
+  'Closed - Rejected':'None','Closed - Withdrawn':'None'
+};
+// Who conducts Initial/Final Interview for this candidate, based on
+// Department -- purely a display hint, not a stored field.
+function getInterviewerHint(a, round){
+  var dept = a && a.department;
+  var rounds = INTERVIEW_ROUNDS_BY_DEPARTMENT[dept];
+  if(!rounds) return '';
+  if(round==='preliminary') return rounds.preliminary;
+  if(round==='initial') return rounds.initial;
+  if(round==='final') return rounds.final;
+  return '';
+}
+
+// The one panel HR actually touches day to day: Candidate Stage + Next
+// Action, plus Role Category (needed for per-role reporting). Everything
+// else on the profile is either historical/reference or automatically
+// calculated elsewhere -- this is deliberately the only place stage gets
+// set by hand, with no auto-advance logic behind it.
+function buildCandidateStagePanel(a){
+  var stage = a.candidateStage || '';
+  var nextAction = a.nextAction || '';
+  var role = a.roleCategory || '';
+
+  var stageOpts = '<option value=""'+(!stage?' selected':'')+'>— Not set yet —</option>' +
+    CANDIDATE_STAGES.map(function(s){ return '<option value="'+s+'"'+(stage===s?' selected':'')+'>'+s+'</option>'; }).join('');
+
+  var isNextActionCanonical = NEXT_ACTION_OPTIONS.indexOf(nextAction) >= 0;
+  var naSelVal = nextAction && !isNextActionCanonical ? 'Other' : nextAction;
+  var naOtherText = (naSelVal==='Other' && nextAction!=='Other') ? nextAction : '';
+  var naOpts = '<option value=""'+(!naSelVal?' selected':'')+'>— None —</option>' +
+    NEXT_ACTION_OPTIONS.map(function(x){ return '<option value="'+x+'"'+(naSelVal===x?' selected':'')+'>'+x+'</option>'; }).join('') +
+    '<option value="Other"'+(naSelVal==='Other'?' selected':'')+'>Other</option>';
+
+  var isRoleCanonical = ROLE_OPTIONS.indexOf(role) >= 0;
+  var roleSelVal = role && !isRoleCanonical ? 'Other' : role;
+  var roleOtherText = (roleSelVal==='Other' && role!=='Other') ? role : '';
+  var roleOpts = '<option value=""'+(!roleSelVal?' selected':'')+'>Select role</option>' +
+    ROLE_OPTIONS.map(function(x){ return '<option value="'+x+'"'+(roleSelVal===x?' selected':'')+'>'+x+'</option>'; }).join('') +
+    '<option value="Other"'+(roleSelVal==='Other'?' selected':'')+'>Other</option>';
+
+  var interviewerHint = '';
+  if(stage==='Preliminary Interview') interviewerHint = getInterviewerHint(a,'preliminary');
+  else if(stage==='Initial Interview') interviewerHint = getInterviewerHint(a,'initial');
+  else if(stage==='Final Interview') interviewerHint = getInterviewerHint(a,'final');
+
+  var skipsClientRoundHint = (role && ROLE_CONFIG[role] && ROLE_CONFIG[role].requiresClientFinal===false)
+    ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">This role skips the client/final-interview stages — Job Offer follows straight from Initial Interview.</div>' : '';
+
+  return '<div class="card card-accent-blue" style="margin-bottom:16px" id="candidateStagePanel_'+a.id+'">' +
+    '<div class="card-header"><div class="card-title-lg">📍 Candidate Stage</div></div>' +
+    '<div class="g2" style="margin-bottom:12px">' +
+      '<div>' +
+        '<label class="lbl">Current Stage</label>' +
+        '<select class="inp" id="candStage_'+a.id+'" onchange="updateCandidateStage('+a.id+')">'+stageOpts+'</select>' +
+        (interviewerHint ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">Conducted by: '+interviewerHint+'</div>' : '') +
+      '</div>' +
+      '<div>' +
+        '<label class="lbl">Next Action</label>' +
+        '<select class="inp" id="candNextAction_'+a.id+'" onchange="updateCandidateNextAction('+a.id+')">'+naOpts+'</select>' +
+        '<input class="inp" id="candNextActionOther_'+a.id+'" onchange="updateCandidateNextAction('+a.id+')" placeholder="Please specify" style="margin-top:6px;font-size:13px;display:'+(naSelVal==='Other'?'block':'none')+'" value="'+naOtherText.replace(/"/g,'&quot;')+'">' +
+      '</div>' +
+    '</div>' +
+    '<div>' +
+      '<label class="lbl">Role Category</label>' +
+      '<select class="inp" id="candRole_'+a.id+'" onchange="updateCandidateRole('+a.id+')">'+roleOpts+'</select>' +
+      '<input class="inp" id="candRoleOther_'+a.id+'" onchange="updateCandidateRole('+a.id+')" placeholder="Please specify" style="margin-top:6px;font-size:13px;display:'+(roleSelVal==='Other'?'block':'none')+'" value="'+roleOtherText.replace(/"/g,'&quot;')+'">' +
+      skipsClientRoundHint +
+    '</div>' +
+  '</div>';
+}
+
+function refreshCandidateStagePanel(id){
+  var el = document.getElementById('candidateStagePanel_'+id);
+  var a = getApplicant(id);
+  if(el && a) el.outerHTML = buildCandidateStagePanel(a);
+}
+
+function updateCandidateStage(id){
+  var sel = document.getElementById('candStage_'+id);
+  if(!sel) return;
+  var newStage = sel.value;
+  updateField(id, 'candidateStage', newStage);
+  // Suggest a sensible default Next Action for the new stage -- HR can
+  // change it immediately if it's not right for this particular candidate.
+  var suggestion = newStage ? DEFAULT_NEXT_ACTION_BY_STAGE[newStage] : '';
+  if(suggestion) updateField(id, 'nextAction', suggestion);
+  showToast('✓ Stage updated' + (suggestion ? ' — Next Action suggested: '+suggestion : ''));
+  refreshCandidateStagePanel(id);
+}
+
+function updateCandidateNextAction(id){
+  var sel = document.getElementById('candNextAction_'+id);
+  var other = document.getElementById('candNextActionOther_'+id);
+  if(!sel) return;
+  if(sel.value==='Other'){
+    if(other) other.style.display='block';
+    var val = other ? other.value.trim() : '';
+    updateField(id, 'nextAction', val || 'Other');
+  } else {
+    if(other){ other.style.display='none'; other.value=''; }
+    updateField(id, 'nextAction', sel.value);
+  }
+  showToast('✓ Next Action updated');
+}
+
+function updateCandidateRole(id){
+  var sel = document.getElementById('candRole_'+id);
+  var other = document.getElementById('candRoleOther_'+id);
+  if(!sel) return;
+  if(sel.value==='Other'){
+    if(other) other.style.display='block';
+    var val = other ? other.value.trim() : '';
+    updateField(id, 'roleCategory', val || 'Other');
+  } else {
+    if(other){ other.style.display='none'; other.value=''; }
+    updateField(id, 'roleCategory', sel.value);
+  }
+  showToast('✓ Role updated');
+  refreshCandidateStagePanel(id); // the "skips client round" hint depends on role
+}
 var CARD_FILTERS = {
   total: { label:'All Applicants', fn: function(a){ return true; } },
   statusInProgress: { label:'In Progress', fn: function(a){ return (a.overallStatus||'In Progress') === 'In Progress'; } },
@@ -5401,66 +5994,265 @@ function eodSection(title, color, items){
   return '<div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:' + color + ';text-transform:uppercase;letter-spacing:.03em">' + title + '</div>' + body;
 }
 
-function renderEodReport(){
-  var d = getEodData();
-  var dateLine = document.getElementById('eodDateLine');
-  if(dateLine) dateLine.textContent = d.today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ' — everything that happened in the pipeline today.';
+// ============================================================
+// EXECUTIVE DASHBOARD (replaces the old activity-log EOD page) -- answers
+// four questions at a glance, per role: how many active candidates, what
+// moved today, where candidates are stuck, and which roles need attention.
+// Built entirely from getRoleDashboardData() on the backend -- the same
+// source of truth used by the (upcoming) Dashboard page -- so nothing here
+// is calculated twice. Health status/reason can be overridden per role, and
+// a PM Note can be left independently of that (see setRoleHealthOverride in
+// Code.gs); both round-trip through the RoleHealth sheet tab.
+// ============================================================
+var LAST_ROLE_DASHBOARD = null;
 
-  var html = '';
-  html += eodSection('New Applicants (' + d.newApps.length + ')', 'var(--gray600)', d.newApps.map(function(a){ return eodRow(a); }));
-  html += eodSection('EMM Submitted (' + d.emmSubmitted.length + ')', '#6d28d9', d.emmSubmitted.map(function(a){ return eodRow(a); }));
-  html += eodSection('EMM Graded (' + d.emmGraded.length + ')', '#6d28d9', d.emmGraded.map(function(a){ return eodRow(a, a.emm && a.emm.pass===true ? 'Passed' : a.emm && a.emm.pass===false ? 'Failed' : ''); }));
+function eodSlug(role){ return String(role).replace(/[^a-zA-Z0-9]+/g,'_'); }
 
-  var emailLabelKeys = Object.keys(d.emailsByType);
-  var emailItems = [];
-  emailLabelKeys.forEach(function(k){
-    d.emailsByType[k].forEach(function(a){
-      emailItems.push(eodRow(a, (EMAIL_TEMPLATE_LABELS[k]||k) + ' sent'));
-    });
-  });
-  html += eodSection('Emails Sent (' + emailItems.length + ')', '#1e40af', emailItems);
-
-  html += eodSection('Decisions Made (' + d.decisions.length + ')', '#166534', d.decisions.map(function(x){
-    var label = x.status==='NonCompliant' ? 'Non Compliant/Archived' : x.status;
-    return eodRow(x.a, label);
-  }));
-
-  var el = document.getElementById('eodContent');
-  if(el) el.innerHTML = html;
+function eodHealthMeta(status){
+  if(status==='green') return {emoji:'\u{1F7E2}', label:'On Track', color:'#166534'};
+  if(status==='yellow') return {emoji:'\u{1F7E1}', label:'Needs Attention', color:'#b45309'};
+  if(status==='red') return {emoji:'\u{1F534}', label:'At Risk', color:'#b52a2a'};
+  return {emoji:'⚪', label:'Unknown', color:'var(--gray400)'};
 }
 
-function copyEodSummary(){
-  var d = getEodData();
-  var lines = [];
-  lines.push('END OF DAY REPORT — ' + d.today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}));
-  lines.push('');
-  lines.push('New Applicants (' + d.newApps.length + ')');
-  d.newApps.forEach(function(a){ lines.push('  - ' + a.name + ' (' + (a.position||'—') + ')'); });
-  if(!d.newApps.length) lines.push('  Nothing today.');
-  lines.push('');
-  lines.push('EMM Submitted (' + d.emmSubmitted.length + ')');
-  d.emmSubmitted.forEach(function(a){ lines.push('  - ' + a.name); });
-  if(!d.emmSubmitted.length) lines.push('  Nothing today.');
-  lines.push('');
-  lines.push('EMM Graded (' + d.emmGraded.length + ')');
-  d.emmGraded.forEach(function(a){ lines.push('  - ' + a.name + ' — ' + (a.emm && a.emm.pass===true?'Passed':a.emm && a.emm.pass===false?'Failed':'')); });
-  if(!d.emmGraded.length) lines.push('  Nothing today.');
-  lines.push('');
-  var emailLabelKeys = Object.keys(d.emailsByType);
-  var emailCount = emailLabelKeys.reduce(function(sum,k){ return sum + d.emailsByType[k].length; }, 0);
-  lines.push('Emails Sent (' + emailCount + ')');
-  emailLabelKeys.forEach(function(k){
-    d.emailsByType[k].forEach(function(a){ lines.push('  - ' + a.name + ' — ' + (EMAIL_TEMPLATE_LABELS[k]||k)); });
+function eodBigStat(value, label, color){
+  return '<div><div style="font-size:26px;font-weight:800;color:'+color+'">'+value+'</div>' +
+    '<div style="font-size:11px;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-top:2px">'+label+'</div></div>';
+}
+
+function eodSummaryBar(rolesData, roleNames){
+  var totalActive = 0, green = 0, yellow = 0, red = 0, attention = [];
+  roleNames.forEach(function(r){
+    var b = rolesData[r];
+    totalActive += b.activeCandidates;
+    var s = b.health && b.health.status;
+    if(s==='green') green++;
+    else if(s==='yellow'){ yellow++; attention.push(r); }
+    else if(s==='red'){ red++; attention.push(r); }
   });
-  if(!emailCount) lines.push('  Nothing today.');
+  return '<div class="card" style="margin-bottom:16px;display:flex;gap:26px;flex-wrap:wrap;align-items:center">' +
+    eodBigStat(totalActive, 'Active Candidates', 'var(--gray900)') +
+    eodBigStat(roleNames.length, 'Hiring Roles', 'var(--gray900)') +
+    eodBigStat(green, 'On Track', '#166534') +
+    eodBigStat(yellow, 'Needs Attention', '#b45309') +
+    eodBigStat(red, 'At Risk', '#b52a2a') +
+    (attention.length
+      ? '<div style="flex:1;min-width:220px;font-size:13px;color:var(--gray600)"><strong>Needs a look:</strong> '+attention.join(', ')+'</div>'
+      : '<div style="flex:1;min-width:220px;font-size:13px;color:#166534;font-weight:600">Everything on track.</div>') +
+  '</div>';
+}
+
+function eodRoleCard(role, b){
+  var h = b.health || {status:'', reason:''};
+  var meta = eodHealthMeta(h.status);
+  var safeRole = String(role).replace(/'/g,"\\'");
+  var slug = eodSlug(role);
+
+  var stageRows = CANDIDATE_STAGES.filter(function(s){ return (b.stageCounts[s]||0) > 0; })
+    .map(function(s){
+      var count = b.stageCounts[s];
+      var avg = b.avgDaysInStage && b.avgDaysInStage[s];
+      return '<tr><td style="padding:5px 8px;font-size:13px;color:var(--gray700)">'+s+'</td>' +
+        '<td style="padding:5px 8px;font-size:13px;font-weight:700;text-align:right">'+count+'</td>' +
+        '<td style="padding:5px 8px;font-size:12px;color:var(--gray400);text-align:right">'+(avg!==undefined?avg+'d avg':'&mdash;')+'</td></tr>';
+    }).join('');
+  var stageTable = stageRows
+    ? '<table style="width:100%;border-collapse:collapse;margin-top:6px">'+stageRows+'</table>'
+    : '<div style="font-size:13px;color:var(--gray400);margin-top:6px">No active candidates.</div>';
+
+  var progressKeys = Object.keys(b.todaysProgress||{});
+  var progressChips = progressKeys.length
+    ? progressKeys.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--gray100);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--gray700);margin:3px 4px 0 0">'+b.todaysProgress[k]+' '+k+'</span>'; }).join('')
+    : '<div style="font-size:13px;color:var(--gray400)">Nothing moved today yet.</div>';
+
+  var closedBits = [];
+  if(b.closedToday){
+    if(b.closedToday.Hired) closedBits.push(b.closedToday.Hired+' Hired');
+    if(b.closedToday.Rejected) closedBits.push(b.closedToday.Rejected+' Rejected');
+    if(b.closedToday.Withdrawn) closedBits.push(b.closedToday.Withdrawn+' Withdrawn');
+  }
+  var closedLine = closedBits.length ? closedBits.join(' &middot; ') : 'None closed today.';
+
+  var blockersHtml = (b.blockers && b.blockers.length)
+    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;color:#9a3412">' + b.blockers.map(function(x){ return '<li style="margin-bottom:3px">'+x+'</li>'; }).join('') + '</ul>'
+    : '<div style="font-size:13px;color:#166534;margin-top:6px">No blockers.</div>';
+
+  var nextActionHtml = (b.nextActionSummary && b.nextActionSummary.length)
+    ? b.nextActionSummary.map(function(x){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:#1e40af;margin:3px 4px 0 0">'+x.count+'&times; '+x.action+'</span>'; }).join('')
+    : '<div style="font-size:13px;color:var(--gray400)">&mdash;</div>';
+
+  var pmNoteDisplay = b.pmNote
+    ? '<div style="font-size:13px;color:var(--gray700);background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-top:10px">&#128221; '+b.pmNote+'</div>'
+    : '';
+
+  return '<div class="card" style="margin-bottom:0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
+      '<div>' +
+        '<div style="font-size:16px;font-weight:800;color:var(--gray900)">'+role+'</div>' +
+        '<div style="font-size:13px;color:'+meta.color+';font-weight:700;margin-top:2px">'+meta.emoji+' '+meta.label+(h.reason?' &mdash; '+h.reason:'')+'</div>' +
+        (h.source==='PM override' ? '<div style="font-size:11px;color:var(--gray400);margin-top:1px">Manually set'+(h.setBy?' by '+h.setBy:'')+'</div>' : '') +
+      '</div>' +
+      '<div style="text-align:right">' +
+        '<div style="font-size:22px;font-weight:800;color:var(--gray900)">'+b.activeCandidates+'</div>' +
+        '<div style="font-size:11px;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em">Active</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="margin-top:14px;font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em">Current Stage</div>' +
+    stageTable +
+
+    '<div style="margin-top:14px;font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em">Today\'s Progress</div>' +
+    '<div style="margin-top:4px">' + progressChips + '</div>' +
+    '<div style="font-size:12px;color:var(--gray500);margin-top:6px">Closed today: '+closedLine+'</div>' +
+
+    '<div style="margin-top:14px;font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em">Blockers</div>' +
+    blockersHtml +
+    (b.needingFollowUp && b.needingFollowUp.length ? '<div style="font-size:12px;color:#9a3412;margin-top:6px">&#9888; '+b.needingFollowUp.length+' candidate(s) waiting on a follow-up.</div>' : '') +
+
+    '<div style="margin-top:14px;font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em">Next Action (most common)</div>' +
+    '<div style="margin-top:4px">' + nextActionHtml + '</div>' +
+
+    pmNoteDisplay +
+
+    '<div style="margin-top:14px;border-top:1px solid var(--gray100);padding-top:10px">' +
+      '<a href="javascript:void(0)" onclick="toggleEodEditor(\''+safeRole+'\')" style="font-size:12px;font-weight:700;color:var(--gray500);text-decoration:none">&#9998; Set health / note</a>' +
+      '<div id="eodEditor-'+slug+'" style="display:none;margin-top:10px"></div>' +
+    '</div>' +
+  '</div>';
+}
+
+function toggleEodEditor(role){
+  var slug = eodSlug(role);
+  var el = document.getElementById('eodEditor-'+slug);
+  if(!el) return;
+  if(el.style.display==='none' || !el.style.display){
+    var b = (LAST_ROLE_DASHBOARD||{})[role] || {};
+    var h = b.health || {};
+    var curStatus = (h.source==='PM override') ? (h.status||'') : '';
+    var curReason = (h.source==='PM override') ? (h.reason||'') : '';
+    var curNote = b.pmNote || '';
+    var safeRole = String(role).replace(/'/g,"\\'");
+    el.innerHTML =
+      '<div style="display:flex;flex-direction:column;gap:8px;background:var(--gray50);border-radius:10px;padding:12px">' +
+        '<label style="font-size:11px;font-weight:700;color:var(--gray500)">Override health status (leave on Automatic to let the system decide)</label>' +
+        '<select id="eodStatus-'+slug+'" style="padding:8px;border:1px solid var(--gray200);border-radius:8px;font-size:13px">' +
+          '<option value=""'+(!curStatus?' selected':'')+'>Automatic</option>' +
+          '<option value="green"'+(curStatus==='green'?' selected':'')+'>\u{1F7E2} On Track</option>' +
+          '<option value="yellow"'+(curStatus==='yellow'?' selected':'')+'>\u{1F7E1} Needs Attention</option>' +
+          '<option value="red"'+(curStatus==='red'?' selected':'')+'>\u{1F534} At Risk</option>' +
+        '</select>' +
+        '<input id="eodReason-'+slug+'" type="text" placeholder="Why (shown next to the badge)" value="'+curReason.replace(/"/g,'&quot;')+'" style="padding:8px;border:1px solid var(--gray200);border-radius:8px;font-size:13px">' +
+        '<textarea id="eodNote-'+slug+'" placeholder="PM note (optional context, does not affect the health color)" style="padding:8px;border:1px solid var(--gray200);border-radius:8px;font-size:13px;min-height:56px">'+curNote+'</textarea>' +
+        '<select id="eodSetBy-'+slug+'" style="padding:8px;border:1px solid var(--gray200);border-radius:8px;font-size:13px">' +
+          '<option value="">Who is setting this?</option>' +
+          Object.keys(TEAM_DIRECTORY).map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('') +
+        '</select>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn btn-primary btn-sm" onclick="saveEodOverride(\''+safeRole+'\')">Save</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="toggleEodEditor(\''+safeRole+'\')">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+async function saveEodOverride(role){
+  var slug = eodSlug(role);
+  var statusEl = document.getElementById('eodStatus-'+slug);
+  var reasonEl = document.getElementById('eodReason-'+slug);
+  var noteEl = document.getElementById('eodNote-'+slug);
+  var setByEl = document.getElementById('eodSetBy-'+slug);
+  if(!statusEl || !setByEl) return;
+  var setBy = setByEl.value;
+  if(!setBy){ showToast('Please select who is setting this.'); return; }
+  var res = await apiPost('setRoleHealthOverride', {data:{
+    role: role,
+    status: statusEl.value,
+    reason: reasonEl.value.trim(),
+    setBy: setBy,
+    pmNote: noteEl.value.trim()
+  }});
+  if(res && res.success){
+    showToast('✓ Saved for ' + role);
+    renderEodReport();
+  } else {
+    showToast('Could not save — try again.');
+  }
+}
+
+async function renderEodReport(){
+  var dateLine = document.getElementById('eodDateLine');
+  var today = new Date();
+  if(dateLine) dateLine.textContent = today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ' — active candidates, today\'s progress, and where things are stuck, at a glance.';
+
+  var el = document.getElementById('eodContent');
+  if(!el) return;
+  if(!SCRIPT_URL){
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Connect Google Sheets in Settings to see the Executive Dashboard.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Loading&hellip;</div>';
+
+  var res = await apiGet('getRoleDashboard');
+  if(!res || !res.success){
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:#b52a2a">Could not load dashboard data'+(res && res.error ? ': '+res.error : '')+'.</div>';
+    return;
+  }
+  LAST_ROLE_DASHBOARD = res.roles;
+
+  var roles = Object.keys(res.roles).sort(function(a,b){
+    if(a==='(Unassigned)') return 1;
+    if(b==='(Unassigned)') return -1;
+    return a.localeCompare(b);
+  });
+  if(!roles.length){
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">No candidates with a Role assigned yet. Set a Role on each candidate\'s profile (in the Candidate Stage panel) to see them here.</div>';
+    return;
+  }
+
+  var html = eodSummaryBar(res.roles, roles);
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">';
+  html += roles.map(function(r){ return eodRoleCard(r, res.roles[r]); }).join('');
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function copyEodSummary(){
+  var data = LAST_ROLE_DASHBOARD;
+  if(!data){
+    var res = await apiGet('getRoleDashboard');
+    if(res && res.success) data = res.roles;
+  }
+  if(!data){ showToast('Nothing to copy yet — open the EOD tab first.'); return; }
+
+  var roles = Object.keys(data).sort(function(a,b){
+    if(a==='(Unassigned)') return 1;
+    if(b==='(Unassigned)') return -1;
+    return a.localeCompare(b);
+  });
+
+  var lines = [];
+  lines.push('EXECUTIVE HIRING DASHBOARD — ' + new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}));
   lines.push('');
-  lines.push('Decisions Made (' + d.decisions.length + ')');
-  d.decisions.forEach(function(x){ lines.push('  - ' + x.a.name + ' — ' + (x.status==='NonCompliant'?'Non Compliant/Archived':x.status)); });
-  if(!d.decisions.length) lines.push('  Nothing today.');
+  roles.forEach(function(role){
+    var b = data[role];
+    var h = b.health || {};
+    var emoji = h.status==='green' ? '\u{1F7E2}' : h.status==='yellow' ? '\u{1F7E1}' : h.status==='red' ? '\u{1F534}' : '⚪';
+    lines.push(emoji + ' ' + role + ' — ' + b.activeCandidates + ' active' + (h.reason ? ' (' + h.reason + ')' : ''));
+    var stageBits = CANDIDATE_STAGES.filter(function(s){ return (b.stageCounts[s]||0)>0; }).map(function(s){ return b.stageCounts[s]+' '+s; });
+    if(stageBits.length) lines.push('   Stages: ' + stageBits.join(', '));
+    var progKeys = Object.keys(b.todaysProgress||{});
+    if(progKeys.length) lines.push('   Today: ' + progKeys.map(function(k){ return b.todaysProgress[k]+' '+k; }).join(', '));
+    if(b.blockers && b.blockers.length) lines.push('   Blockers: ' + b.blockers.join('; '));
+    if(b.pmNote) lines.push('   Note: ' + b.pmNote);
+    lines.push('');
+  });
 
   var text = lines.join('\n');
   navigator.clipboard.writeText(text).then(function(){
-    showToast('✓ EOD summary copied — paste it into email/chat');
+    showToast('✓ Executive summary copied — paste it into email/chat');
   }).catch(function(){
     alert(text);
   });
