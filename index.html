@@ -1000,24 +1000,46 @@ tbody tr:last-child td{border-bottom:none}
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZDQpLmOfHd2rRAsrMy9WPcVK8-ReqI279-hn_SDjkLLqmC7Ap4AaW4MGI0mlDLPRM/exec';
 let SCRIPT_URL = localStorage.getItem('abbss_script_url') || DEFAULT_SCRIPT_URL;
 
+// Turns a fetch response into either the parsed JSON the backend sent, or --
+// when that's not possible -- a {success:false, error, _networkFailure:true}
+// object carrying the actual HTTP status and a snippet of whatever really
+// came back (an Apps Script exception page, a timeout, a sign-in
+// interstitial, etc). Previously any failure here collapsed into a single
+// generic "no response from the server" message with no way to tell a
+// dropped connection apart from something that fails identically every
+// single retry -- this is what actually let the Cabalsa sync issue get
+// diagnosed instead of guessed at.
+async function parseApiResponse(res){
+  let text;
+  try{ text = await res.text(); }
+  catch(e){ return {success:false, error:'Could not read the server\'s response.', _networkFailure:true}; }
+  try{ return JSON.parse(text); }
+  catch(e){
+    const snippet = text ? text.replace(/\s+/g,' ').trim().slice(0,200) : '(empty response)';
+    console.warn('Sheets API returned non-JSON:', res.status, snippet);
+    return {success:false, error:'Server returned an unexpected response (HTTP '+res.status+'): '+snippet, _networkFailure:true};
+  }
+}
+
 async function apiGet(action, params={}) {
   if (!SCRIPT_URL) return null;
   const qs = Object.entries({action,...params}).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&');
-  try {
-    const res = await fetch(`${SCRIPT_URL}?${qs}`);
-    return await res.json();
-  } catch(e) { console.warn('Sheets API error:', e); return null; }
+  let res;
+  try{ res = await fetch(`${SCRIPT_URL}?${qs}`); }
+  catch(e){ console.warn('Sheets API network error:', e); return {success:false, error:'Network error: '+(e&&e.message?e.message:'the request could not be sent'), _networkFailure:true}; }
+  return await parseApiResponse(res);
 }
 
 async function apiPost(action, data) {
   if (!SCRIPT_URL) return null;
-  try {
-    const res = await fetch(SCRIPT_URL, {
+  let res;
+  try{
+    res = await fetch(SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({action, ...data})
     });
-    return await res.json();
-  } catch(e) { console.warn('Sheets API error:', e); return null; }
+  } catch(e){ console.warn('Sheets API network error:', e); return {success:false, error:'Network error: '+(e&&e.message?e.message:'the request could not be sent'), _networkFailure:true}; }
+  return await parseApiResponse(res);
 }
 
 async function syncApplicantToSheets(applicant) {
@@ -1026,14 +1048,14 @@ async function syncApplicantToSheets(applicant) {
   if (res && res.success) {
     setSyncFailedFlag(applicant.id, false);
   } else {
-    // Surface WHY it failed instead of swallowing it -- res===null means the
-    // request itself never got a response (network/Apps Script unreachable);
-    // res.success===false means Apps Script responded but the save threw or
-    // was rejected server-side, and res.error has the actual message. Without
-    // this, a record that fails the exact same way every single retry looked
-    // identical to a one-off dropped connection, with no way to tell them apart.
+    // res===null only happens when SCRIPT_URL itself isn't set (caught by the
+    // guard above already, kept here just as a defensive fallback). Every
+    // real failure now comes back from apiPost as an object with a specific
+    // .error -- either the backend's own rejection reason, or (via
+    // parseApiResponse) the actual HTTP status/response snippet when Apps
+    // Script didn't return usable JSON at all.
     const errMsg = res === null
-      ? 'No response from the server (check your internet connection, or the Apps Script URL in Settings).'
+      ? 'Not connected — check the Apps Script URL in Settings.'
       : (res && res.error) ? res.error : 'The server rejected this record but did not say why.';
     setSyncFailedFlag(applicant.id, true, errMsg);
   }
