@@ -1008,7 +1008,16 @@ async function syncApplicantToSheets(applicant) {
   if (res && res.success) {
     setSyncFailedFlag(applicant.id, false);
   } else {
-    setSyncFailedFlag(applicant.id, true);
+    // Surface WHY it failed instead of swallowing it -- res===null means the
+    // request itself never got a response (network/Apps Script unreachable);
+    // res.success===false means Apps Script responded but the save threw or
+    // was rejected server-side, and res.error has the actual message. Without
+    // this, a record that fails the exact same way every single retry looked
+    // identical to a one-off dropped connection, with no way to tell them apart.
+    const errMsg = res === null
+      ? 'No response from the server (check your internet connection, or the Apps Script URL in Settings).'
+      : (res && res.error) ? res.error : 'The server rejected this record but did not say why.';
+    setSyncFailedFlag(applicant.id, true, errMsg);
   }
 }
 
@@ -1072,11 +1081,12 @@ function getSyncFailedApplicants(){
   return getRawApplicants().filter(a=>a._syncFailed);
 }
 
-function setSyncFailedFlag(id, failed){
+function setSyncFailedFlag(id, failed, errMsg){
   const apps = getRawApplicants();
   const a = apps.find(x=>x.id===id);
   if(a){
-    if(failed) a._syncFailed = true; else delete a._syncFailed;
+    if(failed){ a._syncFailed = true; a._syncError = errMsg || ''; }
+    else { delete a._syncFailed; delete a._syncError; }
     saveApplicants(apps);
   }
   updateSyncWarningBanner();
@@ -1099,8 +1109,14 @@ function updateSyncWarningBanner(){
         msg += failed.length===1
           ? `"${failed[0].name}" didn't save to the shared sheet yet — it's still safe here on this device. `
           : `${failed.length} records didn't save to the shared sheet yet (including "${failed[0].name}") — they're still safe here on this device. `;
+        if(failed[0]._syncError){
+          // The real reason, once available -- if this is the SAME message every
+          // time you click Retry, it's not a dropped connection, something about
+          // this specific record is being rejected on the server side every time.
+          msg += `Reason: "${failed[0]._syncError}" `;
+        }
       }
-      msg += 'This usually means the internet connection dropped, or Google Sheets was slow to respond. Click Retry Now, or check your connection and try again.';
+      msg += 'Click Retry Now, or check your connection and try again.';
       text.textContent = msg;
       banner.style.display='flex';
     }
