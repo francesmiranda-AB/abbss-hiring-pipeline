@@ -734,6 +734,7 @@ tbody tr:last-child td{border-bottom:none}
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">EMM Grader</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Upload an applicant assessment file to auto-grade in seconds</p>
   </div>
+  <div id="unmatchedEmmCard" class="card" style="max-width:780px;display:none"></div>
   <div id="pendingGradingCard" class="card" style="max-width:780px"></div>
   <div class="card card-accent-blue" style="max-width:780px">
     <div class="card-header"><div class="card-title-lg">Grade Assessment</div></div>
@@ -2488,6 +2489,81 @@ function renderPendingGradingQueue(){
     </div>`;
 }
 
+// Surfaces EMM Google Form submissions whose email doesn't match anyone
+// currently in the tracker -- most often a typo or a personal email used
+// instead of the one HR has on file. Unlike email-open/assessment-view
+// tracking, this can look backward through the whole form history, since
+// the raw responses have always been sitting in the Sheet; we just never
+// checked them against the full applicant list for a mismatch before.
+async function renderUnmatchedEmmCard(){
+  var el = document.getElementById('unmatchedEmmCard');
+  if(!el) return;
+  if(!SCRIPT_URL){ el.innerHTML=''; el.style.display='none'; return; }
+  var res = await apiGet('getUnmatchedEmm');
+  if(!res || !res.success || !Array.isArray(res.unmatched) || !res.unmatched.length){
+    el.innerHTML=''; el.style.display='none';
+    return;
+  }
+  el.style.display='block';
+  el.innerHTML = '<div class="card-header"><div class="card-title-lg">⚠️ Unmatched EMM Submissions ('+res.unmatched.length+')</div></div>' +
+    '<div style="font-size:13px;color:#666;margin-bottom:12px">Someone submitted the EMM form using an email that doesn\'t match anyone currently in the tracker — probably a typo, or a different email than the one on file. Check the name below: if it\'s one of your candidates, fix their email on their Profile so future checks catch it automatically. Either way, you can grade this file right now without waiting for that.</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+    res.unmatched.map(function(u){
+      var safeUrl = String(u.fileUrl||'').replace(/'/g,"\\'");
+      var safeName = String(u.name||'').replace(/'/g,"\\'");
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #fcd34d;border-radius:8px;background:#fffbeb;flex-wrap:wrap">' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:13px">'+(u.name||'(no name given)')+'</div>' +
+          '<div style="font-size:12px;color:#888">'+(u.email||'no email given')+(u.timestamp?' · submitted '+new Date(u.timestamp).toLocaleString():'')+'</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<a href="'+u.fileUrl+'" target="_blank" class="btn-sm btn-ghost" style="text-decoration:none">View File ↗</a>' +
+          '<button class="btn-sm btn-primary" onclick="loadUnmatchedEmmFile(\''+safeUrl+'\',\''+safeName+'\')">⚡ Grade Standalone</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+    '</div>';
+}
+
+// Loads an unmatched submission's file straight from Drive into the grader,
+// the same way loadEmmFromDrive() does for matched applicants -- but leaves
+// the applicant dropdown unset (since we don't know who this is) and
+// pre-fills the manual name field with whatever name they typed on the form,
+// so HR can link it to the right person once they've figured out who it is.
+async function loadUnmatchedEmmFile(fileUrl, name){
+  var fileId = extractDriveFileId(fileUrl);
+  if(!fileId){ alert('Could not read the Drive file ID from this link.'); return; }
+  var nameEl=document.getElementById('gradeFileName');
+  var dz=document.getElementById('gradeDropzone');
+  var btn=document.getElementById('gradeBtn');
+  if(nameEl) nameEl.textContent='⏳ Loading file from Drive…';
+  if(dz) dz.classList.remove('ready');
+  if(btn) btn.disabled=true;
+  document.getElementById('gradeResults').style.display='none';
+  document.getElementById('gradeError').style.display='none';
+  var res=await apiPost('fetchDriveFile',{data:{fileId:fileId}});
+  if(!res || !res.success){
+    alert('Could not load the file from Drive: '+(res&&res.error||'unknown error — check that the Apps Script is redeployed with the fetchDriveFile action.'));
+    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
+    return;
+  }
+  var byteChars=atob(res.base64);
+  var byteNumbers=new Array(byteChars.length);
+  for(var i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+  var byteArray=new Uint8Array(byteNumbers);
+  gradeFile={name:res.filename||((name||'submission')+'.xlsx'), data:byteArray.buffer};
+  if(nameEl) nameEl.textContent=gradeFile.name+' (from Drive)';
+  var subEl=document.getElementById('gradeFileSub');
+  if(subEl) subEl.style.display='block';
+  if(dz) dz.classList.add('ready');
+  if(btn) btn.disabled=false;
+  var sel=document.getElementById('gradeApplicantSelect');
+  if(sel) sel.value='';
+  var manual=document.getElementById('gradeNameManual');
+  if(manual) manual.value=name||'';
+  showToast('✓ Loaded file from Drive — link this to the right applicant above, or grade it standalone.');
+}
+
 async function loadEmmFromDrive(applicantId){
   const a=getApplicant(applicantId);
   if(!a || !a.emmFileUrl){ alert('No submitted file found for this applicant yet.'); return; }
@@ -3485,6 +3561,52 @@ function lookupEmmSubmission(email){
   }catch(e){ return {error:e.message}; }
 }
 
+// ============================================================
+// UNMATCHED EMM SUBMISSIONS -- catches candidates who submitted the EMM
+// Google Form using a different email than the one on file for them (a
+// typo, a personal email instead of the one HR entered, etc). Because
+// lookupEmmSubmission() above only ever matches on exact email, a mismatch
+// like this means the submission silently never gets connected to that
+// applicant's record -- it just keeps looking like "not yet submitted."
+// This scans every response the form has ever received (not just recent
+// ones), so it also surfaces anything that was missed before this check
+// existed -- the raw responses have always been sitting in the Sheet, we
+// just never checked them against the full applicant list for a mismatch.
+function getUnmatchedEmmSubmissions(){
+  try{
+    const formSheet=SpreadsheetApp.openById(EMM_FORM_SHEET_ID).getSheets()[0];
+    const formData=formSheet.getDataRange().getValues();
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    const appData=t?t.getDataRange().getValues():[];
+    const knownEmails={};
+    for(let i=1;i<appData.length;i++){
+      const email=String(appData[i][2]||'').trim().toLowerCase();
+      if(email) knownEmails[email]=true;
+    }
+    const unmatched=[];
+    for(let i=1;i<formData.length;i++){
+      const row=formData[i];
+      const fileCell=String(row[4]||'').trim();
+      if(!fileCell) continue; // no file attached to this response -- nothing to grade or match
+      const email1=String(row[1]||'').trim().toLowerCase();
+      const email3=String(row[3]||'').trim().toLowerCase();
+      const isMatched=(email1&&knownEmails[email1])||(email3&&knownEmails[email3]);
+      if(!isMatched){
+        unmatched.push({
+          name:row[2]||'',
+          email:row[3]||row[1]||'',
+          timestamp:String(row[0]||''),
+          fileUrl:fileCell.split(',')[0].trim()
+        });
+      }
+    }
+    return {success:true, unmatched:unmatched};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
 function saveApplicant(d){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   let t=ss.getSheetByName('Applicants');if(!t){setupSheet();t=ss.getSheetByName('Applicants');}
@@ -3643,6 +3765,7 @@ function doGet(e){
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
     else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
     else if(a==='getDavidBusy')out=getDavidBusyBlocks(e.parameter.start, e.parameter.end);
+    else if(a==='getUnmatchedEmm')out=getUnmatchedEmmSubmissions();
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -4453,7 +4576,7 @@ function showPage(id, btn) {
   if (id === 'eod') renderEodReport();
   if (id === 'sources') renderSourcesReport();
   if (id === 'interviewcal') renderInterviewCalendar();
-  if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); }
+  if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); renderUnmatchedEmmCard(); }
 }
 
 // ============================================================
