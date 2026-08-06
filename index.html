@@ -940,6 +940,15 @@ tbody tr:last-child td{border-bottom:none}
     <button class="btn btn-primary" onclick="recalculateAllStages()">🔄 Recalculate All Stages Now</button>
     <div id="recalcMsg" style="display:none;margin-top:10px;font-size:13px"></div>
   </div>
+  <div class="card card-accent-blue" style="max-width:700px">
+    <div class="card-header"><div class="card-title-lg">Set Up Candidate Stages &amp; Roles</div></div>
+    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">This is the one-time step the Executive Dashboard and per-role Tracker/Board filters need. Existing applicants don't have a Candidate Stage or Role yet, so right now they all show up under "(Unassigned)" instead of split across AR/AP/Refunds/FP&amp;A. This tool reads each applicant's real GRIT/Values/EMM/interview answers to work out their new Candidate Stage, and guesses a Role from their position title (review those afterward — it leaves Role blank rather than guess wrong). It never touches anyone who already has a Candidate Stage set, so it's safe to run more than once. Preview first — nothing changes until you click Apply.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="previewCandidateStageMigration()">👀 Preview (no changes)</button>
+      <button class="btn btn-primary" id="stageMigV3ApplyBtn" style="display:none" onclick="applyCandidateStageMigration()">✓ Apply Migration</button>
+    </div>
+    <div id="stageMigV3Msg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
+  </div>
   <details class="card" style="max-width:700px">
     <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">⚙️ Technical Setup (IT / one-time only — click to expand)</summary>
     <div style="margin-top:16px">
@@ -1411,6 +1420,24 @@ function filterTracker(){
 
 function closeModal(){document.getElementById('detailModal').classList.remove('open')}
 
+// Replaces the old numbered 1-9 stepper + "Move to Next Stage" button at the
+// top of the profile with the same simple badge used on the Tracker/Board --
+// one vocabulary everywhere, and no second "advance" button competing with
+// the Candidate Stage panel below (which is the only place stage should be
+// set from now on). buildStageStepper()/advanceStage() are left in place
+// since the Assessments and Decision tab buttons still call them internally
+// -- rewiring those to set candidateStage directly is a separate cleanup.
+function buildCandidateStageHeader(a){
+  var badge = getCandidateStageBadge(a);
+  var pill = '<span style="background:'+badge.bg+';color:'+badge.tone+';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">'+badge.label+'</span>';
+  var nextActionText = a.nextAction ? '<span style="font-size:13px;color:#1e40af;font-weight:700;margin-left:10px">Next: '+a.nextAction+'</span>' : '';
+  var roleText = a.roleCategory ? '<span style="font-size:12px;color:var(--gray500);margin-left:10px">'+a.roleCategory+'</span>' : '';
+  var hint = badge.key==='__not_migrated__'
+    ? '<div style="font-size:11px;color:#b45309;margin-top:8px">This record hasn\'t been through the stage migration yet — set Candidate Stage below, or run the migration in Settings.</div>'
+    : '<div style="font-size:11px;color:var(--gray400);margin-top:8px">Change stage, next action, or role in the Candidate Stage panel below.</div>';
+  return '<div style="margin-bottom:14px">' + pill + nextActionText + roleText + hint + '</div>';
+}
+
 function buildStageStepper(a){
   var steps=getStageLabels(a);
   var status=a.overallStatus||'In Progress';
@@ -1540,7 +1567,7 @@ function buildNextStepBanner(a){
 function refreshModalStageInfo(id){
   var a=getApplicant(id);
   var el=document.getElementById('modalStageInfo');
-  if(el && a) el.innerHTML = buildStageStepper(a) + buildNextStepBanner(a);
+  if(el && a) el.innerHTML = buildCandidateStageHeader(a) + buildNextStepBanner(a);
 }
 
 function buildApplicantDetail(a){
@@ -1548,7 +1575,7 @@ function buildApplicantDetail(a){
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
 
   return`
-  <div id="modalStageInfo">${buildStageStepper(a)}${buildNextStepBanner(a)}</div>
+  <div id="modalStageInfo">${buildCandidateStageHeader(a)}${buildNextStepBanner(a)}</div>
   <!-- Stage nav -->
   <div class="dtabs" style="margin-bottom:16px">
     <button class="dtab active" id="dtab-profile" onclick="showModalTab('profile',this,${a.id})">Profile</button>
@@ -5645,6 +5672,88 @@ async function recalculateAllStages(){
   if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
   if(msg){ msg.style.color='#166534'; msg.textContent = '✓ Done — ' + changed + ' applicant(s) had their stage corrected. Please double-check anyone who was mid-interview or mid-endorsement, since a few manual hand-offs leave no data trail to recompute exactly.'; }
   showToast('✓ Recalculated stages for ' + changed + ' applicant(s).');
+}
+
+// ============================================================
+// CANDIDATE STAGE MODEL V3 -- ONE-TIME MIGRATION UI. The backend functions
+// (previewStageMigrationV3 / migrateStageModelV3) already existed and are
+// idempotent -- this is the actual button to run them, which was missing
+// until now. Preview is a hard requirement before Apply is even clickable:
+// it calls the real doGet route so it reflects your actual live Sheet, not
+// a guess. Apply only ever touches rows where Candidate Stage is still
+// blank, so re-running it after new applicants come in is always safe.
+// ============================================================
+async function previewCandidateStageMigration(){
+  var msgEl = document.getElementById('stageMigV3Msg');
+  var applyBtn = document.getElementById('stageMigV3ApplyBtn');
+  if(!msgEl) return;
+  if(!SCRIPT_URL){
+    msgEl.style.display='block';
+    msgEl.innerHTML = '<span style="color:#b45309">Connect Google Sheets above first — this migration runs against your shared Sheet.</span>';
+    return;
+  }
+  msgEl.style.display='block';
+  msgEl.innerHTML = 'Checking your data&hellip;';
+  if(applyBtn) applyBtn.style.display='none';
+
+  var res = await apiGet('previewStageMigrationV3');
+  if(!res || !res.success){
+    msgEl.innerHTML = '<span style="color:#b52a2a">Could not preview: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
+    return;
+  }
+  window._stageMigV3Preview = res;
+
+  if(res.totalToMigrate === 0){
+    msgEl.innerHTML = '<span style="color:#166534">✓ Everything is already set up — no records need this.</span>';
+    return;
+  }
+
+  var stageLines = Object.keys(res.countsByStage).filter(function(s){ return res.countsByStage[s]>0; })
+    .map(function(s){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+s+'</span><span style="font-weight:700">'+res.countsByStage[s]+'</span></div>'; }).join('');
+  var roleLines = Object.keys(res.countsByRole)
+    .map(function(r){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+r+'</span><span style="font-weight:700">'+res.countsByRole[r]+'</span></div>'; }).join('');
+  var sampleRows = res.sample.map(function(p){
+    return '<tr><td style="padding:5px 8px;font-size:12px">'+p.name+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px">'+p.newStage+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px">'+(p.suggestedRole?p.suggestedRole:'<span style="color:#b45309">needs manual review</span>')+'</td></tr>';
+  }).join('');
+
+  msgEl.innerHTML =
+    '<div style="font-weight:700;margin-bottom:10px;color:var(--gray900)">' + res.totalToMigrate + ' record(s) will be updated &mdash; nothing has changed yet, this is a preview.</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px">' +
+      '<div><div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">New Candidate Stage</div>' + stageLines + '</div>' +
+      '<div><div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">Role guessed from position title</div>' + roleLines + '</div>' +
+    '</div>' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">First 20 examples</div>' +
+    '<div class="table-wrap" style="max-height:240px;overflow:auto"><table><thead><tr><th style="padding:5px 8px;font-size:11px">Name</th><th style="padding:5px 8px;font-size:11px">New Stage</th><th style="padding:5px 8px;font-size:11px">Suggested Role</th></tr></thead><tbody>' + sampleRows + '</tbody></table></div>' +
+    '<div style="margin-top:10px;font-size:12px;color:var(--gray500)">Role is only a best guess from the position title &mdash; review and fix any "needs manual review" or wrong ones afterward on each candidate\'s profile (Candidate Stage panel).</div>';
+
+  if(applyBtn) applyBtn.style.display='inline-block';
+}
+
+async function applyCandidateStageMigration(){
+  var preview = window._stageMigV3Preview;
+  var msgEl = document.getElementById('stageMigV3Msg');
+  if(!preview || !preview.totalToMigrate){
+    showToast('Run Preview first.');
+    return;
+  }
+  if(!confirm('Set Candidate Stage / Next Action / suggested Role on ' + preview.totalToMigrate + ' applicant record(s) that don\'t have one yet? Records that already have a Candidate Stage set are never touched, so this is safe to run again later too.')) return;
+
+  if(msgEl) msgEl.innerHTML = 'Applying&hellip;';
+  var res = await apiPost('runStageMigrationV3', {});
+  if(res && res.success){
+    showToast('✓ Migrated ' + res.migrated + ' record(s).');
+    if(msgEl) msgEl.innerHTML = '<span style="color:#166534">✓ Done &mdash; ' + res.migrated + ' record(s) updated. The Executive Dashboard, Tracker, and Board will now show them split by role.</span>';
+    var applyBtn = document.getElementById('stageMigV3ApplyBtn');
+    if(applyBtn) applyBtn.style.display='none';
+    window._stageMigV3Preview = null;
+    if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
+    if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
+    if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
+  } else {
+    if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
+  }
 }
 
 function autoAdvanceIfNeeded(id){
