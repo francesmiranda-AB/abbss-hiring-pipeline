@@ -1955,9 +1955,30 @@ function buildEmmTab(a){
   const flColor=l=>l==='high'?'#b52a2a':l==='medium'?'#b07d0c':l==='pass'?'#1a7a4a':'#3b3f8c';
   const flBg=l=>l==='high'?'#fdecea':l==='medium'?'#fdf6e3':l==='pass'?'#eaf7f0':'#f0f0f8';
   const flags=(g.flags||[]).map(f=>`<div class="flag-card" style="background:${flBg(f.level)};border:1px solid ${flColor(f.level)}33"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span class="badge" style="background:${flBg(f.level)};color:${flColor(f.level)};border:1px solid ${flColor(f.level)}33">${f.level==='high'?'⚠ HIGH':f.level==='medium'?'⚠ MEDIUM':'✓ CLEAR'}</span><strong style="color:${flColor(f.level)}">${f.title}</strong></div><div style="font-size:13px;color:#444;margin-bottom:8px">${f.desc}</div><div class="flag-action">💬 ${f.action}</div></div>`).join('');
+  // The client-style 5-area rubric only exists on results graded after this
+  // feature shipped -- older saved records (graded before) simply won't
+  // have g.rubric, so this block is skipped for them rather than erroring.
+  let rubricBlock='';
+  if(g.rubric){
+    const r=g.rubric;
+    const scoreColor=(score,max)=>score>=max?'#1a7a4a':score>0?'#b07d0c':'#b52a2a';
+    const rubricRows=[
+      ['Order reference identification',r.orderRef],
+      ['Required Excel calculations',r.calc],
+      ['Line-item remarks',r.remarks],
+      ['Summary accuracy and reconciliation',r.summary],
+      ['Recommendations',r.recs],
+    ].map(([area,d])=>`<tr><td style="font-weight:600">${area}</td><td style="font-weight:700;color:${scoreColor(d.score,d.max)}">${d.score}/${d.max}</td></tr>`).join('');
+    rubricBlock=`
+      <div class="card-title" style="margin-bottom:8px">Grading Breakdown (client-style rubric)</div>
+      <table style="margin-bottom:16px"><thead><tr><th>Area</th><th>Score</th></tr></thead><tbody>${rubricRows}
+        <tr style="border-top:2px solid #ddd"><td style="font-weight:800">Total</td><td style="font-weight:800;color:${r.pass?'#1a7a4a':'#b52a2a'}">${r.total}/100 — ${r.pass?'Passed':'Not Passed'}</td></tr>
+      </tbody></table>`;
+  }
   return receivedBlock+`
     <div id="emmDetail_${a.id}">
       ${banner}
+      ${rubricBlock}
       <table style="margin-bottom:16px"><thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Total</th></tr></thead><tbody>
         <tr><td>Category Identification</td><td style="font-weight:700;color:${scColor(g.catPct)}">${g.catPct}%</td><td class="td-ok">${g.catCorrect}</td><td class="${g.catWrongCount>0?'td-err':'td-ok'}">${g.catWrongCount}</td><td style="color:#888">${g.totalRows}</td></tr>
         <tr><td>Action Recommendations</td><td style="font-weight:700;color:${scColor(g.actPct)}">${g.actPct}%</td><td class="td-ok">${g.actCorrect}</td><td class="${(g.actWrong||[]).length>0?'td-err':'td-ok'}">${(g.actWrong||[]).length}</td><td style="color:#888">${g.actTotal}</td></tr>
@@ -2832,7 +2853,8 @@ function parseApplicant(buffer){
   const ci=n=>hdrs.findIndex(h=>h.includes(n));
   const ec=ci('Entry No'),sc=ci('SUMIF'),ic=ci('Inv Count'),pc=ci('Pay Count'),
         cc=ci('CM Count'),rc=ci('Ref Count'),rmc=ci('Remarks'),
-        dtc=ci('Document Type'),ramc=ci('Remaining Amt'),extc=ci('External Document');
+        dtc=ci('Document Type'),ramc=ci('Remaining Amt'),extc=ci('External Document'),
+        orc=ci('Order Ref');
 
   const rows=[];
   for(let i=best.headerRow+1;i<rawM.length;i++){
@@ -2844,6 +2866,15 @@ function parseApplicant(buffer){
     const extDoc=String(r[extc]||'').trim();
     // Resolve orderRef: GJ Entry rows use hardcoded value, others use extDoc
     const orderRef=docType==='GJ Entry'?'GJ Entry - Reversed':(extDoc&&extDoc!=='nan'?extDoc:'');
+    // The applicant's OWN "Order Ref" column, kept separate from the
+    // canonical orderRef above -- this is what "Order reference
+    // identification" actually grades: did they correctly resolve the
+    // Order Ref for each line themselves. Comparing it against the
+    // canonical value we already derive from External Document No. per
+    // row means this check is immune to whatever order she sorted the
+    // sheet into -- it only ever compares a row's two columns against
+    // each other, never against a fixed row position.
+    const herOrderRef=orc>=0&&r[orc]!=null?String(r[orc]).trim():'';
     rows.push({
       entry,
       sumif:   r[sc]!=null?parseFloat(r[sc]):null,
@@ -2852,7 +2883,7 @@ function parseApplicant(buffer){
       cm:      r[cc]!=null?parseInt(r[cc]):null,
       ref:     r[rc]!=null?parseInt(r[rc]):null,
       remarks: String(r[rmc]||'').trim(),
-      docType, remAmt, orderRef
+      docType, remAmt, orderRef, herOrderRef
     });
   }
 
@@ -2875,14 +2906,18 @@ function parseApplicant(buffer){
     if(row.some(c=>c.includes('Remarks'))&&(row.some(c=>c.includes('Sum of'))||row.some(c=>c.includes('Action Point')))){hI=i;break;}
   }
   const instrRows=[];
+  let grandTotal=null;
   if(hI>=0){
     const hi=rawI[hI].map(h=>String(h||'').trim());
     const ci2=n=>hi.findIndex(h=>h.includes(n));
-    const lc=ci2('Remarks'),apc=ci2('Action Point');
+    const lc=ci2('Remarks'),apc=ci2('Action Point'),sac=ci2('Sum of'),cnc=ci2('Count of');
     for(let i=hI+1;i<rawI.length;i++){
       const r=rawI[i];const label=String(r[lc]||'').trim();
-      if(!label||label==='Grand Total')continue;
-      instrRows.push({label,action:String(r[apc]||'').trim()});
+      if(!label)continue;
+      const sumAmt=sac>=0&&r[sac]!=null?parseFloat(r[sac]):null;
+      const count=cnc>=0&&r[cnc]!=null?parseInt(r[cnc]):null;
+      if(label==='Grand Total'){grandTotal={amt:sumAmt,count:count};continue;}
+      instrRows.push({label,action:String(r[apc]||'').trim(),sumAmt,count});
     }
   }
 
@@ -2890,16 +2925,19 @@ function parseApplicant(buffer){
   if(computedFromBase)
     warnings.push('Remarks column contained uncalculated formulas (file may not have been saved after completion in Excel). Categories were computed automatically from the base data. Results reflect what the formulas would have produced.');
 
-  return{rows:finalRows,instrRows,
+  return{rows:finalRows,instrRows,grandTotal,
     sheetWarning:warnings.join(' | '),
     usedSheetName:best.name,
     inspection,computedFromBase};
 }
 
-function gradeData(rows,instrRows){
+function gradeData(rows,instrRows,grandTotal){
   let catCorrect=0;const catWrong=[],catByCat={};
   const fCols={sumif:0,inv:0,pay:0,cm:0,ref:0};
   let fTotal=0,fwcc=0,fcwc=0,bcc=0,bwc=0;
+  let orderRefCorrect=0;
+  const trueCatSum={},trueCatCount={};
+  let trueGrandAmt=0;
   for(const r of rows){
     const ans=ANSWER_KEY[r.entry];if(!ans)continue;fTotal++;
     const sOk=r.sumif!=null&&Math.abs(Math.round(r.sumif*100)/100-Math.round(ans.sumif*100)/100)<0.02;
@@ -2912,6 +2950,18 @@ function gradeData(rows,instrRows){
     if(rmOk){catCorrect++;catByCat[ans.remarks].correct++;}
     else{catByCat[ans.remarks].wrong++;catWrong.push({entry:r.entry,got:effectiveRemark,expected:ans.remarks});}
     if(fOk&&rmOk)bcc++;else if(fOk&&!rmOk)fcwc++;else if(!fOk&&rmOk)fwcc++;else bwc++;
+    // Order Ref check compares each row's OWN two columns against each
+    // other (her "Order Ref" entry vs. the canonical value derived from
+    // that same row's External Document No.) -- never against a fixed row
+    // position, so it can't be thrown off by however she sorted the sheet.
+    if(r.herOrderRef&&r.herOrderRef===r.orderRef)orderRefCorrect++;
+    // True per-category $ total and line count, computed from the ANSWER
+    // KEY's remarks label (never her own, possibly-wrong, remarks) joined
+    // to her own Remaining Amt column -- this is what her Instructions-tab
+    // pivot table SHOULD reconcile to.
+    trueCatSum[ans.remarks]=(trueCatSum[ans.remarks]||0)+r.remAmt;
+    trueCatCount[ans.remarks]=(trueCatCount[ans.remarks]||0)+1;
+    trueGrandAmt+=r.remAmt;
   }
   const catPct=Math.round(catCorrect/TOTAL_ROWS*10000)/100;
   const fPcts={};for(const k of Object.keys(fCols))fPcts[k]=fTotal?Math.round(fCols[k]/fTotal*1000)/10:0;
@@ -2919,6 +2969,48 @@ function gradeData(rows,instrRows){
   for(const r of instrRows){const exp=ANS_SUMMARY[r.label];if(!exp)continue;actTotal++;if(r.action.toLowerCase()===exp.toLowerCase())actCorrect++;else actWrong.push({label:r.label,got:r.action,expected:exp});}
   const actPct=actTotal?Math.round(actCorrect/actTotal*10000)/100:0;
   const overallPct=Math.round((catCorrect+actCorrect)/(TOTAL_ROWS+actTotal)*10000)/100;
+
+  // ============================================================
+  // CLIENT-STYLE RUBRIC -- mirrors the 5-area / 100-point breakdown the
+  // client grades against (Order Reference ID /10, Required Excel
+  // Calculations /30, Line-Item Remarks /35, Summary Accuracy &
+  // Reconciliation /15, Recommendations /10), instead of the blended
+  // "final answer only" overallPct above. This is what actually catches a
+  // candidate who reverse-engineered the right labels without doing the
+  // required SUMIF/COUNTIFS work -- overallPct alone can't, since it never
+  // looks at whether the formula columns were filled in at all.
+  const orderRefScore=fTotal?Math.round(10*orderRefCorrect/fTotal):0;
+  const avgFormulaPct=Object.values(fPcts).length?Object.values(fPcts).reduce((a,b)=>a+b,0)/Object.values(fPcts).length:0;
+  const calcScore=Math.round(30*avgFormulaPct/100);
+  const remarksScore=Math.round(35*catPct/100);
+  const recsScore=Math.round(10*actPct/100);
+
+  const CAT_TOL_AMT=1,CAT_TOL_COUNT=0; // $1 rounding tolerance on amounts, exact match on counts
+  let matchedCats=0;
+  const catReconcile=CAT_ORDER.map(cat=>{
+    const her=instrRows.find(r=>r.label===cat);
+    const trueSum=Math.round((trueCatSum[cat]||0)*100)/100;
+    const trueCount=trueCatCount[cat]||0;
+    const sumOk=her&&her.sumAmt!=null&&Math.abs(her.sumAmt-trueSum)<=CAT_TOL_AMT;
+    const countOk=her&&her.count!=null&&Math.abs(her.count-trueCount)<=CAT_TOL_COUNT;
+    const ok=sumOk&&countOk;
+    if(ok)matchedCats++;
+    return{category:cat,herSum:her?her.sumAmt:null,trueSum,herCount:her?her.count:null,trueCount,ok};
+  });
+  const grandAmtOk=!!(grandTotal&&grandTotal.amt!=null&&Math.abs(grandTotal.amt-Math.round(trueGrandAmt*100)/100)<=1);
+  const grandCountOk=!!(grandTotal&&grandTotal.count===fTotal);
+  const summaryScore=Math.round((grandAmtOk?1:0)+(grandCountOk?1:0)+matchedCats*(13/9));
+
+  const rubricTotal=orderRefScore+calcScore+remarksScore+summaryScore+recsScore;
+  const rubric={
+    orderRef:{score:orderRefScore,max:10,correct:orderRefCorrect,total:fTotal},
+    calc:{score:calcScore,max:30,fPcts},
+    remarks:{score:remarksScore,max:35,accuracy:catPct,correct:catCorrect,wrong:catWrong.length,total:fTotal},
+    summary:{score:summaryScore,max:15,grandAmtOk,grandCountOk,herGrandAmt:grandTotal?grandTotal.amt:null,trueGrandAmt:Math.round(trueGrandAmt*100)/100,herGrandCount:grandTotal?grandTotal.count:null,trueGrandCount:fTotal,matchedCats,totalCats:CAT_ORDER.length,catReconcile},
+    recs:{score:recsScore,max:10,accuracy:actPct,correct:actCorrect,total:actTotal},
+    total:rubricTotal,totalMax:100,
+    pass:rubricTotal>=PASS_EMM
+  };
   const flags=[];
   const bypassRate=Math.round(fwcc/fTotal*100),weakRate=Math.round(fcwc/fTotal*100);
   if(bypassRate>30)flags.push({level:bypassRate>60?'high':'medium',title:'Possible Formula Bypass',desc:`${fwcc} rows (${bypassRate}%) have correct categories but incorrect formula values.`,action:'Ask the applicant to explain their SUMIF and COUNTIFS formulas during live validation.'});
@@ -2938,7 +3030,13 @@ function gradeData(rows,instrRows){
   // "flagged for review" instead of a clean pass, without changing the
   // underlying score math.
   const highRiskFlag=flags.some(f=>f.level==='high');
-  return{catCorrect,catWrong,catPct,catByCat,catWrongCount:catWrong.length,actCorrect,actWrong,actTotal,actPct,fPcts,fTotal,fwcc,fcwc,bcc,bwc,overallPct,overallTotal:TOTAL_ROWS+actTotal,overallCorrect:catCorrect+actCorrect,totalRows:rows.filter(r=>ANSWER_KEY[r.entry]).length,pass:overallPct>=PASS_EMM,highRiskFlag,flags,integrity:{bypassRate,weakRate,wrongColCounts:wc}};
+  // pass is now the RUBRIC's pass/fail (the client-style 5-area /100
+  // breakdown above), not the old blended "final answers only" overallPct
+  // threshold -- that old number is exactly what let a 93%+ "correct
+  // answers, zero required formula work" submission read as a clean PASS.
+  // overallPct/catPct/actPct are kept as-is below for the existing
+  // Category/Action detail tabs, just no longer used to decide pass/fail.
+  return{catCorrect,catWrong,catPct,catByCat,catWrongCount:catWrong.length,actCorrect,actWrong,actTotal,actPct,fPcts,fTotal,fwcc,fcwc,bcc,bwc,overallPct,overallTotal:TOTAL_ROWS+actTotal,overallCorrect:catCorrect+actCorrect,totalRows:rows.filter(r=>ANSWER_KEY[r.entry]).length,pass:rubric.pass,highRiskFlag,flags,integrity:{bypassRate,weakRate,wrongColCounts:wc},rubric};
 }
 
 // Single source of truth for "does this graded EMM result carry a
@@ -2981,7 +3079,7 @@ function runGrade(){
       showPreflight(parsed.inspection,parsed);
       if(parsed.error){document.getElementById('gradeErrorText').textContent=parsed.error;document.getElementById('gradeError').style.display='flex';btn.disabled=false;btn.textContent='▶ Grade & Analyse';return;}
       if(parsed.sheetWarning){document.getElementById('gradeWarnText').textContent=parsed.sheetWarning;document.getElementById('gradeWarn').style.display='flex';}
-      gradeResult=gradeData(parsed.rows,parsed.instrRows);
+      gradeResult=gradeData(parsed.rows,parsed.instrRows,parsed.grandTotal);
       gradeResult.fileName=gradeFile.name;gradeResult.gradedAt=new Date().toISOString();
       gradeResult.sheetWarning=parsed.sheetWarning||'';
       renderGradeResults();
@@ -3012,8 +3110,40 @@ function showGradeTab(tab,btn){
   const flBg=l=>l==='high'?'#fdecea':l==='medium'?'#fdf6e3':l==='pass'?'#eaf7f0':'#f0f0f8';
 
   if(tab==='overview'){
+    const r=g.rubric;
+    const scoreColor=(score,max)=>score>=max?'#1a7a4a':score>0?'#b07d0c':'#b52a2a';
+    const avgFormulaPct=Object.values(r.calc.fPcts).length?Math.round(Object.values(r.calc.fPcts).reduce((a,b)=>a+b,0)/Object.values(r.calc.fPcts).length*10)/10:0;
+    const calcFinding=avgFormulaPct===0
+      ? 'The SUMIF, invoice count, payment count, credit memo count, and refund count columns were left blank.'
+      : avgFormulaPct>=98
+        ? 'All required formula columns are filled in correctly.'
+        : `Formula columns are ${avgFormulaPct}% correct on average — some SUMIF/COUNTIFS values don't match.`;
+    const summaryFindingBits=[];
+    summaryFindingBits.push(r.summary.grandAmtOk
+      ? `The overall balance of ${r.summary.trueGrandAmt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} was correct.`
+      : `The overall balance should be ${r.summary.trueGrandAmt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}, but her total didn't match.`);
+    summaryFindingBits.push(r.summary.matchedCats===r.summary.totalCats
+      ? 'All category amounts and counts reconciled.'
+      : `The category amounts and counts did not fully reconcile (${r.summary.matchedCats} of ${r.summary.totalCats} categories matched).`);
+    summaryFindingBits.push(r.summary.grandCountOk
+      ? `Her summary correctly counted all ${r.summary.trueGrandCount} lines.`
+      : `Her summary counted only ${r.summary.herGrandCount==null?'(blank)':r.summary.herGrandCount} lines instead of ${r.summary.trueGrandCount}.`);
+    const orderRefFinding = r.orderRef.correct===r.orderRef.total
+      ? `All ${r.orderRef.total.toLocaleString()} Order Ref values matched.`
+      : `${r.orderRef.correct.toLocaleString()} of ${r.orderRef.total.toLocaleString()} Order Ref values matched.`;
+    const remarksFinding = `${r.remarks.correct.toLocaleString()} of ${r.remarks.total.toLocaleString()} classifications were correct, or ${r.remarks.accuracy}% accuracy. There were ${r.remarks.wrong.toLocaleString()} incorrect remarks.`;
+    const recsFinding = r.recs.score>=r.recs.max ? 'The selected action points matched the provided answer choices.' : `${r.recs.correct} of ${r.recs.total} action points matched the provided answer choices.`;
+    const rubricRows=[
+      ['Order reference identification',r.orderRef,orderRefFinding],
+      ['Required Excel calculations',r.calc,calcFinding],
+      ['Line-item remarks',r.remarks,remarksFinding],
+      ['Summary accuracy and reconciliation',r.summary,summaryFindingBits.join(' ')],
+      ['Recommendations',r.recs,recsFinding],
+    ].map(([area,d,finding])=>`<tr><td style="font-weight:600">${area}</td><td style="font-weight:700;color:${scoreColor(d.score,d.max)};white-space:nowrap">${d.score}/${d.max}</td><td style="font-size:12px;color:#555">${finding}</td></tr>`).join('');
+    const verdict=`<tr style="border-top:2px solid #ddd"><td style="font-weight:800">Total</td><td style="font-weight:800;color:${r.pass?'#1a7a4a':'#b52a2a'}">${r.total}/100</td><td style="font-weight:700;color:${r.pass?'#1a7a4a':'#b52a2a'}">${r.pass?'Passed':'Not Passed'}</td></tr>`;
     const catRows=CAT_ORDER.map(cat=>{const d=g.catByCat[cat]||{correct:0,wrong:0};const t=d.correct+d.wrong;const p=t?Math.round(d.correct/t*1000)/10:0;return`<div style="padding:10px 12px;border-radius:8px;border:1px solid #e8e8f0;background:#fafafa"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;font-weight:600">${cat}</span><span style="font-size:12px;font-weight:700;color:${scColor(p)}">${p}%</span></div>${bar(p)}<div style="font-size:11px;color:#888;margin-top:3px">${d.correct}✓ ${d.wrong}✗</div></div>`;}).join('');
-    el.innerHTML=`<div class="card-title">Score Breakdown</div><table style="margin-bottom:16px"><thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Total</th></tr></thead><tbody><tr><td>Category Identification (Matching → Remarks)</td><td style="font-weight:700;color:${scColor(g.catPct)}">${g.catPct}%</td><td class="td-ok">${g.catCorrect}</td><td class="${g.catWrongCount>0?'td-err':'td-ok'}">${g.catWrongCount}</td><td style="color:#888">${g.totalRows}</td></tr><tr><td>Action Recommendations (Instructions → Action Point)</td><td style="font-weight:700;color:${scColor(g.actPct)}">${g.actPct}%</td><td class="td-ok">${g.actCorrect}</td><td class="${g.actWrong.length>0?'td-err':'td-ok'}">${g.actWrong.length}</td><td style="color:#888">${g.actTotal}</td></tr></tbody></table><div class="card-title">By Category</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${catRows}</div>`;
+    el.innerHTML=`<div class="card-title">Grading Breakdown</div><table style="margin-bottom:16px"><thead><tr><th>Area</th><th>Score</th><th>Findings</th></tr></thead><tbody>${rubricRows}${verdict}</tbody></table>`+
+      `<div class="card-title">Category Identification Detail (feeds the Line-Item Remarks score above)</div><table style="margin-bottom:16px"><thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Total</th></tr></thead><tbody><tr><td>Category Identification (Matching → Remarks)</td><td style="font-weight:700;color:${scColor(g.catPct)}">${g.catPct}%</td><td class="td-ok">${g.catCorrect}</td><td class="${g.catWrongCount>0?'td-err':'td-ok'}">${g.catWrongCount}</td><td style="color:#888">${g.totalRows}</td></tr><tr><td>Action Recommendations (Instructions → Action Point)</td><td style="font-weight:700;color:${scColor(g.actPct)}">${g.actPct}%</td><td class="td-ok">${g.actCorrect}</td><td class="${g.actWrong.length>0?'td-err':'td-ok'}">${g.actWrong.length}</td><td style="color:#888">${g.actTotal}</td></tr></tbody></table><div class="card-title">By Category</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${catRows}</div>`;
   }
   else if(tab==='integrity'){
     const mx=[['Both correct',g.bcc,'Strongest evidence of genuine independent work','#eaf7f0','#1a7a4a'],['Formula OK, category wrong',g.fcwc,'Can compute formulas but misapplies classification rules','#fdf6e3','#b07d0c'],['Formula wrong, category OK',g.fwcc,'Categories correct but not supported by formulas','#fdecea','#b52a2a'],['Both wrong',g.bwc,'Both formula and classification need improvement','#f5f5f5','#666']].map(([lbl,val,desc,bg,col])=>{const pct=g.fTotal?Math.round(val/g.fTotal*100):0;return`<div style="padding:12px;border-radius:8px;background:${bg};border:1px solid ${col}22"><div style="font-weight:700;font-size:13px;color:${col}">${val.toLocaleString()} <span style="font-size:11px;font-weight:400">(${pct}%)</span></div><div style="font-size:12px;font-weight:600;margin:3px 0">${lbl}</div><div style="font-size:11px;color:#666">${desc}</div></div>`;}).join('');
@@ -3072,14 +3202,19 @@ function saveGradeToRecord(){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===parseInt(selId));
   if(!a){alert('Applicant not found.');return;}
-  a.emm={graded:true,overallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
+  // overallPct now IS the client-style rubric total (/100) -- pass/fail is
+  // decided by that same number (gradeResult.pass === gradeResult.rubric.pass),
+  // so the score shown everywhere (Tracker, PDF, CSV, this record) and the
+  // reason it passed or failed always agree. The old "final answers only"
+  // blend is kept as legacyOverallPct purely for reference/debugging.
+  a.emm={graded:true,overallPct:gradeResult.rubric.total,legacyOverallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
   saveApplicants(apps);
   syncApplicantToSheets(a);
   updateTrackerBadge();
   autoAdvanceIfNeeded(a.id);
   renderPendingGradingQueue();
   alert(`✓ EMM result saved to ${a.name}'s record.
-Score: ${gradeResult.overallPct}% (${emmStatusLabel(a)})` + (gradeResult.highRiskFlag ? '\n\n⚠ This result has a HIGH-severity integrity flag (see the Integrity tab) — treat this as needing live validation before treating it as a pass, regardless of the score.' : ''));
+Score: ${gradeResult.rubric.total}/100 (${emmStatusLabel(a)})` + (gradeResult.highRiskFlag ? '\n\n⚠ This result also has a HIGH-severity integrity flag (see the Integrity tab).' : ''));
 }
 
 // ============================================================
@@ -7315,24 +7450,24 @@ function bar(pct) {
 // OVERRIDE renderGradeResults
 // ============================================================
 function renderGradeResults() {
-  var g = gradeResult;
-  // A high-severity integrity flag (e.g. Possible Formula Bypass) always
-  // overrides the score-based color/label -- a candidate who got the right
-  // final answers without doing the required formula work is not a clean
-  // pass just because the number cleared the threshold. This is what
-  // reconciles "the grader says 93%+" with "this should not read as PASS
-  // at a glance" -- the underlying score/threshold math is unchanged, only
-  // the at-a-glance label is.
-  var cls = g.pass ? (g.highRiskFlag?'warn':(g.overallPct>=90?'pass':'warn')) : 'fail';
+  var g = gradeResult, r = g.rubric;
+  // The headline score/pass-fail is now the client-style rubric total
+  // (Order Ref /10 + Required Calculations /30 + Line-Item Remarks /35 +
+  // Summary Reconciliation /15 + Recommendations /10 = /100), not the old
+  // "final answers only" overallPct -- that number alone couldn't fail a
+  // submission for skipping the required formula work, which is exactly
+  // what let a 93%+ "right answers, zero formulas shown" result read as a
+  // clean pass. overallPct/catPct/actPct still drive the detail tabs below.
+  var cls = r.pass ? 'pass' : 'fail';
   document.getElementById('gradeBanner').innerHTML =
     '<div class="score-hero ' + cls + '">' +
     '<div style="position:relative;z-index:1">' +
     '<div class="score-label">Overall Score</div>' +
-    '<div class="score-big">' + g.overallPct + '%</div>' +
-    '<div class="score-sub">' + g.overallCorrect + ' of ' + g.overallTotal + ' items correct</div>' +
-    '<div class="score-badge">' + (g.pass ? (g.highRiskFlag ? '&#9888; PASS &mdash; HIGH-severity integrity flag, see Integrity tab before treating this as a pass' : '&#10003; PASS &mdash; Meets threshold (&ge;75%)') : '&#10007; FAIL &mdash; Below threshold (&lt;75%)') + '</div>' +
+    '<div class="score-big">' + r.total + '/100</div>' +
+    '<div class="score-sub">' + r.total + ' of 100 points across 5 graded areas</div>' +
+    '<div class="score-badge">' + (r.pass ? '&#10003; PASS &mdash; Meets threshold (&ge;'+PASS_EMM+')' : '&#10007; FAIL &mdash; Below threshold (&lt;'+PASS_EMM+')') + '</div>' +
     '</div>' +
-    '<div class="rings">' + ring(g.overallPct,'Overall') + ring(g.catPct,'Category ID') + ring(g.actPct,'Action Rec.') + '</div>' +
+    '<div class="rings">' + ring(r.total,'Overall') + ring(g.catPct,'Category ID') + ring(g.actPct,'Action Rec.') + '</div>' +
     '</div>';
   document.getElementById('gradeErrTab').textContent = 'Errors' + (g.catWrongCount>0?' ('+g.catWrongCount+')':'');
   showGradeTab('overview', document.querySelector('#gradeTabs .dtab'));
