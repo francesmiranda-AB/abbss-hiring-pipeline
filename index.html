@@ -5503,6 +5503,13 @@ function getCandidateStageBadge(a){
   if(meta) return { key:stage, label:stage, tone:meta.tone, bg:meta.bg };
   return { key:'__not_migrated__', label:'Not migrated yet', tone:'#6b7280', bg:'#f1f1f4' };
 }
+// Small HTML badge for the Dashboard's card-drilldown list (showCardApplicants)
+// -- built on getCandidateStageBadge so it always reflects the real Candidate
+// Stage rather than the old numeric stage, whatever card was clicked into.
+function candidateStageDrilldownBadge(a){
+  var st = getCandidateStageBadge(a);
+  return '<span class="badge" style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700">' + st.label + '</span>';
+}
 var CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
 var DEFAULT_NEXT_ACTION_BY_STAGE = {
   'New Application':'Screen CV','CV Screening':'Call Candidate','Preliminary Interview':'Schedule Preliminary Interview',
@@ -5521,6 +5528,76 @@ function getInterviewerHint(a, round){
   if(round==='initial') return rounds.initial;
   if(round==='final') return rounds.final;
   return '';
+}
+
+// ============================================================
+// DASHBOARD TASK ENGINE -- single source of truth for "What's Pending" and
+// "Your Tasks" on the Dashboard, driven by Candidate Stage / Next Action /
+// Department (the fields HR/Ops actually edit day to day), NOT the old
+// numeric a.stage field. That field is legacy-only now (kept for the old
+// stepper/advanceStage buttons elsewhere) and is never updated when someone
+// edits the Candidate Stage panel, so a Dashboard built on it goes stale the
+// moment a record is migrated -- e.g. a candidate manually moved to
+// "Endorsed to Client" kept showing up as "needs an Ops Manager interview"
+// because her legacy stage number was never advanced to match. Records that
+// haven't been through the one-time migration yet (candidateStage blank)
+// still get a "Not migrated yet" task pointing at Settings, so nothing
+// silently falls through the cracks during the transition.
+// Generic per-stage hint shown on the aggregate "What's Pending" cards
+// (which cover many candidates at once, so they can't show one person's
+// specific Next Action). Your Tasks / the drilldown list show the real
+// a.nextAction for each person instead.
+var STAGE_HINTS = {
+  'New Application': 'New — screen their CV.',
+  'CV Screening': 'Decide if they move forward, then schedule the preliminary interview.',
+  'Preliminary Interview': 'Interview is happening. Write down pass or fail.',
+  'Assessment Sent': 'Just wait for their answers.',
+  'Waiting for Assessment': 'Just wait for their answers.',
+  'Assessment Review': 'Review their assessment results.',
+  'Initial Interview': 'Interview is happening. Write down pass or fail.',
+  'Endorsed to Client': 'Already sent. Follow up if it’s been a while.',
+  'Final Interview': 'The client is interviewing them now.',
+  'Waiting for Client Decision': 'Just wait for the client to answer.',
+  'Job Offer': 'Send (or follow up on) the job offer.'
+};
+// Per-applicant version of the old getPipelineStep()/PIPELINE_CARD_DEFS
+// engine, but reading candidateStage/nextAction/department instead of the
+// legacy numeric stage. Returns null for terminal outcomes (Hired/Closed-*),
+// which the separate Outcomes cards already cover.
+function getStageTask(a){
+  if(!a) return null;
+  if(a.overallStatus==='Hired' || a.overallStatus==='Rejected' || a.overallStatus==='Hold' || a.overallStatus==='NonCompliant') return null;
+  var stage = a.candidateStage;
+  if(!stage){
+    return { key:'__not_migrated__', label:'Not Migrated Yet', color:'#6b7280', hint:'Run the one-time stage migration in Settings before this record can show up correctly.', role:'HR', actionable:true, waiting:false };
+  }
+  if(CLOSED_STAGES.indexOf(stage)>=0) return null;
+  var next = a.nextAction || DEFAULT_NEXT_ACTION_BY_STAGE[stage] || '';
+  var meta = CANDIDATE_STAGE_META[stage] || { tone:'#475569', bg:'#f1f5f9' };
+  var prelimOwner = getInterviewerHint(a,'preliminary') || 'HR';
+  var initialOwner = getInterviewerHint(a,'initial') || 'Operations Manager';
+  var finalOwner = getInterviewerHint(a,'final') || 'Operations Manager';
+  var owner = 'HR', actionable = true, waiting = false;
+  if(stage==='Preliminary Interview') owner = prelimOwner;
+  else if(stage==='Initial Interview') owner = initialOwner;
+  else if(stage==='Endorsed to Client'){ owner = initialOwner; actionable = false; waiting = true; }
+  else if(stage==='Final Interview'){
+    if(finalOwner==='CEO'){ owner = 'CEO'; }
+    else { owner = initialOwner; actionable = false; waiting = true; }
+  }
+  else if(stage==='Waiting for Client Decision'){ owner = initialOwner; actionable = false; waiting = true; }
+  else if(stage==='Assessment Sent' || stage==='Waiting for Assessment'){ owner = 'HR'; actionable = false; waiting = true; }
+  var prefix = actionable ? 'TO DO' : 'WAITING';
+  return {
+    key: stage,
+    label: prefix + ' — ' + stage,
+    color: meta.tone,
+    hint: next || STAGE_HINTS[stage] || '',
+    role: owner,
+    actionable: actionable,
+    waiting: waiting,
+    nextAction: next
+  };
 }
 
 // The one panel HR actually touches day to day: Candidate Stage + Next
@@ -5665,7 +5742,7 @@ function showCardApplicants(key){
       '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
       '<div class="applicant-info"><div class="applicant-name">' + a.name + '</div>' +
       '<div class="applicant-meta">' + (a.position||'No position') + ' \u00b7 ' + a.email + '</div></div>' +
-      '<div style="text-align:right;flex-shrink:0">' + stageStatusBadge(a) + '</div></div>';
+      '<div style="text-align:right;flex-shrink:0">' + candidateStageDrilldownBadge(a) + '</div></div>';
   }).join('') : '<div class="empty" style="padding:24px"><div class="empty-icon">&#128269;</div><div class="empty-title">No applicants in this group</div></div>';
   panel.innerHTML = '<div class="card-header"><div class="card-title">' + cfg.label + ' (' + list.length + ')</div><button class="btn btn-sm btn-ghost" onclick="showCardApplicants(\'' + key + '\')">&#10005; Close</button></div>' + rows;
   panel.style.display = 'block';
@@ -5704,13 +5781,13 @@ function renderDashboard() {
   // "Your Tasks" -- a flat list of named people, not pipeline categories.
   // Answers "what do I need to do right now" directly: who, and one line of
   // what for. Pure waiting states are left off (nothing to click on those).
-  var actionableDefs = PIPELINE_CARD_DEFS.filter(function(d){ return d.actionable && (!role || d.role === role); });
-  var actionableKeys = {};
-  actionableDefs.forEach(function(d){ actionableKeys[d.key] = d; });
+  // Driven by getStageTask() (Candidate Stage / Next Action / Department),
+  // not the old numeric-stage engine -- see DASHBOARD TASK ENGINE above.
   var tasks = apps.map(function(a){
-    var step = getPipelineStep(a);
-    var def = actionableKeys[step.key];
-    return def ? { a:a, def:def, sortAt: a.createdAt || a.dateReceived || '' } : null;
+    var t = getStageTask(a);
+    if(!t || !t.actionable) return null;
+    if(role && t.role !== role) return null;
+    return { a:a, def:t, sortAt: a.createdAt || a.dateReceived || '' };
   }).filter(Boolean);
   tasks.sort(function(x,y){ return new Date(x.sortAt) - new Date(y.sortAt); });
 
@@ -5748,10 +5825,19 @@ function renderDashboard() {
   // rejected/held), the other only counts people still actively there. Two
   // numbers for one label made the whole dashboard look unreliable. The pending
   // cards below are the single source of truth for "where is everyone right now."
-  var visibleDefs = role ? PIPELINE_CARD_DEFS.filter(function(d){ return d.role === role; }) : PIPELINE_CARD_DEFS;
-  var pendingCounts = visibleDefs.map(function(d){
-    return { def:d, count: apps.filter(function(a){ return getPipelineStep(a).key === d.key; }).length };
-  }).filter(function(x){ return x.count > 0; });
+  // Grouped from getStageTask() per applicant, not a static def list -- the
+  // owning role can differ for the same Candidate Stage (e.g. "Initial
+  // Interview" is the Operations Manager's job for AP/AR/Refunds candidates
+  // but the Project Manager's for Sales & Marketing candidates), so the role
+  // filter has to be applied per-person before grouping, not per-stage-name.
+  var stageTasksForGrid = apps.map(function(a){ return getStageTask(a); }).filter(function(t){ return t && (!role || t.role === role); });
+  var pendingGroups = {};
+  stageTasksForGrid.forEach(function(t){
+    if(!pendingGroups[t.key]) pendingGroups[t.key] = { def:t, count:0 };
+    pendingGroups[t.key].count++;
+  });
+  var pendingCounts = Object.keys(pendingGroups).map(function(k){ return pendingGroups[k]; })
+    .filter(function(x){ return x.count > 0; });
   document.getElementById('dashPendingGrid').innerHTML = pendingCounts.length ? pendingCounts.map(function(x){
     return '<div class="pipeline-card" data-card-key="' + x.def.key + '" onclick="showCardApplicants(\'' + x.def.key + '\')"><div class="pipeline-num" style="color:' + x.def.color + '">' + x.count + '</div><div class="pipeline-lbl" style="color:' + x.def.color + '">' + x.def.label + '</div><div class="pipeline-hint">' + (x.def.hint||'') + '</div></div>';
   }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">' + (role ? 'Nothing for '+role+' to do right now.' : 'Nothing pending right now.') + '</div></div>';
@@ -6364,8 +6450,21 @@ var PIPELINE_CARD_DEFS = [
   { key:'pl_b_stage6', label:'Sales Team: TO DO — Finish CEO Interview', color:'#6d28d9', hint:'The CEO is interviewing them now.', role:'CEO', actionable:true },
   { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'WAITING — for them to accept, then click Hired.', role:'HR', actionable:false }
 ];
-PIPELINE_CARD_DEFS.forEach(function(d){
-  CARD_FILTERS[d.key] = { label: d.label, fn: function(a){ return getPipelineStep(a).key === d.key; } };
+// PIPELINE_CARD_DEFS above is now unused dead weight, kept only for
+// reference/history -- superseded by getStageTask() (Candidate Stage /
+// Next Action / Department driven, see DASHBOARD TASK ENGINE), which is
+// what the Dashboard's "What's Pending" grid and "Your Tasks" list, and the
+// drilldown filters below, actually run on now.
+['__not_migrated__'].concat(CANDIDATE_STAGES.filter(function(s){ return CLOSED_STAGES.indexOf(s)<0; })).forEach(function(key){
+  CARD_FILTERS[key] = {
+    label: key === '__not_migrated__' ? 'Not Migrated Yet' : key,
+    fn: function(a){
+      var t = getStageTask(a);
+      if(!t || t.key !== key) return false;
+      var r = getDashboardRole();
+      return !r || t.role === r;
+    }
+  };
 });
 
 async function updateFieldImmediate(id, field, value){
