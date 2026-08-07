@@ -1932,7 +1932,7 @@ function buildEmmTab(a){
       <div>
         <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Overall Score</div>
         <div style="font-size:40px;font-weight:800;color:${scColor(a.emm.overallPct)}">${a.emm.overallPct}%</div>
-        <span class="badge ${a.emm.pass?'badge-pass':'badge-fail'}">${a.emm.pass?'✓ PASS':'✗ FAIL'}</span>
+        <span class="badge ${a.emm.pass?(emmHighRiskFlag(a)?'badge-warn':'badge-pass'):'badge-fail'}">${a.emm.pass?(emmHighRiskFlag(a)?'⚠ PASS — Flagged for Review':'✓ PASS'):'✗ FAIL'}</span>
       </div>
       <div>
         <div style="font-size:13px;color:#666"><strong>Category ID:</strong> ${a.emm.catPct}%</div>
@@ -1999,13 +1999,14 @@ function printEmmReport(id){
   'h2{font-size:14px;margin:20px 0 8px;color:#333}'+
   '.pass{color:#1a7a4a;font-weight:700}'+
   '.fail{color:#b52a2a;font-weight:700}'+
+  '.warn{color:#854d0e;font-weight:700}'+
   'footer{margin-top:30px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px}'+
   '@media print{ body{padding:10px} }'+
   '</style></head><body>'+
   '<h1>EMM Cognitive Assessment Report</h1>'+
   '<div class="sub">'+a.name+' &middot; '+(a.position||'No position')+' &middot; '+a.email+'</div>'+
   '<div class="banner">'+
-    '<div><div style="font-size:11px;color:#888;text-transform:uppercase">Overall Score</div><div class="score">'+a.emm.overallPct+'%</div><div class="'+(a.emm.pass?'pass':'fail')+'">'+(a.emm.pass?'PASS':'FAIL')+'</div></div>'+
+    '<div><div style="font-size:11px;color:#888;text-transform:uppercase">Overall Score</div><div class="score">'+a.emm.overallPct+'%</div><div class="'+(a.emm.pass?(emmHighRiskFlag(a)?'warn':'pass'):'fail')+'">'+emmStatusLabel(a)+'</div></div>'+
     '<div style="text-align:right;font-size:13px;color:#555">'+
       '<div>Category ID: <strong>'+a.emm.catPct+'%</strong></div>'+
       '<div>Action Points: <strong>'+a.emm.actPct+'%</strong></div>'+
@@ -2468,7 +2469,7 @@ async function notifyPreliminaryInterviewEndorsement(a){
   var body = 'Hi team,\n\n' + a.name + ' (' + (a.position||'No position') + (a.department ? ' \u2014 ' + a.department : '') + ') has completed assessments and been endorsed to the Interview (Ops Manager) stage.\n\n' +
     'GRIT: ' + (a.grit && a.grit.score ? a.grit.score + '/5' : 'N/A') + '\n' +
     'Values: ' + (a.values && a.values.score ? a.values.score + '/315' : 'N/A') + '\n' +
-    (a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? (a.emm.pass ? 'PASS' : 'FAIL') + ' (' + a.emm.overallPct + '%)' : (a.emmReceivedAt ? 'Submitted — pending grading' : 'Not yet submitted')) + '\n') : '') +
+    (a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? emmStatusLabel(a) + ' (' + a.emm.overallPct + '%)' : (a.emmReceivedAt ? 'Submitted — pending grading' : 'Not yet submitted')) + '\n') : '') +
     '\nPlease coordinate scheduling the interview.\n\nABBSS Hiring Pipeline';
   try{
     await apiPost('sendEmail', {data:{to: PRELIM_INTERVIEW_NOTIFY_RECIPIENTS.join(','), subject: subject, body: body}});
@@ -2928,7 +2929,42 @@ function gradeData(rows,instrRows){
   if(highErr.length===1&&perfCols.length===4)flags.push({level:'medium',title:`Isolated Formula Error — ${highErr[0]}`,desc:`All other formula columns are 100% correct but ${highErr[0]} has a high error rate.`,action:`Ask the applicant to show their ${highErr[0]} formula during live validation.`});
   if(Object.values(fPcts).every(p=>p>=98)&&catPct<80)flags.push({level:'high',title:'Perfect Formulas — Low Category Accuracy',desc:`All formulas near-perfect but category accuracy is only ${catPct}%.`,action:'Ask how they determined categories from their formula results.'});
   if(flags.length===0&&overallPct>=75)flags.push({level:'pass',title:'No Integrity Concerns Detected',desc:'Formula values and categories are internally consistent.',action:'Standard live validation recommended.'});
-  return{catCorrect,catWrong,catPct,catByCat,catWrongCount:catWrong.length,actCorrect,actWrong,actTotal,actPct,fPcts,fTotal,fwcc,fcwc,bcc,bwc,overallPct,overallTotal:TOTAL_ROWS+actTotal,overallCorrect:catCorrect+actCorrect,totalRows:rows.filter(r=>ANSWER_KEY[r.entry]).length,pass:overallPct>=PASS_EMM,flags,integrity:{bypassRate,weakRate,wrongColCounts:wc}};
+  // The numeric score/threshold above only measures whether the FINAL
+  // answers are right -- it can't tell "correctly derived it" apart from
+  // "got the right label without doing the required formula work" (a real
+  // case this surfaced: 93%+ overall with every required formula column
+  // blank). A HIGH-severity flag is exactly that distinction. Carrying it
+  // as its own field means every place that displays PASS/FAIL can show
+  // "flagged for review" instead of a clean pass, without changing the
+  // underlying score math.
+  const highRiskFlag=flags.some(f=>f.level==='high');
+  return{catCorrect,catWrong,catPct,catByCat,catWrongCount:catWrong.length,actCorrect,actWrong,actTotal,actPct,fPcts,fTotal,fwcc,fcwc,bcc,bwc,overallPct,overallTotal:TOTAL_ROWS+actTotal,overallCorrect:catCorrect+actCorrect,totalRows:rows.filter(r=>ANSWER_KEY[r.entry]).length,pass:overallPct>=PASS_EMM,highRiskFlag,flags,integrity:{bypassRate,weakRate,wrongColCounts:wc}};
+}
+
+// Single source of truth for "does this graded EMM result carry a
+// high-severity integrity flag" (e.g. Possible Formula Bypass), so a clean
+// numeric pass can't quietly hide a "got the right answer without doing the
+// required work" concern. Falls back to reading flags out of the saved
+// fullResult JSON for records graded before highRiskFlag existed on emm
+// directly, so already-graded candidates (like ones graded before this fix
+// shipped) get the corrected label immediately, with no need to re-grade.
+function emmHighRiskFlag(a){
+  if(!a||!a.emm||!a.emm.graded) return false;
+  if(typeof a.emm.highRiskFlag==='boolean') return a.emm.highRiskFlag;
+  try{
+    const fr=a.emm.fullResult?JSON.parse(a.emm.fullResult):null;
+    return !!(fr&&fr.flags&&fr.flags.some(f=>f.level==='high'));
+  }catch(e){ return false; }
+}
+// Plain-English EMM status label used anywhere PASS/FAIL is shown outside
+// the full Integrity Flags detail view (Tracker badges, PDF/CSV exports,
+// endorsement emails) -- these don't have room to show the flag card
+// itself, so the label has to carry the warning on its own.
+function emmStatusLabel(a){
+  if(!a||!a.emm||!a.emm.graded) return a&&a.emmReceivedAt?'Submitted — pending grading':'Not yet submitted';
+  if(a.emm.pass===true) return emmHighRiskFlag(a)?'PASS — Flagged for Review':'PASS';
+  if(a.emm.pass===false) return 'FAIL';
+  return 'Pending';
 }
 
 function runGrade(){
@@ -3036,14 +3072,14 @@ function saveGradeToRecord(){
   const apps=getApplicants();
   const a=apps.find(a=>a.id===parseInt(selId));
   if(!a){alert('Applicant not found.');return;}
-  a.emm={graded:true,overallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
+  a.emm={graded:true,overallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
   saveApplicants(apps);
   syncApplicantToSheets(a);
   updateTrackerBadge();
   autoAdvanceIfNeeded(a.id);
   renderPendingGradingQueue();
   alert(`✓ EMM result saved to ${a.name}'s record.
-Score: ${gradeResult.overallPct}% (${gradeResult.pass?'PASS':'FAIL'})`);
+Score: ${gradeResult.overallPct}% (${emmStatusLabel(a)})` + (gradeResult.highRiskFlag ? '\n\n⚠ This result has a HIGH-severity integrity flag (see the Integrity tab) — treat this as needing live validation before treating it as a pass, regardless of the score.' : ''));
 }
 
 // ============================================================
@@ -3546,7 +3582,7 @@ function exportCSV(){
     a.name,a.email,a.phone||'',a.position||'',a.source||'',a.dateReceived||'',a.stage,
     a.grit&&a.grit.score||'',a.grit&&a.grit.score?gritOutcome(a.grit.score).label:'Pending',
     a.values&&a.values.score||'',a.values&&a.values.score?valuesOutcome(a.values.score,a.values.confScore||'',a.values.intScore||'').label:'Pending',
-    a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?(a.emm.pass?'Pass':'Fail'):'Pending',
+    a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?emmStatusLabel(a):'Pending',
     a.interview&&a.interview.result?(a.interview.result==='pass'?'Pass':'Fail'):'Not yet done',
     (()=>{const info=getLastEmailSentInfo(a);return info?(info.label+' — '+new Date(info.date).toLocaleDateString()):'Not sent';})(),
     a.overallStatus||'In Progress',(a.decisionNotes||'').replace(/,/g,';')
@@ -6264,6 +6300,7 @@ function getEmmBadge(a){
     // show the percentage right in the badge instead of making them open the
     // profile to see it.
     var pct = (a.emm.overallPct!==null && a.emm.overallPct!==undefined && a.emm.overallPct!=='') ? Math.round(parseFloat(a.emm.overallPct)) + '%' : '';
+    if(a.emm.pass && emmHighRiskFlag(a)) return { label:'⚠ Flagged' + (pct?' ('+pct+')':''), bg:'#fef9c3', tone:'#854d0e' };
     return a.emm.pass
       ? { label:'✓ Passed' + (pct?' ('+pct+')':''), bg:'#e8f5e9', tone:'#166534' }
       : { label:'✗ Failed' + (pct?' ('+pct+')':''), bg:'#fdecea', tone:'#b52a2a' };
@@ -7279,14 +7316,21 @@ function bar(pct) {
 // ============================================================
 function renderGradeResults() {
   var g = gradeResult;
-  var cls = g.pass ? (g.overallPct>=90?'pass':'warn') : 'fail';
+  // A high-severity integrity flag (e.g. Possible Formula Bypass) always
+  // overrides the score-based color/label -- a candidate who got the right
+  // final answers without doing the required formula work is not a clean
+  // pass just because the number cleared the threshold. This is what
+  // reconciles "the grader says 93%+" with "this should not read as PASS
+  // at a glance" -- the underlying score/threshold math is unchanged, only
+  // the at-a-glance label is.
+  var cls = g.pass ? (g.highRiskFlag?'warn':(g.overallPct>=90?'pass':'warn')) : 'fail';
   document.getElementById('gradeBanner').innerHTML =
     '<div class="score-hero ' + cls + '">' +
     '<div style="position:relative;z-index:1">' +
     '<div class="score-label">Overall Score</div>' +
     '<div class="score-big">' + g.overallPct + '%</div>' +
     '<div class="score-sub">' + g.overallCorrect + ' of ' + g.overallTotal + ' items correct</div>' +
-    '<div class="score-badge">' + (g.pass ? '&#10003; PASS &mdash; Meets threshold (&ge;75%)' : '&#10007; FAIL &mdash; Below threshold (&lt;75%)') + '</div>' +
+    '<div class="score-badge">' + (g.pass ? (g.highRiskFlag ? '&#9888; PASS &mdash; HIGH-severity integrity flag, see Integrity tab before treating this as a pass' : '&#10003; PASS &mdash; Meets threshold (&ge;75%)') : '&#10007; FAIL &mdash; Below threshold (&lt;75%)') + '</div>' +
     '</div>' +
     '<div class="rings">' + ring(g.overallPct,'Overall') + ring(g.catPct,'Category ID') + ring(g.actPct,'Action Rec.') + '</div>' +
     '</div>';
