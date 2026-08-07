@@ -2789,8 +2789,16 @@ function inspectAllSheets(wb){
       report.warnings.push('Remarks column is blank or contains uncalculated formulas. The tool will compute categories from the base data (DocType, Remaining Amount, Order Ref) automatically.');
     else if(report.bestMatchSheet.blankRemarks>0)
       report.warnings.push(`${report.bestMatchSheet.blankRemarks} rows have no Remarks answer and will be marked wrong.`);
-    const extra=report.bestMatchSheet.uniqueRemarks.filter(r=>!Object.keys(ANS_SUMMARY).includes(r));
-    if(extra.length>0)report.warnings.push(`Non-standard Remarks values found: "${extra.join('", "')}". These will be marked wrong.`);
+    // Compare after the same normalization gradeData() uses (case/whitespace/
+    // dash-insensitive) -- a candidate who typed "INVOICE>PAYMENT" instead of
+    // "Invoice > Payment" is still graded correctly, so this warning should
+    // only flag values that are genuinely unrecognized, not just differently
+    // formatted. Confirmed on a real submission (Camille Navarette) where the
+    // old exact-match warning wrongly implied 9 correctly-typed categories
+    // would all be marked wrong.
+    const normalizedAnswerKeys=Object.keys(ANS_SUMMARY).map(normalizeRemark);
+    const extra=report.bestMatchSheet.uniqueRemarks.filter(r=>!normalizedAnswerKeys.includes(normalizeRemark(r)));
+    if(extra.length>0)report.warnings.push(`Non-standard Remarks values found: "${extra.join('", "')}". These don't match any known category (even ignoring case/spacing) and will be marked wrong.`);
     if(report.bestMatchSheet.dataRows!==1869)
       report.warnings.push(`Row count: found ${report.bestMatchSheet.dataRows}, expected 1,869.`);
   }
@@ -2931,6 +2939,18 @@ function parseApplicant(buffer){
     inspection,computedFromBase};
 }
 
+// Candidates type their own Remarks text rather than picking from a
+// dropdown, so the exact same correct classification shows up in the wild
+// as "Invoice > Payment", "INVOICE>PAYMENT", "invoice>payment", etc. Confirmed
+// on a real submission (Camille Navarette): 51 of the 352 rows the grader
+// called "wrong" were actually the right category, just typed without
+// spaces around the ">" -- case-insensitive comparison alone wasn't enough
+// to catch that. This strips whitespace and dashes/hyphens too (so
+// "GJ Entry - Reversed" and "GJ ENTRY-REVERSED" also match) before
+// comparing, so only genuinely different categories count as wrong.
+function normalizeRemark(s){
+  return String(s||'').toLowerCase().replace(/[\s\-]+/g,'');
+}
 function gradeData(rows,instrRows,grandTotal){
   let catCorrect=0;const catWrong=[],catByCat={};
   const fCols={sumif:0,inv:0,pay:0,cm:0,ref:0};
@@ -2944,7 +2964,7 @@ function gradeData(rows,instrRows,grandTotal){
     const iOk=r.inv!=null&&r.inv===ans.inv,pOk=r.pay!=null&&r.pay===ans.pay,cOk=r.cm!=null&&r.cm===ans.cm,rOk=r.ref!=null&&r.ref===ans.ref;
     // Use computedRemarks if remarks is blank (formula not calculated)
     const effectiveRemark=(r.remarks&&r.remarks!=='nan'&&r.remarks!=='')?r.remarks:(r.computedRemarks||'');
-    const fOk=sOk&&iOk&&pOk&&cOk&&rOk,rmOk=effectiveRemark.toLowerCase()===(ans.remarks||'').toLowerCase();
+    const fOk=sOk&&iOk&&pOk&&cOk&&rOk,rmOk=normalizeRemark(effectiveRemark)===normalizeRemark(ans.remarks);
     if(sOk)fCols.sumif++;if(iOk)fCols.inv++;if(pOk)fCols.pay++;if(cOk)fCols.cm++;if(rOk)fCols.ref++;
     catByCat[ans.remarks]=catByCat[ans.remarks]||{correct:0,wrong:0};
     if(rmOk){catCorrect++;catByCat[ans.remarks].correct++;}
@@ -4708,9 +4728,33 @@ function sendApplicantEmail(data){
     // this can under- or over-report -- treat it as a rough signal only,
     // never as proof someone did or didn't read the email.
     if(data.applicantId && data.templateKey){
-      var escapedBody = plainBody.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      // IMPORTANT: '=' must be entity-escaped (as &#61;) anywhere it can end up
+      // immediately followed by digits (e.g. inside "id=1785935280570" links).
+      // Gmail's outbound quoted-printable encoder misreads a literal "=" next
+      // to two hex-looking characters as an already-encoded "=XY" QP escape and
+      // silently corrupts it to a single control byte -- this was breaking
+      // every assessment link and tracking pixel in the HTML email (plain-text
+      // was unaffected, which is why some candidates could open the email but
+      // the link inside it went nowhere). Encoding '=' as an HTML entity here
+      // means the raw HTML bytes never contain that literal "=XY" pattern, so
+      // the encoder has nothing to misfire on; browsers decode &#61; back to
+      // "=" normally when rendering/following the link.
+      var escapedBody = plainBody.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/=/g,'&#61;').replace(/\n/g,'<br>');
       var pixelUrl = ScriptApp.getService().getUrl() + '?action=trackOpen&id=' + encodeURIComponent(data.applicantId) + '&t=' + encodeURIComponent(data.templateKey);
-      options.htmlBody = escapedBody + '<img src="' + pixelUrl + '" width="1" height="1" style="display:none" alt="">';
+      var safePixelUrl = pixelUrl.replace(/=/g,'&#61;');
+      options.htmlBody = escapedBody + '<img src="' + safePixelUrl + '" width="1" height="1" style="display:none" alt="">';
+      // SAFETY NET: the only literal "=" characters that should ever remain in
+      // the finished HTML are the four we hard-code ourselves right above
+      // (width=, height=, style=, src=), and none of those are followed by two
+      // hex-looking characters -- they're followed by a quote mark. If this
+      // check ever finds a bare "=XY" pattern anyway (a future edit
+      // reintroducing a raw link/id into the HTML, a new merge field, etc.),
+      // that email would silently corrupt candidate-facing links exactly like
+      // this bug did. So refuse to send rather than risk it -- loud failure
+      // here beats a silent broken link landing in a candidate's inbox.
+      if(/=[0-9a-fA-F]{2}/.test(options.htmlBody)){
+        return {success:false, error:'Blocked unsafe email: HTML body contains an unescaped "=" next to characters that Gmail\'s quoted-printable encoder can misread and corrupt (the exact bug that broke assessment links before). Check sendApplicantEmail for a new unescaped link/merge field before resending.'};
+      }
     }
     MailApp.sendEmail(data.to, data.subject||'', plainBody, options);
     return {success:true};
