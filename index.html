@@ -469,6 +469,9 @@ tbody tr:last-child td{border-bottom:none}
     </div>
   </div>
   <div class="topbar-right">
+    <button class="topbar-pill no-print" id="roleSwitcherPill" onclick="openRoleSwitchModal()" style="cursor:pointer" title="Switch which role's view you're seeing">
+      <span id="roleSwitcherLabel">Viewing as: &hellip;</span>
+    </button>
     <a href="https://abbss-ops-portal.vercel.app" class="topbar-pill" style="text-decoration:none" title="Back to the ABBSS Operations Portal">&#8592; Back to Portal</a>
     <div class="topbar-pill" id="syncStatus" onclick="retryFailedSyncs()" style="cursor:pointer" title="Click to retry syncing any unsaved changes">
       <span class="topbar-dot" id="syncDot" style="background:var(--gray400)"></span>
@@ -487,19 +490,23 @@ tbody tr:last-child td{border-bottom:none}
 
 <div class="layout">
 <nav class="sidebar no-print">
-  <div class="sidebar-section">Main</div>
+  <div class="sidebar-section" id="navsec-main">Main</div>
   <button class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard',this)"><span class="nav-icon">&#128202;</span> Dashboard</button>
   <button class="nav-item" id="nav-new" onclick="showPage('new',this)"><span class="nav-icon">&#10133;</span> New Applicant</button>
-  <div class="sidebar-section">Pipeline</div>
-  <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span> Tracker <span id="trackerBadge" class="nav-badge-blue" style="display:none">0</span></button>
-  <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
-  <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> EOD Report</button>
-  <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
+  <div class="sidebar-section" id="navsec-pipeline">Pipeline</div>
+  <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span> Candidates <span id="trackerBadge" class="nav-badge-blue" style="display:none">0</span></button>
   <button class="nav-item" id="nav-interviewcal" onclick="showPage('interviewcal',this)"><span class="nav-icon">&#128197;</span> Interview Calendar</button>
-  <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> EMM Grader</button>
+  <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> Assessments &amp; EMM</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
-  <div class="sidebar-section">System</div>
-  <button class="nav-item" id="nav-about" onclick="showPage('about',this)"><span class="nav-icon">&#128214;</span> Guide</button>
+  <div class="sidebar-section" id="navsec-projects">Hiring Projects</div>
+  <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> Hiring Projects</button>
+  <div class="sidebar-section" id="navsec-executive">Executive</div>
+  <button class="nav-item" id="nav-execdash" onclick="showPage('execdash',this)"><span class="nav-icon">&#128202;</span> Executive Dashboard</button>
+  <div class="sidebar-section" id="navsec-reports">Reports</div>
+  <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
+  <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
+  <button class="nav-item" id="nav-analytics" onclick="showPage('analytics',this)"><span class="nav-icon">&#128200;</span> Analytics <span style="font-size:9px;font-weight:700;color:var(--gray400);margin-left:4px">SOON</span></button>
+  <div class="sidebar-section" id="navsec-system">System</div>
   <button class="nav-item" id="nav-settings" onclick="showPage('settings',this)"><span class="nav-icon">&#9881;&#65039;</span> Settings</button>
 </nav>
 
@@ -588,13 +595,17 @@ tbody tr:last-child td{border-bottom:none}
 <div id="page-tracker" class="page">
   <div style="margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
     <div>
-      <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Applicant Tracker</h1>
+      <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Candidates</h1>
       <p style="font-size:14px;color:var(--gray500);margin-top:4px" id="trackerSubtitle">Loading...</p>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm btn-ghost" onclick="exportCSV()">&#11015; Export CSV</button>
       <button class="btn btn-sm btn-ghost" onclick="window.print()">&#128424; Print</button>
     </div>
+  </div>
+  <div class="alert alert-info" id="opsQueueBanner" style="display:none;margin-bottom:16px">
+    <span>&#8505;&#65039;</span>
+    <span>Showing only candidates endorsed to Operations (Initial Interview or later). HR sees the full list.</span>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="filters">
@@ -613,15 +624,15 @@ tbody tr:last-child td{border-bottom:none}
         <option value="__not_migrated__">⚠ Not migrated yet</option>
         <option value="New Application">New Application</option>
         <option value="CV Screening">CV Screening</option>
-        <option value="Preliminary Interview">Preliminary Interview</option>
+        <option value="HR Preliminary Interview">HR Preliminary Interview</option>
         <option value="Assessment Sent">Assessment Sent</option>
         <option value="Waiting for Assessment">Waiting for Assessment</option>
         <option value="Assessment Review">Assessment Review</option>
-        <option value="Initial Interview">Initial Interview</option>
+        <option value="Initial Interview">Initial Interview (Operations/PM)</option>
+        <option value="Operations Decision">Operations Decision</option>
         <option value="Endorsed to Client">Endorsed to Client</option>
-        <option value="Final Interview">Final Interview</option>
         <option value="Waiting for Client Decision">Waiting for Client Decision</option>
-        <option value="Job Offer">Job Offer</option>
+        <option value="Offer">Offer</option>
         <option value="Hired">Hired</option>
         <option value="Closed - Rejected">Closed - Rejected</option>
         <option value="Closed - Withdrawn">Closed - Withdrawn</option>
@@ -696,12 +707,20 @@ tbody tr:last-child td{border-bottom:none}
 <div id="page-eod" class="page">
   <div style="margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
     <div>
-      <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">End of Day Report</h1>
-      <p style="font-size:14px;color:var(--gray500);margin-top:4px" id="eodDateLine">Everything that happened in the pipeline today.</p>
+      <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Hiring Projects</h1>
+      <p style="font-size:14px;color:var(--gray500);margin-top:4px" id="eodDateLine">One card per hiring role — health, pipeline, today's progress, and where things are stuck.</p>
     </div>
     <button class="btn btn-success btn-sm" onclick="copyEodSummary()">&#128203; Copy Summary</button>
   </div>
   <div id="eodContent"></div>
+</div>
+
+<div id="page-execdash" class="page">
+  <div style="margin-bottom:24px">
+    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Executive Dashboard</h1>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px" id="execDateLine">Recruitment, at a glance.</p>
+  </div>
+  <div id="execDashContent"></div>
 </div>
 
 <div id="page-sources" class="page">
@@ -710,6 +729,27 @@ tbody tr:last-child td{border-bottom:none}
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Where applicants come from, and which platforms actually lead to a hire. Click a row to see those applicants in the Tracker.</p>
   </div>
   <div id="sourcesContent"></div>
+</div>
+
+<div id="page-analytics" class="page">
+  <div style="margin-bottom:24px">
+    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Analytics</h1>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Coming soon</p>
+  </div>
+  <div class="card card-glass" style="max-width:640px">
+    <div class="card-header"><div class="card-title-lg">&#128200; Built on data the app already tracks</div></div>
+    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">Every stage change is already timestamped, so none of this needs new data collection to turn on later &mdash; just the reporting layer itself:</p>
+    <ul style="font-size:13px;color:var(--gray600);line-height:2;padding-left:20px">
+      <li>Time to Hire</li>
+      <li>Stage Conversion Rate</li>
+      <li>Assessment Pass Rate</li>
+      <li>Operations Pass Rate</li>
+      <li>Client Pass Rate</li>
+      <li>Source Performance</li>
+      <li>Recruiter Productivity</li>
+      <li>Average Days Per Stage (already on each Hiring Projects card, per role)</li>
+    </ul>
+  </div>
 </div>
 
 <div id="page-interviewcal" class="page">
@@ -918,6 +958,13 @@ tbody tr:last-child td{border-bottom:none}
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Settings</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Connect to Google Sheets for shared data across devices</p>
   </div>
+  <div class="card" style="max-width:700px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+      <div style="font-weight:700;color:var(--gray900)">&#128214; New here, or need a refresher?</div>
+      <div style="font-size:12px;color:var(--gray500);margin-top:2px">The full feature guide (EMM, Interview Calendar, assessment tracking, and more) moved here from the main menu.</div>
+    </div>
+    <button class="btn btn-ghost" onclick="showPage('about')">Open the Guide &rarr;</button>
+  </div>
   <div class="card card-accent-blue" style="max-width:700px">
     <div class="card-header">
       <div class="card-title-lg">Google Sheets Sync</div>
@@ -950,6 +997,15 @@ tbody tr:last-child td{border-bottom:none}
     <div id="stageMigV3Msg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
   </div>
   <div class="card card-accent-blue" style="max-width:700px">
+    <div class="card-header"><div class="card-title-lg">Update Stage Names (V4)</div></div>
+    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The Candidate Stage list was updated to match the HR / Operations / PM / CEO role structure: "Preliminary Interview" is now "HR Preliminary Interview," "Final Interview" was folded into "Endorsed to Client" (the client/CEO interview happens during that period rather than needing its own stage), a new "Operations Decision" stage makes the Approve/Hold/Reject/Endorse decision point visible on dashboards, and "Job Offer" is now just "Offer." This tool moves any applicant still sitting on one of the three old stage names to its new equivalent — it never touches anyone already on a current stage name, so it's safe to run more than once. Preview first — nothing changes until you click Apply.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="previewStageModelV4Migration()">👀 Preview (no changes)</button>
+      <button class="btn btn-primary" id="stageMigV4ApplyBtn" style="display:none" onclick="applyStageModelV4Migration()">✓ Apply Update</button>
+    </div>
+    <div id="stageMigV4Msg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
+  </div>
+  <div class="card card-accent-blue" style="max-width:700px">
     <div class="card-header"><div class="card-title-lg">Fix Migration Timestamps</div></div>
     <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The Candidate Stage migration above used to stamp every record it touched with today's date, which made the Executive Dashboard's "Today's Progress" look like dozens of people moved stages today when really they were just being migrated. That's now fixed going forward — new migrations leave the date honestly blank unless it's a brand-new application (where the real received date is used instead). This tool is the one-time cleanup for records already migrated under the old, inaccurate behavior: it finds any record whose stage date looks fabricated (set to today, with no real history behind it) and clears it, or backfills the true received date if it's a new application. Preview first — nothing changes until you click Apply. Safe to run more than once; once there's nothing left to fix, Preview will say so.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -971,6 +1027,39 @@ tbody tr:last-child td{border-bottom:none}
 </div>
 
 </div>
+</div>
+
+<div class="modal-overlay" id="roleSwitchModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Who's using this device?</div>
+        <div style="font-size:12px;color:var(--gray500);margin-top:2px" id="roleSwitchSubtitle">Pick a role to see the right view. You can change this anytime from the "Viewing as" button at the top.</div>
+      </div>
+      <button class="modal-close" id="roleSwitchCloseBtn" onclick="closeRoleSwitchModal()" style="display:none">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="btn btn-ghost" style="flex-direction:column;align-items:flex-start;height:auto;padding:14px" onclick="setAppRole('HR')">
+          <div style="font-size:20px;margin-bottom:4px">🗂️</div><div style="font-weight:700">HR</div>
+          <div style="font-size:11px;color:var(--gray400);text-align:left;font-weight:400">Candidates, interviews, assessments</div>
+        </button>
+        <button class="btn btn-ghost" style="flex-direction:column;align-items:flex-start;height:auto;padding:14px" onclick="setAppRole('Operations')">
+          <div style="font-size:20px;margin-bottom:4px">✅</div><div style="font-weight:700">Operations</div>
+          <div style="font-size:11px;color:var(--gray400);text-align:left;font-weight:400">Candidates endorsed to you</div>
+        </button>
+        <button class="btn btn-ghost" style="flex-direction:column;align-items:flex-start;height:auto;padding:14px" onclick="setAppRole('PM')">
+          <div style="font-size:20px;margin-bottom:4px">📁</div><div style="font-weight:700">Project Manager</div>
+          <div style="font-size:11px;color:var(--gray400);text-align:left;font-weight:400">Hiring project health, not people</div>
+        </button>
+        <button class="btn btn-ghost" style="flex-direction:column;align-items:flex-start;height:auto;padding:14px" onclick="setAppRole('CEO')">
+          <div style="font-size:20px;margin-bottom:4px">📊</div><div style="font-weight:700">CEO</div>
+          <div style="font-size:11px;color:var(--gray400);text-align:left;font-weight:400">30-second overview</div>
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--gray400);margin-top:14px;line-height:1.6">This only changes what this device shows you — it isn't a login and doesn't restrict anyone else. Anyone with the app link can still pick any role.</div>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="detailModal" onclick="if(event.target===this)closeModal()">
@@ -1427,8 +1516,23 @@ function renderTracker(){
   updateTrackerBadge();
 }
 
+// Operations only ever works inside candidates HR has already handed off --
+// per the architecture doc, "endorsed to Operations" means the candidate has
+// reached Initial Interview or anything after it in CANDIDATE_STAGES order.
+// Kept as its own function (rather than inlined) so anywhere else that needs
+// the same "is this Operations' candidate" check reads it the same way.
+function isEndorsedToOperations(a){
+  var idx = CANDIDATE_STAGES.indexOf(a.candidateStage||'');
+  var cutoff = CANDIDATE_STAGES.indexOf('Initial Interview');
+  return idx >= 0 && idx >= cutoff;
+}
 function filterTracker(){
   let apps=getApplicants();
+  var opsBanner = document.getElementById('opsQueueBanner');
+  if(typeof getAppRole==='function' && getAppRole()==='Operations'){
+    apps = apps.filter(isEndorsedToOperations);
+    if(opsBanner) opsBanner.style.display='flex';
+  } else if(opsBanner) opsBanner.style.display='none';
   const search=document.getElementById('searchInput').value.toLowerCase();
   const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
   const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
@@ -3764,20 +3868,27 @@ const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
 const DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
 
 // ============================================================
-// CANDIDATE STAGE MODEL V3 -- replaces the old pl_a_stageN/pl_b_stageN +
-// Overall Status combo with a single manual field HR sets directly. There
-// is deliberately no auto-advance logic here: HR picks whatever stage is
-// currently true, and Next Action separately; everything else (dashboards,
-// EOD, health) is calculated FROM those two fields plus timestamps, never
-// the other way around.
+// CANDIDATE STAGE MODEL V4 -- refines V3 to line up with the four-role
+// (HR / Operations / PM / CEO) architecture. There is deliberately no
+// auto-advance logic here: HR/Operations pick whatever stage is currently
+// true, and Next Action separately; everything else (dashboards, EOD,
+// health) is calculated FROM those two fields plus timestamps, never the
+// other way around.
 //
-// Interview stages are named by SEQUENCE (Preliminary / Initial / Final),
-// not by who conducts them -- because who conducts them differs by
-// department: Operations runs HR -> Operations Manager -> Client, while
-// other roles run HR -> Project Manager -> CEO. Keeping the stage names
-// generic means one clean list works for both; INTERVIEW_ROUNDS_BY_DEPARTMENT
-// below is what tells the UI who to actually show for each round.
-const CANDIDATE_STAGES = ['New Application','CV Screening','Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Endorsed to Client','Final Interview','Waiting for Client Decision','Job Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+// V3 -> V4 changes: 'Preliminary Interview' renamed to 'HR Preliminary
+// Interview' (unambiguous -- this round is always HR, unlike the next one).
+// 'Final Interview' folded into 'Endorsed to Client' (the client/CEO
+// interview happens during that period; there's no candidate-visible
+// difference between "endorsed, interview pending" and "endorsed, interview
+// done" that needs its own stage). 'Operations Decision' added as its own
+// stage so the Approve/Hold/Reject/Endorse decision point is visible on
+// dashboards instead of being implicit. 'Job Offer' renamed to 'Offer' to
+// match the spec exactly.
+//
+// 'Initial Interview' is intentionally still named generically, not
+// 'Operations Interview' -- see getInterviewRoundLabel() below for why, and
+// how the correct department-specific label gets shown anyway.
+const CANDIDATE_STAGES = ['New Application','CV Screening','HR Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Operations Decision','Endorsed to Client','Waiting for Client Decision','Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
 const CLOSED_STAGES = ['Hired','Closed - Rejected','Closed - Withdrawn'];
 // Keys match the real values in the Department dropdown ('Operations',
 // 'Sales and Marketing', plus Finance/HR/IT/Other which this pipeline
@@ -3786,11 +3897,27 @@ const INTERVIEW_ROUNDS_BY_DEPARTMENT = {
   'Operations': { preliminary:'HR', initial:'Operations Manager', final:'Client' },
   'Sales and Marketing': { preliminary:'HR', initial:'Project Manager', final:'CEO' }
 };
+// Short, role-aware label for whichever round INTERVIEW_ROUNDS_BY_DEPARTMENT
+// says a person conducts -- this is how "Initial Interview" (one neutral
+// stored stage value, same for every department) gets shown to users as
+// "Operations Interview" for Operations-track candidates and "PM Interview"
+// for Sales & Marketing-track candidates, without needing a separate stored
+// stage value per department. Add an entry here if INTERVIEW_ROUNDS_BY_DEPARTMENT
+// ever names a new conductor.
+const INTERVIEW_ROUND_SHORT_LABEL = {
+  'HR': 'HR Interview', 'Operations Manager': 'Operations Interview',
+  'Project Manager': 'PM Interview', 'Client': 'Client Interview', 'CEO': 'CEO Interview'
+};
+function getInterviewRoundLabel(department, roundKey){
+  const rounds = INTERVIEW_ROUNDS_BY_DEPARTMENT[department] || INTERVIEW_ROUNDS_BY_DEPARTMENT['Operations'];
+  const conductor = rounds[roundKey];
+  return INTERVIEW_ROUND_SHORT_LABEL[conductor] || (roundKey.charAt(0).toUpperCase()+roundKey.slice(1)+' Interview');
+}
 // requiresClientFinal:false means this role never goes through Endorsed to
-// Client / Final Interview / Waiting for Client Decision at all -- it's an
-// internal hire, so the Operations Manager's decision after Initial
-// Interview goes straight to Job Offer. FP&A is the example given when this
-// was designed; the rest default to true. Starter list -- trivial to edit.
+// Client / Waiting for Client Decision at all -- it's an internal hire, so
+// the Operations Manager's decision after Initial Interview goes straight
+// to Offer. FP&A is the example given when this was designed; the rest
+// default to true. Starter list -- trivial to edit.
 const ROLE_CONFIG = {
   'AR Specialist': { requiresClientFinal:true },
   'AP Specialist': { requiresClientFinal:true },
@@ -3798,14 +3925,14 @@ const ROLE_CONFIG = {
   'FP&A Specialist': { requiresClientFinal:false }
 };
 const ROLE_OPTIONS = Object.keys(ROLE_CONFIG);
-const NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Final Interview','Follow up Client','Send Job Offer','Prepare Contract','None'];
+const NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule HR Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Client Interview','Follow up Client','Send Offer','Prepare Contract','None'];
 const CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
 // Suggested default when a stage is first set -- HR can always change it.
 const DEFAULT_NEXT_ACTION_BY_STAGE = {
-  'New Application':'Screen CV','CV Screening':'Call Candidate','Preliminary Interview':'Schedule Preliminary Interview',
+  'New Application':'Screen CV','CV Screening':'Call Candidate','HR Preliminary Interview':'Schedule HR Preliminary Interview',
   'Assessment Sent':'Follow up Candidate','Waiting for Assessment':'Follow up Candidate','Assessment Review':'Review Assessment',
-  'Initial Interview':'Schedule Initial Interview','Endorsed to Client':'Follow up Client','Final Interview':'Schedule Final Interview',
-  'Waiting for Client Decision':'Follow up Client','Job Offer':'Send Job Offer','Hired':'None',
+  'Initial Interview':'Schedule Initial Interview','Operations Decision':'Decide Reject/Hold','Endorsed to Client':'Follow up Client',
+  'Waiting for Client Decision':'Follow up Client','Offer':'Send Offer','Hired':'None',
   'Closed - Rejected':'None','Closed - Withdrawn':'None'
 };
 // How many days a candidate should typically spend in each active stage
@@ -3813,9 +3940,9 @@ const DEFAULT_NEXT_ACTION_BY_STAGE = {
 // deliberately generous starter numbers, easy to tighten later once there's
 // real data on how long things actually take.
 const STAGE_SLA_DAYS = {
-  'New Application':2,'CV Screening':2,'Preliminary Interview':3,'Assessment Sent':1,
-  'Waiting for Assessment':3,'Assessment Review':2,'Initial Interview':3,'Endorsed to Client':3,
-  'Final Interview':3,'Waiting for Client Decision':5,'Job Offer':3
+  'New Application':2,'CV Screening':2,'HR Preliminary Interview':3,'Assessment Sent':1,
+  'Waiting for Assessment':3,'Assessment Review':2,'Initial Interview':3,'Operations Decision':2,'Endorsed to Client':3,
+  'Waiting for Client Decision':5,'Offer':3
 };
 // A candidate whose Next Action is literally "follow up" something is the
 // clearest, most direct signal that HR has work to do on them right now --
@@ -4248,6 +4375,97 @@ function migrateStageModelV3(){
 }
 
 // ============================================================
+// STAGE MODEL V4 MIGRATION -- much smaller than the V3 migration above:
+// V4 only renames/folds three V3 stage values, it doesn't rebuild the stage
+// model from scratch. Same preview-before-apply discipline as every other
+// migration in this file -- nothing changes until Apply is clicked, and the
+// preview shows exactly which candidates and how many are affected.
+// ============================================================
+function buildStageV4RenameMap(){
+  // 'Final Interview' folds into 'Endorsed to Client' -- there's no
+  // remaining stage for candidates who were sitting in the old
+  // 'Final Interview' value, so they land back in 'Endorsed to Client'
+  // (client/CEO interview is now understood to happen during that period).
+  return {'Preliminary Interview':'HR Preliminary Interview', 'Final Interview':'Endorsed to Client', 'Job Offer':'Offer'};
+}
+// What Next Action V3 would have defaulted to for each OLD stage name --
+// used below to detect "HR never touched this since it was auto-set" so we
+// only refresh Next Action when it's safe to, never overwriting a value HR
+// deliberately chose.
+function oldV3DefaultNextActionForStage(oldStage){
+  return {'Preliminary Interview':'Schedule Preliminary Interview','Final Interview':'Schedule Final Interview','Job Offer':'Send Job Offer'}[oldStage];
+}
+function previewStageModelV4(){
+  try{
+    const renameMap=buildStageV4RenameMap();
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    if(!t) return {success:false, error:'Applicants sheet not found'};
+    const data=t.getDataRange().getValues();
+    const plan=[];
+    for(let i=1;i<data.length;i++){
+      const row=data[i];
+      const currentStage=String(row[53]||'').trim();
+      if(!renameMap[currentStage]) continue;
+      plan.push({rowIndex:i+1, id:row[0], name:row[1], oldStage:currentStage, newStage:renameMap[currentStage]});
+    }
+    const countsByOldStage={};
+    plan.forEach(function(p){ countsByOldStage[p.oldStage]=(countsByOldStage[p.oldStage]||0)+1; });
+    return {success:true, totalToMigrate:plan.length, countsByOldStage:countsByOldStage,
+      sample:plan.slice(0,20).map(function(p){ return {name:p.name, oldStage:p.oldStage, newStage:p.newStage}; })};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+function migrateStageModelV4(){
+  try{
+    const renameMap=buildStageV4RenameMap();
+    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+    const t=ss.getSheetByName('Applicants');
+    if(!t) return {success:false, error:'Applicants sheet not found'};
+    const data=t.getDataRange().getValues();
+    let migrated=0;
+    for(let i=1;i<data.length;i++){
+      const row=data[i];
+      const rowNum=i+1;
+      const currentStage=String(row[53]||'').trim();
+      let changedThisRow=false;
+      if(renameMap[currentStage]){
+        const newStage=renameMap[currentStage];
+        t.getRange(rowNum,54).setValue(newStage);
+        const currentNextAction=String(row[54]||'').trim();
+        if(currentNextAction===oldV3DefaultNextActionForStage(currentStage)){
+          t.getRange(rowNum,55).setValue(DEFAULT_NEXT_ACTION_BY_STAGE[newStage]||currentNextAction);
+        }
+        changedThisRow=true;
+      }
+      // Rename any matching keys inside Candidate Stage Dates JSON too, so
+      // historical per-stage timestamps stay attached to the right label
+      // instead of silently orphaning under a stage name that no longer exists.
+      const rawDates=row[57];
+      if(rawDates){
+        try{
+          const dates=JSON.parse(rawDates);
+          let datesChanged=false;
+          Object.keys(renameMap).forEach(function(oldKey){
+            if(dates[oldKey]===undefined) return;
+            const newKey=renameMap[oldKey];
+            if(dates[newKey]===undefined) dates[newKey]=dates[oldKey]; // never discard real history
+            delete dates[oldKey];
+            datesChanged=true;
+          });
+          if(datesChanged){ t.getRange(rowNum,58).setValue(JSON.stringify(dates)); changedThisRow=true; }
+        }catch(e){ /* malformed JSON on this one row -- skip it, don't fail the whole migration */ }
+      }
+      if(changedThisRow) migrated++;
+    }
+    return {success:true, migrated:migrated};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// ============================================================
 // FIX MIGRATION TIMESTAMPS -- one-time cleanup for anyone who already ran
 // migrateStageModelV3() before this fix existed, which stamped "now" as the
 // stage-entry date for every migrated row. That made the Executive
@@ -4405,15 +4623,18 @@ function computeAutoHealthForRole(bucket){
 // here is calculated FROM that, never the other way around.
 // ============================================================
 // Maps CANDIDATE_STAGES to the plain-English "Today's Progress" metric
-// names from the Executive Dashboard spec. "Initial Interviews" (not "PM
-// Interviews") deliberately, since Initial Interview is run by the
-// Operations Manager for Operations roles and the PM for others -- calling
-// it "PM Interviews" everywhere would be wrong for half the pipeline.
+// names from the Executive Dashboard spec. Kept generic ("Initial
+// Interviews", not "Operations Interviews" or "PM Interviews") because this
+// map is role-agnostic aggregate copy, not a per-candidate label -- a single
+// count here can span both departments at once. Where a specific
+// candidate's round needs a specific department-aware label instead, use
+// getInterviewRoundLabel() above.
 const TODAYS_PROGRESS_STAGE_LABELS = {
   'New Application':'New Applications', 'CV Screening':'CVs Screened',
-  'Preliminary Interview':'Preliminary Interviews', 'Assessment Sent':'Assessments Sent',
+  'HR Preliminary Interview':'HR Preliminary Interviews', 'Assessment Sent':'Assessments Sent',
   'Assessment Review':'Assessments Completed', 'Initial Interview':'Initial Interviews',
-  'Endorsed to Client':'Endorsed to Client'
+  'Operations Decision':'Operations Decisions', 'Endorsed to Client':'Endorsed to Client',
+  'Offer':'Offers'
 };
 
 function isToday(iso){
@@ -4581,6 +4802,7 @@ function doGet(e){
     else if(a==='getDavidBusy')out=getDavidBusyBlocks(e.parameter.start, e.parameter.end);
     else if(a==='getUnmatchedEmm')out=getUnmatchedEmmSubmissions();
     else if(a==='previewStageMigrationV3')out=previewStageMigrationV3();
+    else if(a==='previewStageModelV4')out=previewStageModelV4();
     else if(a==='previewMigrationDateFix')out=previewMigrationDateFix();
     else if(a==='getRoleDashboard')out=getRoleDashboardData();
     else out={success:false,error:'Unknown: '+a};
@@ -4605,6 +4827,7 @@ function doPost(e){
     else if(p.action==='saveInterviewSlots')out=saveInterviewSlots(p.data);
     else if(p.action==='recordAvailability')out={success:recordAvailability(p.data.id, p.data.token, p.data.picks, p.data.contact)};
     else if(p.action==='runStageMigrationV3')out=migrateStageModelV3();
+    else if(p.action==='runStageModelV4')out=migrateStageModelV4();
     else if(p.action==='applyMigrationDateFix')out=applyMigrationDateFix();
     else if(p.action==='setRoleHealthOverride')out=setRoleHealthOverride(p.data.role, p.data.status, p.data.reason, p.data.setBy, p.data.pmNote);
     else out={success:false,error:'Unknown: '+p.action};
@@ -5418,6 +5641,26 @@ function avatarHtml(name, cls) {
 // OVERRIDE showPage
 // ============================================================
 function showPage(id, btn) {
+  // Route guard: applyRoleNavVisibility() only hides sidebar buttons -- it
+  // doesn't stop a page from being reached another way (a Sources row
+  // jumping to Tracker, a saved bookmark, etc). This is the single funnel
+  // every navigation goes through, so it's the right place to enforce
+  // "which pages can this role land on" -- same nav-id data used to build
+  // the sidebar. Still client-side, still not real security (see the role
+  // switcher's own disclaimer), but it means the UI never itself opens a
+  // door for a role it just told you doesn't have one.
+  var role = getAppRole();
+  if (role && id !== 'about') {
+    var visibleForRole = getAllowedRoutesForRole(role);
+    if (visibleForRole.indexOf('nav-' + id) === -1) {
+      var fallback = ((NAV_VISIBILITY_BY_ROLE[role] || [])[0] || 'nav-dashboard').replace('nav-', '');
+      if (fallback !== id) {
+        showToast("That page isn't part of your current role view.");
+        showPage(fallback);
+      }
+      return;
+    }
+  }
   document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById('page-' + id).classList.add('active');
@@ -5427,6 +5670,7 @@ function showPage(id, btn) {
   if (id === 'tracker') renderTracker();
   if (id === 'board') renderBoard();
   if (id === 'eod') renderEodReport();
+  if (id === 'execdash') renderExecutiveDashboard();
   if (id === 'sources') renderSourcesReport();
   if (id === 'interviewcal') renderInterviewCalendar();
   if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); renderUnmatchedEmmCard(); }
@@ -5493,16 +5737,31 @@ var TEAM_DIRECTORY = {
 var EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 
 // ============================================================
-// CANDIDATE STAGE MODEL V3 (frontend copy -- kept in sync with the same
+// CANDIDATE STAGE MODEL V4 (frontend copy -- kept in sync with the same
 // constants in Code.gs by hand, same pattern as TEAM_DIRECTORY above).
-// Stage is a manual field HR sets directly; there is no auto-advance here.
+// Stage is a manual field HR/Operations set directly; there is no
+// auto-advance here. See the V3 -> V4 changelog comment in Code.gs for what
+// changed and why.
 // ============================================================
-var CANDIDATE_STAGES = ['New Application','CV Screening','Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Endorsed to Client','Final Interview','Waiting for Client Decision','Job Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+var CANDIDATE_STAGES = ['New Application','CV Screening','HR Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Operations Decision','Endorsed to Client','Waiting for Client Decision','Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
 var CLOSED_STAGES = ['Hired','Closed - Rejected','Closed - Withdrawn'];
 var INTERVIEW_ROUNDS_BY_DEPARTMENT = {
   'Operations': { preliminary:'HR', initial:'Operations Manager', final:'Client' },
   'Sales and Marketing': { preliminary:'HR', initial:'Project Manager', final:'CEO' }
 };
+// Same department-aware round label as the backend copy -- so "Initial
+// Interview" (one neutral stored stage value) reads as "Operations
+// Interview" or "PM Interview" depending on the candidate's department,
+// anywhere the frontend displays it, without a server round trip.
+var INTERVIEW_ROUND_SHORT_LABEL = {
+  'HR': 'HR Interview', 'Operations Manager': 'Operations Interview',
+  'Project Manager': 'PM Interview', 'Client': 'Client Interview', 'CEO': 'CEO Interview'
+};
+function getInterviewRoundLabel(department, roundKey){
+  var rounds = INTERVIEW_ROUNDS_BY_DEPARTMENT[department] || INTERVIEW_ROUNDS_BY_DEPARTMENT['Operations'];
+  var conductor = rounds[roundKey];
+  return INTERVIEW_ROUND_SHORT_LABEL[conductor] || (roundKey.charAt(0).toUpperCase()+roundKey.slice(1)+' Interview');
+}
 var ROLE_CONFIG = {
   'AR Specialist': { requiresClientFinal:true },
   'AP Specialist': { requiresClientFinal:true },
@@ -5510,7 +5769,7 @@ var ROLE_CONFIG = {
   'FP&A Specialist': { requiresClientFinal:false }
 };
 var ROLE_OPTIONS = Object.keys(ROLE_CONFIG);
-var NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Final Interview','Follow up Client','Send Job Offer','Prepare Contract','None'];
+var NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule HR Preliminary Interview','Send Assessment','Follow up Candidate','Review Assessment','Schedule Initial Interview','Awaiting Interview Result','Decide Reject/Hold','Schedule Client Interview','Follow up Client','Send Offer','Prepare Contract','None'];
 
 // Display colors for the 14 candidate stages -- used by the Tracker badge,
 // Tracker filter, and Kanban board, so all three read the exact same
@@ -5520,19 +5779,149 @@ var NEXT_ACTION_OPTIONS = ['Call Candidate','Screen CV','Schedule Preliminary In
 var CANDIDATE_STAGE_META = {
   'New Application': { tone:'#475569', bg:'#f1f5f9' },
   'CV Screening': { tone:'#475569', bg:'#f1f5f9' },
-  'Preliminary Interview': { tone:'#1e40af', bg:'#eef2ff' },
+  'HR Preliminary Interview': { tone:'#1e40af', bg:'#eef2ff' },
   'Assessment Sent': { tone:'#6d28d9', bg:'#f3e8ff' },
   'Waiting for Assessment': { tone:'#b45309', bg:'#fff8e1' },
   'Assessment Review': { tone:'#6d28d9', bg:'#f3e8ff' },
   'Initial Interview': { tone:'#1e40af', bg:'#eef2ff' },
+  'Operations Decision': { tone:'#9333ea', bg:'#faf5ff' },
   'Endorsed to Client': { tone:'#0f766e', bg:'#f0fdfa' },
-  'Final Interview': { tone:'#1e40af', bg:'#eef2ff' },
   'Waiting for Client Decision': { tone:'#b45309', bg:'#fff8e1' },
-  'Job Offer': { tone:'#047857', bg:'#e8f5e9' },
+  'Offer': { tone:'#047857', bg:'#e8f5e9' },
   'Hired': { tone:'#166534', bg:'#e8f5e9' },
   'Closed - Rejected': { tone:'#b52a2a', bg:'#fdecea' },
   'Closed - Withdrawn': { tone:'#6b7280', bg:'#f1f1f4' }
 };
+
+// ============================================================
+// APP ROLE SWITCHER (lightweight, no login) -- picks which of the four
+// role-based views (HR / Operations / PM / CEO) this device shows. This is
+// a UI convenience, not a security boundary: it's stored in this browser's
+// localStorage, so it's per-device, not per-person, and anyone with the app
+// link can open the switcher and pick a different role at any time. When
+// real Google Sign-In-based access control is added later (see the
+// architecture proposal), everything downstream should keep reading through
+// getAppRole() so that swap only has to happen in one place -- nothing else
+// in the app should read the raw localStorage key directly.
+// ============================================================
+var APP_ROLE_META = {
+  'HR': { label:'HR', icon:'🗂️' },
+  'Operations': { label:'Operations', icon:'✅' },
+  'PM': { label:'Project Manager', icon:'📁' },
+  'CEO': { label:'CEO', icon:'📊' }
+};
+function getAppRole(){
+  var r = localStorage.getItem('abbss_app_role');
+  return APP_ROLE_META[r] ? r : null;
+}
+// Maps the app-wide role (this switcher) to the existing "Your Tasks" owner
+// filter on the Dashboard (a separate, older setting -- see setDashboardRole
+// / getDashboardRole -- that filters the task list by who conducts each
+// step, e.g. 'Operations Manager', rather than gating whole pages). Keeping
+// them in sync means picking a role here also filters the Dashboard's task
+// list to match, instead of asking the same question twice in two places.
+var APP_ROLE_TO_DASHBOARD_ROLE = { 'HR':'HR', 'Operations':'Operations Manager', 'PM':'Project Manager', 'CEO':'CEO' };
+function setAppRole(role){
+  if(!APP_ROLE_META[role]) return;
+  localStorage.setItem('abbss_app_role', role);
+  if(typeof setDashboardRole==='function' && APP_ROLE_TO_DASHBOARD_ROLE[role]){
+    setDashboardRole(APP_ROLE_TO_DASHBOARD_ROLE[role]);
+  }
+  renderRoleSwitcherPill();
+  closeRoleSwitchModal();
+  showToast('Viewing as: ' + APP_ROLE_META[role].label);
+  // Nav/page visibility per role is wired up separately -- see
+  // applyRoleNavVisibility() -- called here so switching roles takes effect
+  // immediately without a page reload.
+  if(typeof applyRoleNavVisibility==='function') applyRoleNavVisibility();
+}
+function renderRoleSwitcherPill(){
+  var el = document.getElementById('roleSwitcherLabel');
+  if(!el) return;
+  var role = getAppRole();
+  el.textContent = role ? ('Viewing as: ' + APP_ROLE_META[role].icon + ' ' + APP_ROLE_META[role].label) : 'Viewing as: ❓ Not set';
+}
+function openRoleSwitchModal(){
+  var closeBtn = document.getElementById('roleSwitchCloseBtn');
+  var subtitle = document.getElementById('roleSwitchSubtitle');
+  var hasRole = !!getAppRole();
+  // First-run (no role picked yet) hides the close button so there's a
+  // clear choice made before anything else renders -- once a role is set,
+  // switching later is always optional and dismissible.
+  if(closeBtn) closeBtn.style.display = hasRole ? 'inline-block' : 'none';
+  if(subtitle) subtitle.textContent = hasRole
+    ? 'Pick a role to see the right view. You can change this anytime from the "Viewing as" button at the top.'
+    : 'First time on this device — pick the role you’ll be using this app as. You can change it anytime.';
+  document.getElementById('roleSwitchModal').classList.add('open');
+}
+function closeRoleSwitchModal(){
+  if(!getAppRole()) return; // can't dismiss without picking one the first time
+  document.getElementById('roleSwitchModal').classList.remove('open');
+}
+
+// Which sidebar nav items each app role can see. This is the ONLY place
+// this mapping lives -- add a new nav-item id here (and to its section's
+// list below) rather than hiding/showing it ad hoc elsewhere. Per the
+// architecture doc: HR owns candidate intake/interview/assessment work,
+// Operations works only inside candidates already endorsed to them, PM
+// manages hiring PROJECTS not people, CEO gets the executive rollup only.
+var NAV_VISIBILITY_BY_ROLE = {
+  'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-settings'],
+  'Operations': ['nav-dashboard','nav-tracker','nav-interviewcal'],
+  'PM':         ['nav-eod','nav-board','nav-sources','nav-analytics'],
+  'CEO':        ['nav-execdash','nav-analytics']
+};
+// Pages a role can land on via an intentional drill-through link even
+// though the page has no button of its own in that role's sidebar --
+// e.g. the CEO's "View full Hiring Projects breakdown" button on the
+// Executive Dashboard. showPage()'s route guard checks this (merged with
+// NAV_VISIBILITY_BY_ROLE); the sidebar itself only ever reflects
+// NAV_VISIBILITY_BY_ROLE, so this doesn't add a permanent nav button.
+var NAV_ROUTE_ALLOW_BY_ROLE = {
+  'CEO': ['nav-eod']
+};
+function getAllowedRoutesForRole(role){
+  var base = NAV_VISIBILITY_BY_ROLE[role] || [];
+  var extra = NAV_ROUTE_ALLOW_BY_ROLE[role] || [];
+  return base.concat(extra.filter(function(navId){ return base.indexOf(navId) === -1; }));
+}
+// Sidebar section header -> the nav-item ids under it, so a section divider
+// auto-hides when every item beneath it is hidden for the current role
+// (instead of leaving an empty "Pipeline" label floating above nothing).
+var NAV_SECTIONS = {
+  'navsec-main':      ['nav-dashboard','nav-new'],
+  'navsec-pipeline':  ['nav-tracker','nav-interviewcal','nav-grade','nav-email'],
+  'navsec-projects':  ['nav-eod'],
+  'navsec-executive': ['nav-execdash'],
+  'navsec-reports':   ['nav-board','nav-sources','nav-analytics'],
+  'navsec-system':    ['nav-settings']
+};
+function applyRoleNavVisibility(){
+  var role = getAppRole();
+  if(!role) return;
+  var visible = NAV_VISIBILITY_BY_ROLE[role] || [];
+  Object.keys(NAV_SECTIONS).forEach(function(secId){
+    var anyVisible = false;
+    NAV_SECTIONS[secId].forEach(function(navId){
+      var btn = document.getElementById(navId);
+      var show = visible.indexOf(navId) >= 0;
+      if(btn) btn.style.display = show ? '' : 'none';
+      if(show) anyVisible = true;
+    });
+    var sec = document.getElementById(secId);
+    if(sec) sec.style.display = anyVisible ? '' : 'none';
+  });
+  // If the page currently on screen just got hidden for this role, jump to
+  // the first page this role can actually see instead of leaving an empty,
+  // unreachable-via-nav page showing.
+  var activePage = document.querySelector('.page.active');
+  var activeId = activePage && activePage.id ? activePage.id.replace('page-','') : '';
+  var activeNavHidden = activeId && visible.indexOf('nav-'+activeId) === -1;
+  if(!activePage || activeNavHidden){
+    var fallback = visible[0];
+    if(fallback) showPage(fallback.replace('nav-',''), document.getElementById(fallback));
+  }
+}
 
 // Single source of truth for "what stage badge does this applicant show" --
 // Tracker rows, Tracker filter, and the Kanban board all call this instead
@@ -5544,7 +5933,14 @@ var CANDIDATE_STAGE_META = {
 function getCandidateStageBadge(a){
   var stage = a && a.candidateStage;
   var meta = CANDIDATE_STAGE_META[stage];
-  if(meta) return { key:stage, label:stage, tone:meta.tone, bg:meta.bg };
+  if(meta){
+    // Same one-neutral-value-many-labels trick as getStageTask() -- the
+    // stored stage stays 'Initial Interview' for every department, but the
+    // badge everyone actually reads shows the correct department-specific
+    // round name.
+    var label = (stage==='Initial Interview') ? getInterviewRoundLabel(a && a.department,'initial') : stage;
+    return { key:stage, label:label, tone:meta.tone, bg:meta.bg };
+  }
   return { key:'__not_migrated__', label:'Not migrated yet', tone:'#6b7280', bg:'#f1f1f4' };
 }
 // Small HTML badge for the Dashboard's card-drilldown list (showCardApplicants)
@@ -5556,10 +5952,10 @@ function candidateStageDrilldownBadge(a){
 }
 var CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
 var DEFAULT_NEXT_ACTION_BY_STAGE = {
-  'New Application':'Screen CV','CV Screening':'Call Candidate','Preliminary Interview':'Schedule Preliminary Interview',
+  'New Application':'Screen CV','CV Screening':'Call Candidate','HR Preliminary Interview':'Schedule HR Preliminary Interview',
   'Assessment Sent':'Follow up Candidate','Waiting for Assessment':'Follow up Candidate','Assessment Review':'Review Assessment',
-  'Initial Interview':'Schedule Initial Interview','Endorsed to Client':'Follow up Client','Final Interview':'Schedule Final Interview',
-  'Waiting for Client Decision':'Follow up Client','Job Offer':'Send Job Offer','Hired':'None',
+  'Initial Interview':'Schedule Initial Interview','Operations Decision':'Decide Reject/Hold','Endorsed to Client':'Follow up Client',
+  'Waiting for Client Decision':'Follow up Client','Offer':'Send Offer','Hired':'None',
   'Closed - Rejected':'None','Closed - Withdrawn':'None'
 };
 // Who conducts Initial/Final Interview for this candidate, based on
@@ -5594,15 +5990,15 @@ function getInterviewerHint(a, round){
 var STAGE_HINTS = {
   'New Application': 'New — screen their CV.',
   'CV Screening': 'Decide if they move forward, then schedule the preliminary interview.',
-  'Preliminary Interview': 'Interview is happening. Write down pass or fail.',
+  'HR Preliminary Interview': 'Interview is happening. Write down pass or fail.',
   'Assessment Sent': 'Just wait for their answers.',
   'Waiting for Assessment': 'Just wait for their answers.',
   'Assessment Review': 'Review their assessment results.',
   'Initial Interview': 'Interview is happening. Write down pass or fail.',
-  'Endorsed to Client': 'Already sent. Follow up if it’s been a while.',
-  'Final Interview': 'The client is interviewing them now.',
+  'Operations Decision': 'Approve, hold, reject, or endorse to the client.',
+  'Endorsed to Client': 'Sent to the client — interview may still be pending. Follow up if it’s been a while.',
   'Waiting for Client Decision': 'Just wait for the client to answer.',
-  'Job Offer': 'Send (or follow up on) the job offer.'
+  'Offer': 'Send (or follow up on) the offer.'
 };
 // Per-applicant version of the old getPipelineStep()/PIPELINE_CARD_DEFS
 // engine, but reading candidateStage/nextAction/department instead of the
@@ -5622,19 +6018,20 @@ function getStageTask(a){
   var initialOwner = getInterviewerHint(a,'initial') || 'Operations Manager';
   var finalOwner = getInterviewerHint(a,'final') || 'Operations Manager';
   var owner = 'HR', actionable = true, waiting = false;
-  if(stage==='Preliminary Interview') owner = prelimOwner;
+  if(stage==='HR Preliminary Interview') owner = prelimOwner;
   else if(stage==='Initial Interview') owner = initialOwner;
-  else if(stage==='Endorsed to Client'){ owner = initialOwner; actionable = false; waiting = true; }
-  else if(stage==='Final Interview'){
-    if(finalOwner==='CEO'){ owner = 'CEO'; }
-    else { owner = initialOwner; actionable = false; waiting = true; }
-  }
-  else if(stage==='Waiting for Client Decision'){ owner = initialOwner; actionable = false; waiting = true; }
+  else if(stage==='Operations Decision'){ owner = initialOwner; actionable = true; waiting = false; }
+  else if(stage==='Endorsed to Client'){ owner = finalOwner; actionable = false; waiting = true; }
+  else if(stage==='Waiting for Client Decision'){ owner = finalOwner; actionable = false; waiting = true; }
   else if(stage==='Assessment Sent' || stage==='Waiting for Assessment'){ owner = 'HR'; actionable = false; waiting = true; }
   var prefix = actionable ? 'TO DO' : 'WAITING';
+  // 'Initial Interview' is one neutral stored value for every department --
+  // show the department-correct label (Operations Interview / PM Interview)
+  // here rather than the raw stage string, without touching what's stored.
+  var displayLabel = (stage==='Initial Interview') ? getInterviewRoundLabel(a.department,'initial') : stage;
   return {
     key: stage,
-    label: prefix + ' — ' + stage,
+    label: prefix + ' — ' + displayLabel,
     color: meta.tone,
     hint: next || STAGE_HINTS[stage] || '',
     role: owner,
@@ -5654,8 +6051,14 @@ function buildCandidateStagePanel(a){
   var nextAction = a.nextAction || '';
   var role = a.roleCategory || '';
 
+  // 'Initial Interview' shows its department-specific label (Operations
+  // Interview / PM Interview) here too -- the stored option value stays the
+  // neutral stage name either way, only the visible text changes.
   var stageOpts = '<option value=""'+(!stage?' selected':'')+'>— Not set yet —</option>' +
-    CANDIDATE_STAGES.map(function(s){ return '<option value="'+s+'"'+(stage===s?' selected':'')+'>'+s+'</option>'; }).join('');
+    CANDIDATE_STAGES.map(function(s){
+      var label = (s==='Initial Interview') ? getInterviewRoundLabel(a.department,'initial') : s;
+      return '<option value="'+s+'"'+(stage===s?' selected':'')+'>'+label+'</option>';
+    }).join('');
 
   var isNextActionCanonical = NEXT_ACTION_OPTIONS.indexOf(nextAction) >= 0;
   var naSelVal = nextAction && !isNextActionCanonical ? 'Other' : nextAction;
@@ -5672,12 +6075,12 @@ function buildCandidateStagePanel(a){
     '<option value="Other"'+(roleSelVal==='Other'?' selected':'')+'>Other</option>';
 
   var interviewerHint = '';
-  if(stage==='Preliminary Interview') interviewerHint = getInterviewerHint(a,'preliminary');
+  if(stage==='HR Preliminary Interview') interviewerHint = getInterviewerHint(a,'preliminary');
   else if(stage==='Initial Interview') interviewerHint = getInterviewerHint(a,'initial');
-  else if(stage==='Final Interview') interviewerHint = getInterviewerHint(a,'final');
+  else if(stage==='Endorsed to Client' || stage==='Waiting for Client Decision') interviewerHint = getInterviewerHint(a,'final');
 
   var skipsClientRoundHint = (role && ROLE_CONFIG[role] && ROLE_CONFIG[role].requiresClientFinal===false)
-    ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">This role skips the client/final-interview stages — Job Offer follows straight from Initial Interview.</div>' : '';
+    ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">This role skips the client hand-off stages — Offer follows straight from Operations Decision.</div>' : '';
 
   return '<div class="card card-accent-blue" style="margin-bottom:16px" id="candidateStagePanel_'+a.id+'">' +
     '<div class="card-header"><div class="card-title-lg">📍 Candidate Stage</div></div>' +
@@ -6204,6 +6607,78 @@ async function applyCandidateStageMigration(){
   }
 }
 
+// ============================================================
+// STAGE MODEL V4 -- ONE-TIME UPDATE UI. Same preview-before-apply pattern
+// as the V3 migration above, just for the smaller V3->V4 stage renames
+// (previewStageModelV4 / migrateStageModelV4 on the backend).
+// ============================================================
+async function previewStageModelV4Migration(){
+  var msgEl = document.getElementById('stageMigV4Msg');
+  var applyBtn = document.getElementById('stageMigV4ApplyBtn');
+  if(!msgEl) return;
+  if(!SCRIPT_URL){
+    msgEl.style.display='block';
+    msgEl.innerHTML = '<span style="color:#b45309">Connect Google Sheets above first — this runs against your shared Sheet.</span>';
+    return;
+  }
+  msgEl.style.display='block';
+  msgEl.innerHTML = 'Checking your data&hellip;';
+  if(applyBtn) applyBtn.style.display='none';
+
+  var res = await apiGet('previewStageModelV4');
+  if(!res || !res.success){
+    msgEl.innerHTML = '<span style="color:#b52a2a">Could not preview: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
+    return;
+  }
+  window._stageMigV4Preview = res;
+
+  if(res.totalToMigrate === 0){
+    msgEl.innerHTML = '<span style="color:#166534">✓ Nothing to update — no records are on an old stage name.</span>';
+    return;
+  }
+
+  var oldStageLines = Object.keys(res.countsByOldStage)
+    .map(function(s){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+s+'</span><span style="font-weight:700">'+res.countsByOldStage[s]+'</span></div>'; }).join('');
+  var sampleRows = res.sample.map(function(p){
+    return '<tr><td style="padding:5px 8px;font-size:12px">'+p.name+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px">'+p.oldStage+'</td>' +
+      '<td style="padding:5px 8px;font-size:12px">'+p.newStage+'</td></tr>';
+  }).join('');
+
+  msgEl.innerHTML =
+    '<div style="font-weight:700;margin-bottom:10px;color:var(--gray900)">' + res.totalToMigrate + ' record(s) will be updated &mdash; nothing has changed yet, this is a preview.</div>' +
+    '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">Old stage name &rarr; how many</div>' + oldStageLines + '</div>' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">First 20 examples</div>' +
+    '<div class="table-wrap" style="max-height:240px;overflow:auto"><table><thead><tr><th style="padding:5px 8px;font-size:11px">Name</th><th style="padding:5px 8px;font-size:11px">Old Stage</th><th style="padding:5px 8px;font-size:11px">New Stage</th></tr></thead><tbody>' + sampleRows + '</tbody></table></div>';
+
+  if(applyBtn) applyBtn.style.display='inline-block';
+}
+
+async function applyStageModelV4Migration(){
+  var preview = window._stageMigV4Preview;
+  var msgEl = document.getElementById('stageMigV4Msg');
+  if(!preview || !preview.totalToMigrate){
+    showToast('Run Preview first.');
+    return;
+  }
+  if(!confirm('Update ' + preview.totalToMigrate + ' applicant record(s) still on an old stage name to the new one? Records already on a current stage name are never touched.')) return;
+
+  if(msgEl) msgEl.innerHTML = 'Applying&hellip;';
+  var res = await apiPost('runStageModelV4', {});
+  if(res && res.success){
+    showToast('✓ Updated ' + res.migrated + ' record(s).');
+    if(msgEl) msgEl.innerHTML = '<span style="color:#166534">✓ Done &mdash; ' + res.migrated + ' record(s) updated.</span>';
+    var applyBtn = document.getElementById('stageMigV4ApplyBtn');
+    if(applyBtn) applyBtn.style.display='none';
+    window._stageMigV4Preview = null;
+    if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
+    if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
+    if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
+  } else {
+    if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
+  }
+}
+
 async function previewMigrationDateFixUI(){
   var msgEl = document.getElementById('dateFixMsg');
   var applyBtn = document.getElementById('dateFixApplyBtn');
@@ -6601,6 +7076,13 @@ function getEmmBadge(a){
 // ============================================================
 function renderBoard(){
   var apps = getApplicants();
+  // PM can see this page (it's the pipeline-shape view under Reports) but
+  // per the role-ownership model PM never opens an individual candidate
+  // record to edit it -- only HR and Operations, who actually own fields on
+  // the record, get the click-through. Everyone still sees the same
+  // aggregate columns/counts either way.
+  var boardRole = getAppRole();
+  var boardCanOpenCard = !boardRole || boardRole === 'HR' || boardRole === 'Operations';
   var deptF = document.getElementById('boardDeptFilter') ? document.getElementById('boardDeptFilter').value : '';
   var roleF = document.getElementById('boardRoleFilter') ? document.getElementById('boardRoleFilter').value : '';
   if(deptF) apps = apps.filter(function(a){ return a.department===deptF; });
@@ -6621,7 +7103,8 @@ function renderBoard(){
     var isEmpty = c.apps.length===0;
     var cards = c.apps.map(function(a){
       var av = getAvatar(a.name);
-      return '<div onclick="openApplicant(' + a.id + ')" style="cursor:pointer;background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)">' +
+      var openAttr = boardCanOpenCard ? (' onclick="openApplicant(' + a.id + ')" style="cursor:pointer;background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)"') : (' style="background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)"');
+      return '<div' + openAttr + '>' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:13px">' + a.name + '</div></div>' +
         '<div style="font-size:11px;color:var(--gray500)">' + (a.position||'No position') + (a.department?' &middot; '+a.department:'') + '</div>' +
         (a.nextAction ? '<div style="font-size:11px;color:#1e40af;margin-top:3px;font-weight:600">Next: ' + a.nextAction + '</div>' : '') +
@@ -6744,7 +7227,7 @@ function eodSummaryBar(rolesData, roleNames){
   // produces (New Application->New Applications, etc.), in pipeline order --
   // that backend map lives inside the Apps Script mirror string, not in
   // frontend scope, so it's repeated here rather than referenced directly.
-  var progressOrder = ['New Applications','CVs Screened','Preliminary Interviews','Assessments Sent','Assessments Completed','Initial Interviews','Endorsed to Client'];
+  var progressOrder = ['New Applications','CVs Screened','HR Preliminary Interviews','Assessments Sent','Assessments Completed','Initial Interviews','Operations Decisions','Endorsed to Client','Offers'];
   var progressKeys = progressOrder.filter(function(k){ return combinedProgress[k]>0; });
   var closedBits = [];
   if(combinedClosed.Hired) closedBits.push(combinedClosed.Hired+' Hired');
@@ -6953,6 +7436,119 @@ async function renderEodReport(){
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">';
   html += roles.map(function(r){ return eodRoleCard(r, res.roles[r]); }).join('');
   html += '</div>';
+  el.innerHTML = html;
+}
+
+// ============================================================
+// EXECUTIVE DASHBOARD (CEO) -- the 30-second view. Built entirely from the
+// same getRoleDashboardData() every other view uses (single source of
+// truth), rolled up to company-wide totals instead of per-role detail.
+// Deliberately shows NO candidate names or per-candidate detail anywhere on
+// this page -- per the architecture doc, the CEO should not see
+// candidate-level detail unless they click into a hiring project (which
+// jumps to Hiring Projects, a role-level view, still never a candidate one).
+// ============================================================
+function jumpToHiringProjects(){ showPage('eod', document.getElementById('nav-eod')); }
+
+async function renderExecutiveDashboard(){
+  var dateLine = document.getElementById('execDateLine');
+  var today = new Date();
+  if(dateLine) dateLine.textContent = today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  var el = document.getElementById('execDashContent');
+  if(!el) return;
+  if(!SCRIPT_URL){
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Connect Google Sheets in Settings to see the Executive Dashboard.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Loading&hellip;</div>';
+
+  var res = await apiGet('getRoleDashboard');
+  if(!res || !res.success){
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:#b52a2a">Could not load dashboard data'+(res && res.error ? ': '+res.error : '')+'.</div>';
+    return;
+  }
+  var rolesData = res.roles;
+  var roles = Object.keys(rolesData).filter(function(r){ return r!=='(Unassigned)'; });
+  if(!roles.length){
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">No candidates with a Role assigned yet.</div>';
+    return;
+  }
+
+  var totalActive=0, progress={}, closedToday={Hired:0,Rejected:0,Withdrawn:0};
+  var atRisk=[], needsAttention=[], onTrack=0, overdueTotal=0, followUpTotal=0;
+  roles.forEach(function(r){
+    var b = rolesData[r];
+    totalActive += b.activeCandidates;
+    overdueTotal += (b.overdueReminders||[]).length;
+    followUpTotal += (b.needingFollowUp||[]).length;
+    Object.keys(b.todaysProgress||{}).forEach(function(k){ progress[k]=(progress[k]||0)+b.todaysProgress[k]; });
+    if(b.closedToday){
+      closedToday.Hired += b.closedToday.Hired||0;
+      closedToday.Rejected += b.closedToday.Rejected||0;
+      closedToday.Withdrawn += b.closedToday.Withdrawn||0;
+    }
+    var status = b.health && b.health.status;
+    if(status==='red') atRisk.push({role:r, reason:(b.health&&b.health.reason)||''});
+    else if(status==='yellow') needsAttention.push({role:r, reason:(b.health&&b.health.reason)||''});
+    else onTrack++;
+  });
+
+  var overview = [
+    {v:totalActive, l:'Total Active Candidates'},
+    {v:progress['New Applications']||0, l:'Applications Today'},
+    {v:(progress['HR Preliminary Interviews']||0)+(progress['Initial Interviews']||0), l:'Interviews Today'},
+    {v:progress['Assessments Completed']||0, l:'Assessments Completed'},
+    {v:progress['Initial Interviews']||0, l:'Operations Interviews'},
+    {v:progress['Endorsed to Client']||0, l:'Client Endorsements'},
+    {v:progress['Offers']||0, l:'Offers'},
+    {v:closedToday.Hired, l:'Hires'}
+  ];
+
+  var html = '<div class="card" style="margin-bottom:16px">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-bottom:14px">Recruitment Overview &mdash; Today</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px">' +
+    overview.map(function(o){ return eodBigStat(o.v, o.l, 'var(--gray900)'); }).join('') +
+    '</div></div>';
+
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px">';
+
+  html += '<div class="card">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-bottom:14px">Hiring Health</div>' +
+    '<div style="display:flex;gap:22px">' +
+      eodBigStat(onTrack, 'On Track', '#166534') +
+      eodBigStat(needsAttention.length, 'Needs Attention', '#b45309') +
+      eodBigStat(atRisk.length, 'At Risk', '#b52a2a') +
+    '</div></div>';
+
+  html += '<div class="card">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-bottom:14px">Roles At Risk</div>' +
+    (atRisk.length
+      ? atRisk.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b52a2a">&#128308; '+a.role+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+(a.reason||'No candidates or no movement.')+'</div></div>'; }).join('')
+      : '<div style="font-size:13px;color:var(--gray400)">No roles at risk right now.</div>') +
+    '</div>';
+
+  html += '</div>';
+
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px">';
+
+  html += '<div class="card">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-bottom:14px">Needs Attention</div>' +
+    (needsAttention.length
+      ? needsAttention.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b45309">&#128993; '+a.role+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+(a.reason||'')+'</div></div>'; }).join('')
+      : '<div style="font-size:13px;color:var(--gray400)">Nothing flagged.</div>') +
+    '<div style="font-size:12px;color:var(--gray500);margin-top:10px;padding-top:10px;border-top:1px solid var(--gray100)">'+overdueTotal+' candidate(s) past their expected time in stage &middot; '+followUpTotal+' awaiting follow-up (company-wide)</div>' +
+    '</div>';
+
+  html += '<div class="card">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.03em;margin-bottom:14px">Upcoming Deadlines</div>' +
+    '<div style="font-size:13px;color:var(--gray400);line-height:1.6">Not tracked yet &mdash; there\'s no per-role hiring deadline field in the system today. Ask if you\'d like this added (it would live on the Hiring Projects card, same place health status is set).</div>' +
+    '</div>';
+
+  html += '</div>';
+
+  html += '<div style="text-align:center"><button class="btn btn-ghost btn-sm" onclick="jumpToHiringProjects()">View full Hiring Projects breakdown &rarr;</button></div>';
+
   el.innerHTML = html;
 }
 
@@ -7680,6 +8276,9 @@ function updateSyncStatus(connected) {
 // ============================================================
 // INIT
 // ============================================================
+renderRoleSwitcherPill();
+if(!getAppRole()) openRoleSwitchModal();
+else if(typeof applyRoleNavVisibility==='function') applyRoleNavVisibility();
 setEmailTemplate('assessment');
 renderDashboard();
 updateTrackerBadge();
