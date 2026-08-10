@@ -870,6 +870,7 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail (manual)</button>
           <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Gmail will open using this exact account's inbox (it must already be signed in on this device). Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
+          <button class="btn btn-sm" id="preOnboardingPdfBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="openPreOnboardingPdfTab()">&#128190; Open PDF in New Tab</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
           <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600;margin-left:8px">&#10003; Copied!</span>
           <span id="emailAddrCopyMsg" style="display:none;font-size:12px;color:#1a73e8;font-weight:600;margin-left:4px">&#10003; Email address copied — paste into To field</span>
@@ -880,6 +881,10 @@ tbody tr:last-child td{border-bottom:none}
           <input class="email-subject-inp" id="emailSubject" type="text">
         </div>
         <div class="email-body" id="emailBody" contenteditable="true"></div>
+        <div id="preOnboardingPdfPreview" style="display:none;border-top:1px solid var(--gray100);padding:12px 16px">
+          <div style="font-size:12px;font-weight:700;color:var(--gray500);margin-bottom:8px">&#128190; Attached file — Pre-Onboarding Requirements.pdf (this is exactly what gets attached when you hit "Send Automatically")</div>
+          <iframe id="preOnboardingPdfFrame" style="width:100%;height:500px;border:1px solid var(--gray200);border-radius:8px" title="Pre-Onboarding Requirements PDF preview"></iframe>
+        </div>
       </div>
     </div>
   </div>
@@ -1336,6 +1341,19 @@ function downloadEmmTemplate(){
     showToast('✓ Template downloaded — attach it in Gmail before sending.');
   }catch(e){
     alert('Could not download the template: '+e.message);
+  }
+}
+
+function openPreOnboardingPdfTab(){
+  try{
+    const byteChars = atob(PRE_ONBOARDING_PDF_B64);
+    const byteNumbers = new Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], {type:'application/pdf'});
+    window.open(URL.createObjectURL(blob), '_blank');
+  }catch(e){
+    alert('Could not open the PDF: '+e.message);
   }
 }
 const ANS_SUMMARY={
@@ -3517,7 +3535,7 @@ ABBSS`
     subject:'[ABBSS] Pre-Onboarding Requirements — {position}',
     body:`Dear {name},
 
-We are moving forward with the hiring process.
+Congratulations on completing your final interview! We are moving forward with your application.
 
 Kindly fill out the following:
 https://docs.google.com/forms/d/e/1FAIpQLSdCo3oJFXmEBpEyUlj4UBy1k18wSfUbYJoAHJ52C-MW2prVMA/viewform?usp=sharing&ouid=117445945147911071051
@@ -3574,6 +3592,22 @@ function setEmailTemplate(key){
   document.getElementById('etBtn-'+key).style.color='#fff';
   var emmBtn=document.getElementById('emmTemplateBtn');
   if(emmBtn) emmBtn.style.display=(key==='assessment')?'inline-flex':'none';
+  var poBtn=document.getElementById('preOnboardingPdfBtn');
+  if(poBtn) poBtn.style.display=(key==='pre_onboarding')?'inline-flex':'none';
+  var poPreview=document.getElementById('preOnboardingPdfPreview');
+  var poFrame=document.getElementById('preOnboardingPdfFrame');
+  if(poPreview && poFrame){
+    if(key==='pre_onboarding'){
+      // Lazy-set the src (only when this template is actually selected) so the
+      // ~240KB data URL isn't sitting loaded in the DOM for every other template.
+      if(!poFrame.src || poFrame.src.indexOf('data:application/pdf')!==0){
+        poFrame.src = 'data:application/pdf;base64,' + PRE_ONBOARDING_PDF_B64;
+      }
+      poPreview.style.display='block';
+    } else {
+      poPreview.style.display='none';
+    }
+  }
   var offerFields=document.getElementById('et-offer-fields');
   if(offerFields) offerFields.style.display=(key==='job_offer'||key==='contract'||key==='pre_onboarding')?'block':'none';
   updateEmail();
