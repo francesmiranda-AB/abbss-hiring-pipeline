@@ -869,7 +869,7 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail (manual)</button>
           <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Gmail will open using this exact account's inbox (it must already be signed in on this device). Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
-          <button class="btn btn-sm" id="jobOfferPdfBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="openJobOfferPdfTab()">&#128190; Open PDF in New Tab</button>
+          <button class="btn btn-sm" id="nextStepsPdfBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="openNextStepsPdfTab()">&#128190; Open PDF in New Tab</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
           <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600;margin-left:8px">&#10003; Copied!</span>
           <span id="emailAddrCopyMsg" style="display:none;font-size:12px;color:#1a73e8;font-weight:600;margin-left:4px">&#10003; Email address copied — paste into To field</span>
@@ -880,9 +880,9 @@ tbody tr:last-child td{border-bottom:none}
           <input class="email-subject-inp" id="emailSubject" type="text">
         </div>
         <div class="email-body" id="emailBody" contenteditable="true"></div>
-        <div id="jobOfferPdfPreview" style="display:none;border-top:1px solid var(--gray100);padding:12px 16px">
+        <div id="nextStepsPdfPreview" style="display:none;border-top:1px solid var(--gray100);padding:12px 16px">
           <div style="font-size:12px;font-weight:700;color:var(--gray500);margin-bottom:8px">&#128190; Attached file — Pre-Onboarding Requirements.pdf (this is exactly what gets attached when you hit "Send Automatically")</div>
-          <iframe id="jobOfferPdfFrame" style="width:100%;height:500px;border:1px solid var(--gray200);border-radius:8px" title="Pre-Onboarding Requirements PDF preview"></iframe>
+          <iframe id="nextStepsPdfFrame" style="width:100%;height:500px;border:1px solid var(--gray200);border-radius:8px" title="Pre-Onboarding Requirements PDF preview"></iframe>
         </div>
       </div>
     </div>
@@ -1343,7 +1343,7 @@ function downloadEmmTemplate(){
   }
 }
 
-function openJobOfferPdfTab(){
+function openNextStepsPdfTab(){
   try{
     const byteChars = atob(JOB_OFFER_PDF_B64);
     const byteNumbers = new Array(byteChars.length);
@@ -2449,10 +2449,11 @@ function buildDecisionTab(a){
         <div><label class="lbl">Signatory</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','signatory',this.value)" value="${od.signatory||''}" placeholder="e.g. Frances Miranda"></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#f9ab00;color:#fff" onclick="goToOfferEmail(${a.id},'offer')">&#128203; Send Next Steps Email</button>
         <button class="btn btn-sm" style="background:#0f9d58;color:#fff" onclick="goToOfferEmail(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
         <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="goToOfferEmail(${a.id},'contract')">&#128196; Send Contract</button>
       </div>
-      <div style="font-size:11px;color:var(--gray400);margin-top:6px">The Job Offer email now includes the pre-onboarding requirements (device/internet/typing/security checks) as an attached PDF -- there's no separate email for those anymore.</div>
+      <div style="font-size:11px;color:var(--gray400);margin-top:6px">Send the Next Steps email first -- it includes the pre-onboarding requirements (device/internet/typing/security checks) as an attached PDF. The formal Job Offer/Contract emails follow once that's done.</div>
     </div>`;
       }
       return out;
@@ -3475,16 +3476,15 @@ ABBSS`
     subject:'[ABBSS] Next Steps — {position}',
     body:`Dear {name},
 
-Congratulations! We are pleased to inform you that you have successfully passed all required assessments and the final interview for the {position} role at ABBSS.
+Thank you for completing your assessments and interview with us. As we move forward, please take care of two quick things:
 
-As one of our final steps, please complete our Applicant Information Sheet at your earliest convenience:
-https://forms.gle/WVQK776sX86s2cvA7
+1. Complete our Applicant Information Sheet: https://forms.gle/WVQK776sX86s2cvA7
+   (No need to redo this if you've already submitted it before.)
+2. Complete the technical checks in the attached Pre-Onboarding Requirements PDF (device specs, internet speed, typing speed, and a security scan).
 
-Note: If you have already completed this form previously, there is no need to answer it again.
+Once both are done, our team will follow up with your formal offer and onboarding details.
 
-Our team will be in touch shortly to discuss the next steps, including your formal offer and onboarding details.
-
-Congratulations once again, and we look forward to welcoming you to the team!
+We appreciate your patience throughout this process, and look forward to the next steps with you!
 
 Warm regards,
 HR Team
@@ -3502,7 +3502,7 @@ Start Date: {startdate}
 Rate: {rate}
 Signed by: {signatory}
 
-Please review the details above, and see the attached Pre-Onboarding Requirements PDF for a few quick technical checks (device specs, internet speed, typing speed, and a security scan) to complete before your start date. Our HR team will follow up shortly with the formal contract for signature. If you have any questions about this offer, feel free to reach out.
+Please review the details above. Our HR team will follow up shortly with the formal contract for signature. If you have any questions about this offer, feel free to reach out.
 
 We are excited to welcome you to the team!
 
@@ -3572,12 +3572,12 @@ function setEmailTemplate(key){
   document.getElementById('etBtn-'+key).style.color='#fff';
   var emmBtn=document.getElementById('emmTemplateBtn');
   if(emmBtn) emmBtn.style.display=(key==='assessment')?'inline-flex':'none';
-  var poBtn=document.getElementById('jobOfferPdfBtn');
-  if(poBtn) poBtn.style.display=(key==='job_offer')?'inline-flex':'none';
-  var poPreview=document.getElementById('jobOfferPdfPreview');
-  var poFrame=document.getElementById('jobOfferPdfFrame');
+  var poBtn=document.getElementById('nextStepsPdfBtn');
+  if(poBtn) poBtn.style.display=(key==='offer')?'inline-flex':'none';
+  var poPreview=document.getElementById('nextStepsPdfPreview');
+  var poFrame=document.getElementById('nextStepsPdfFrame');
   if(poPreview && poFrame){
-    if(key==='job_offer'){
+    if(key==='offer'){
       // Lazy-set the src (only when this template is actually selected) so the
       // data URL isn't sitting loaded in the DOM for every other template.
       if(!poFrame.src || poFrame.src.indexOf('data:application/pdf')!==0){
@@ -3628,10 +3628,11 @@ async function sendEmailAutomatically(){
     payload.attachmentBase64=EMM_TEMPLATE_B64;
     payload.attachmentName=EMM_TEMPLATE_FILENAME;
     payload.attachmentMimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  } else if(currentTemplate==='job_offer'){
+  } else if(currentTemplate==='offer'){
     // Pre-onboarding requirements (device/internet/typing/security checklist)
-    // now ride along with the Job Offer email instead of their own separate
-    // send -- same attachment pattern as the EMM template above.
+    // now ride along with the Next Steps/Offer email -- this is the stage
+    // that happens BEFORE the formal Job Offer, not after -- instead of
+    // their own separate send. Same attachment pattern as the EMM template above.
     payload.attachmentBase64=JOB_OFFER_PDF_B64;
     payload.attachmentName=JOB_OFFER_PDF_FILENAME;
     payload.attachmentMimeType='application/pdf';
