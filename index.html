@@ -857,7 +857,6 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-ghost btn-full" id="etBtn-offer" onclick="setEmailTemplate('offer')" style="justify-content:flex-start;gap:10px"><span>&#9989;</span><div style="text-align:left"><div style="font-weight:700">Next Steps / Offer</div><div style="font-size:11px;color:var(--gray400);font-weight:400">After successful interview</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-job_offer" onclick="setEmailTemplate('job_offer')" style="justify-content:flex-start;gap:10px"><span>&#128188;</span><div style="text-align:left"><div style="font-weight:700">Job Offer</div><div style="font-size:11px;color:var(--gray400);font-weight:400">JD, start date, rate, contract type</div></div></button>
           <button class="btn btn-ghost btn-full" id="etBtn-contract" onclick="setEmailTemplate('contract')" style="justify-content:flex-start;gap:10px"><span>&#128196;</span><div style="text-align:left"><div style="font-weight:700">Contract</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Same terms, formal engagement summary</div></div></button>
-          <button class="btn btn-ghost btn-full" id="etBtn-pre_onboarding" onclick="setEmailTemplate('pre_onboarding')" style="justify-content:flex-start;gap:10px"><span>&#128187;</span><div style="text-align:left"><div style="font-weight:700">Pre-Onboarding Requirements</div><div style="font-size:11px;color:var(--gray400);font-weight:400">Device, internet, typing, security checks</div></div></button>
         </div>
       </div>
     </div>
@@ -870,7 +869,7 @@ tbody tr:last-child td{border-bottom:none}
           <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="openGmail()">&#9993; Open in Gmail (manual)</button>
           <span style="display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray500)"><span style="display:inline-flex;align-items:center;gap:4px" title="Gmail will open using this exact account's inbox (it must already be signed in on this device). Only accepts your @ab-contactsolutions.com or @ab-businesssupport.com work address."><label for="gmailWorkEmailInput">Work email</label><input id="gmailWorkEmailInput" type="email" placeholder="you@ab-businesssupport.com" style="width:190px;padding:2px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" oninput="validateGmailWorkEmail(this)"></span><span id="gmailWorkEmailErr" style="color:var(--red);display:none">Must be @ab-contactsolutions.com or @ab-businesssupport.com</span><script>document.getElementById('gmailWorkEmailInput').value = localStorage.getItem('abbss_gmail_workemail') || '';</script></span>
           <button class="btn btn-sm" id="emmTemplateBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="downloadEmmTemplate()">&#128190; Download EMM Template</button>
-          <button class="btn btn-sm" id="preOnboardingPdfBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="openPreOnboardingPdfTab()">&#128190; Open PDF in New Tab</button>
+          <button class="btn btn-sm" id="jobOfferPdfBtn" style="display:none;background:#fef9c3;color:#854d0e;border:1px solid #fde68a" onclick="openJobOfferPdfTab()">&#128190; Open PDF in New Tab</button>
           <button class="btn btn-sm" style="background:#166534;color:#fff" onclick="markEmailSent()">&#10003; Mark as Sent</button>
           <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600;margin-left:8px">&#10003; Copied!</span>
           <span id="emailAddrCopyMsg" style="display:none;font-size:12px;color:#1a73e8;font-weight:600;margin-left:4px">&#10003; Email address copied — paste into To field</span>
@@ -881,9 +880,9 @@ tbody tr:last-child td{border-bottom:none}
           <input class="email-subject-inp" id="emailSubject" type="text">
         </div>
         <div class="email-body" id="emailBody" contenteditable="true"></div>
-        <div id="preOnboardingPdfPreview" style="display:none;border-top:1px solid var(--gray100);padding:12px 16px">
+        <div id="jobOfferPdfPreview" style="display:none;border-top:1px solid var(--gray100);padding:12px 16px">
           <div style="font-size:12px;font-weight:700;color:var(--gray500);margin-bottom:8px">&#128190; Attached file — Pre-Onboarding Requirements.pdf (this is exactly what gets attached when you hit "Send Automatically")</div>
-          <iframe id="preOnboardingPdfFrame" style="width:100%;height:500px;border:1px solid var(--gray200);border-radius:8px" title="Pre-Onboarding Requirements PDF preview"></iframe>
+          <iframe id="jobOfferPdfFrame" style="width:100%;height:500px;border:1px solid var(--gray200);border-radius:8px" title="Pre-Onboarding Requirements PDF preview"></iframe>
         </div>
       </div>
     </div>
@@ -1324,8 +1323,8 @@ const EMM_TEMPLATE_FILENAME = "MS_AR_EMM_Assessment_blank.xlsx";
 // Pre-Onboarding Requirements email is sent via "Send Automatically" --
 // same pattern as the EMM template attachment above).
 // ============================================================
-const PRE_ONBOARDING_PDF_FILENAME = "Pre Onboarding Requirements.pdf";
-const PRE_ONBOARDING_PDF_B64 = "JVBERi0xLjQKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSIC9GMiAzIDAgUiAvRjMgNCAwIFIgL0Y0IDYgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9CYXNlRm9udCAvSGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nIC9OYW1lIC9GMSAvU3VidHlwZSAvVHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjIgL1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iago0IDAgb2JqCjw8Ci9CYXNlRm9udCAvU3ltYm9sIC9OYW1lIC9GMyAvU3VidHlwZSAvVHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0EgPDwKL1MgL1VSSSAvVHlwZSAvQWN0aW9uIC9VUkkgKGh0dHBzOi8vd3d3LnNwZWVkdGVzdC5uZXQvKQo+PiAvQm9yZGVyIFsgMCAwIDAgXSAvUmVjdCBbIDEyMy44MDIgNDMxLjQgMjQ2Ljk0NiA0NDQgXSAvU3VidHlwZSAvTGluayAvVHlwZSAvQW5ub3QKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL0Jhc2VGb250IC9IZWx2ZXRpY2EtT2JsaXF1ZSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjQgL1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iago3IDAgb2JqCjw8Ci9BIDw8Ci9TIC9VUkkgL1R5cGUgL0FjdGlvbiAvVVJJIChodHRwczovL3d3dy50eXBpbmd0ZXN0LmNvbS8pCj4+IC9Cb3JkZXIgWyAwIDAgMCBdIC9SZWN0IFsgMTIzLjgwMiAzMzEuNCAyNTEuNTk3NSAzNDQgXSAvU3VidHlwZSAvTGluayAvVHlwZSAvQW5ub3QKPj4KZW5kb2JqCjggMCBvYmoKPDwKL0EgPDwKL1MgL1VSSSAvVHlwZSAvQWN0aW9uIC9VUkkgKGh0dHBzOi8vd3d3Lm1hbHdhcmVieXRlcy5jb20vKQo+PiAvQm9yZGVyIFsgMCAwIDAgXSAvUmVjdCBbIDIzNi40MDQgMjQ2LjQgMzg0LjAyMzUgMjU5IF0gL1N1YnR5cGUgL0xpbmsgL1R5cGUgL0Fubm90Cj4+CmVuZG9iago5IDAgb2JqCjw8Ci9BIDw8Ci9TIC9VUkkgL1R5cGUgL0FjdGlvbiAvVVJJIChodHRwczovL2RvY3MuZ29vZ2xlLmNvbS9kb2N1bWVudC9kLzFLX1ltRzFmUTBJT3FpSzJMdHR6Vm9ldGZad0poSmk4R0wtVEluV0dEeG84L2VkaXQpCj4+IC9Cb3JkZXIgWyAwIDAgMCBdIC9SZWN0IFsgMjI4LjcyMTUgNzAuOCA0MTEuMzU4NSA4My40IF0gL1N1YnR5cGUgL0xpbmsgL1R5cGUgL0Fubm90Cj4+CmVuZG9iagoxMCAwIG9iago8PAovQW5ub3RzIFsgNSAwIFIgNyAwIFIgOCAwIFIgOSAwIFIgXSAvQ29udGVudHMgMTYgMCBSIC9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0gL1BhcmVudCAxNSAwIFIgL1Jlc291cmNlcyA8PAovRm9udCAxIDAgUiAvUHJvY1NldCBbIC9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUkgXQo+PiAvUm90YXRlIDAgCiAgL1RyYW5zIDw8Cgo+PiAvVHlwZSAvUGFnZQo+PgplbmRvYmoKMTEgMCBvYmoKPDwKL0EgPDwKL1MgL1VSSSAvVHlwZSAvQWN0aW9uIC9VUkkgKG1haWx0bzphZG1pbkBhYi1idXNpbmVzc3N1cHBvcnQuY29tKQo+PiAvQm9yZGVyIFsgMCAwIDAgXSAvUmVjdCBbIDY3LjIgNjQ5Ljc4NzUgMjIwLjgyNTUgNjY0Ljc4NzUgXSAvU3VidHlwZSAvTGluayAvVHlwZSAvQW5ub3QKPj4KZW5kb2JqCjEyIDAgb2JqCjw8Ci9Bbm5vdHMgWyAxMSAwIFIgXSAvQ29udGVudHMgMTcgMCBSIC9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0gL1BhcmVudCAxNSAwIFIgL1Jlc291cmNlcyA8PAovRm9udCAxIDAgUiAvUHJvY1NldCBbIC9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUkgXQo+PiAvUm90YXRlIDAgCiAgL1RyYW5zIDw8Cgo+PiAvVHlwZSAvUGFnZQo+PgplbmRvYmoKMTMgMCBvYmoKPDwKL1BhZ2VNb2RlIC9Vc2VOb25lIC9QYWdlcyAxNSAwIFIgL1R5cGUgL0NhdGFsb2cKPj4KZW5kb2JqCjE0IDAgb2JqCjw8Ci9BdXRob3IgKFwoYW5vbnltb3VzXCkpIC9DcmVhdGlvbkRhdGUgKEQ6MjAyNjA4MTAxOTA2MTYrMDgnMDAnKSAvQ3JlYXRvciAoXCh1bnNwZWNpZmllZFwpKSAvS2V5d29yZHMgKCkgL01vZERhdGUgKEQ6MjAyNjA4MTAxOTA2MTYrMDgnMDAnKSAvUHJvZHVjZXIgKFJlcG9ydExhYiBQREYgTGlicmFyeSAtIFwob3BlbnNvdXJjZVwpKSAKICAvU3ViamVjdCAoXCh1bnNwZWNpZmllZFwpKSAvVGl0bGUgKFwoYW5vbnltb3VzXCkpIC9UcmFwcGVkIC9GYWxzZQo+PgplbmRvYmoKMTUgMCBvYmoKPDwKL0NvdW50IDIgL0tpZHMgWyAxMCAwIFIgMTIgMCBSIF0gL1R5cGUgL1BhZ2VzCj4+CmVuZG9iagoxNiAwIG9iago8PAovRmlsdGVyIFsgL0FTQ0lJODVEZWNvZGUgL0ZsYXRlRGVjb2RlIF0gL0xlbmd0aCAxNzY0Cj4+CnN0cmVhbQpHYXVgVD4+c1E/J1JvNEhTPlMiLC9CM2lrJCNeNDwxPj02VlFEREQrMDkzLkcnakw2NDEyZCk+TyhART9ER0RzXCxuKCo/RlMoIkVZIV4iRChVOElSKjhsLEtRZXImWyRIIlMwaHNrLk0jQ0lQYHJCKT1sYXRSaWE3Kz85RWdqbV1rNjpoYV5fJyxLa29tQ2AmXlYoMyRRU1Q9Rms0MS8yJSEqK1hKVHQzVDI1OEYzPmYxXVxcNnFxRlRJTDpPQylGMkdOQC5FdSRIJ1ZlcG1YO0QjSk80bUtgMW5EKSNRQ0lTcTAtRyNTLzVucGYhLF4+YyhjPV5hJl9abldOIS1rVW0iUF0wUDtCKyc8cXU3SCF1OmQiIkEtXUIxbmEsJXJnLFRTU2BEKi50PWIta01ZS1RJTlFqKUghLSNBZTsiRTg3SV9QMXRHPmQwJk9tMVlxMFpxJHNfSGAnNCo8WSIiZS5qYzRjVF4pOksjZEtdMCdiUEk0UG09WV5ST00pLltMLzl0NUxAT1JEVWU0PE5sNVZxUmAwVXNpOUApQjJOLkt0WUNAcFw6Ry9DcikiUFNyZjNPJGZSUE9eTyUuO0YkMGJhJlNGIl88QUVYPURFcCIuVTQwbj4qYz9nRiQ1KFtObz4qNGBILDdhS01eXTFeUm1PIiY6WW0rST1KbWsnNlwhdUlNQ2FdKEdaaERQai8lInEzakQ+MjdobDpgLjstbipaLFNCaUZDQkhkN1QxaCJbMjwuMnIhYjMlamNOcE1FVi5tLjJgZTYsLUIkPz1taElUMi0kKyxrWG9OV2dgakRiTU5BQyRNQDJQcDVdbERSIyNLQz9LKVlYOCFuOUdmKCVFKklrVU5fMzM4IlkjXGg8LU0nLT9rYzc0UlVEMk05UmMpWy8sZFE7K1wrJm5aaCFAaGdbODxGRi5icjh0LHVIKTxtW0leYHAscGJKInRgZlQ5aFxvaSpVZkU4IS4tNUNZQ2tYIjZYYHRNZT5xLiFvOmRELTwiSW5uY14nTERJayI9akBiJTRlLzhXRUc6R1onNTVeLSczJGxdPFdAKFlBcyNrKjokLFItNjg2SjBoUTBfQzZQQ2tCMUciPkIlcjpFJGFgI15EOVZ0QVdbWCc5UkxlMVA8JExWQ0dHLy5nUW87PlhiT0NVbW90WWomMiFwZC1bbCcjY1dJTG8vMHVvbk5QOjFgKUhtLSdrKDg9VGZJLXI4ZzQscj4/NjBALG9sVSJsXz9JajhkLilRaiotZ2AmUmJNQV0lSVcuOFpkcE1OL1xzN1wvOzQ+SlUjLVdCVEtfNzVyJUxiRVFYZD4mVGY7bFNmPSMqY2UpUChscm9SQlI/K0RbK10zNDJ0a19MLFV1VlwuXzdIWzJzMWktNmk9UTFuOVkiWiZKL29cWiFXL3BMXmFMX0NfLmJgalBMWTVnQlByTVdPI1M8cCtoWWBCXjBbW0cnT0ZkMC5UNF87SCVnV1BEK0ZZUGpNSSFPP206Q0VyTUlBPiFfXEVOTV9iTlJCP1tMRm1zPlpaLy1bSXVzWSdETC5GRF84SjpRTEBOLiwzUFtVczZMLkwpYzA3bmMlR0JJaVNKSS5QR0JcZ0FENiIjWnFqRjI5Z2A1bF8tYTJjSkZPZFxGJyY4aD84QVoxOEU6a0c+aEJGUSNwP1EmUVVoVD5ETWhwNSd0UnUpIlpRb2MmTnAnUFJgJiQiPlllZFkycjlTJElLLSdJVz4waUVwcGxybFk1OjJyJFRmOyVicEBnRGInWzhlalwoTysjVi9OLlcqNFE1SmZcKyZbWU5DV0paYkFPZiYncVFNOys9JW45PStgZz8hQm5wZ0lGYEtCPjZXXFhOQDdnWC04Z00tL0NlOnJjaHFKQVg8PldqQmZAI0BaJj01KU87MHFCVWBMZ0goQjVjKlU/ZF1GaENWXT04KyZAMlkzPT44ck9fcHU8XCgpNy4+dT85cS1wQjJFJE5JJjhfZSguSEdHNWxYNSFiVWFPWEE0L0wuOVgwZCZVSCw1Q1klMDdCMGYsc0gjcSFhYDFFYjlkMnJUZTk6XmtsXmBbZ0ZxWFckOytXVUE/MHBzYl5rMGhzW10sMV5yVldSTi8hS1peKj5qOUQhYiIyRjxRb2leXWZWXj8+azhvNj9YWE1iUDBTP1ZUTkYybltaUyU4MlRrRmAuK1hzKUMxcXQublAiTFVLZkAnUERJLjo5OyZdVGllaFxjclZuJ0BvaTlicSdUSFRpZnRYMEdiZGdOQCNRJ2Q5MFBFJVhaS0lLbEUpJyYzJmZiWUAsYWQ6NjVXcHFZRTVBVVRVQ0NWPC5VIV0vZlUsayg5cGghQSwjVUBLfj5lbmRzdHJlYW0KZW5kb2JqCjE3IDAgb2JqCjw8Ci9GaWx0ZXIgWyAvQVNDSUk4NURlY29kZSAvRmxhdGVEZWNvZGUgXSAvTGVuZ3RoIDU1MQo+PgpzdHJlYW0KR2F0biJoK2x1YSY7QlRNJ1FbRT1DMTkrZFpyYTtuW0xzMyhsazBVSlxlZSsmLHBBKmNDZSM0WV5aMlwjY2tbPz5AYGFZc1JJUV42YTtiNyJdViJkImkrRUMwMUNkWVRcY2EoWyZDTzVIUG4nQWpIa1JBRjlMJ2QnKC9rOyU7WzIrcCQhQENGIiRILWdJQStJRi86bT5yczdUTGIjZkNHQyxOb29uJ1A6cDlFISM4Oy0nLE9XbFowblJMdVFZc2hgWlRCPVdwPldGbzFhOyFaMCJSRVVdXGEiI2Apb2FxaV5hWTgrWiRVZDwoND9AZ1NQZmZoKVFvZCdSYWZWJzBZYCUrUC9gZEY5Zip0XWhjMV1cQUdQPF1cVnBSRmFpKVlEXVZPQjdwYDc9WSZLUVNrVklWLGs7VkI9Y21HcyJPWmBoXlxFSldJbjRua2wuR0tCcCNLMT4mVT0/Q0tQbl9vM2pVQ0gsaXNjIl4lU0IoImEoc2tuMDFocjJPZU5xZnRuVmQ/TnBPYlhQYEo5ODFzTlkmMVJkTilVay88LiNvLzE/U3NiIztwNF9fTXVDWltFPmo1TWMpXlQ/W1Y5NksrMDpzMURfNmRMTzc/YWVlLGFVWkdEI1xQUWkpJ0hSSTNkci1eYChLaUY9ZS1maDtsPyo7UyNyRkAsKkRWZktPaSF1STNdKDJPRkM9QnFQUHI9bTw/XjdlYEFfOWFaMF9jMCpCSGtlfj5lbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCAxOAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwNjEgMDAwMDAgbiAKMDAwMDAwMDEyMiAwMDAwMCBuIAowMDAwMDAwMjI5IDAwMDAwIG4gCjAwMDAwMDAzNDEgMDAwMDAgbiAKMDAwMDAwMDQxOCAwMDAwMCBuIAowMDAwMDAwNTg2IDAwMDAwIG4gCjAwMDAwMDA3MDEgMDAwMDAgbiAKMDAwMDAwMDg3MSAwMDAwMCBuIAowMDAwMDAxMDQzIDAwMDAwIG4gCjAwMDAwMDEyNzEgMDAwMDAgbiAKMDAwMDAwMTUwMyAwMDAwMCBuIAowMDAwMDAxNjg3IDAwMDAwIG4gCjAwMDAwMDE5MDIgMDAwMDAgbiAKMDAwMDAwMTk3MiAwMDAwMCBuIAowMDAwMDAyMjUzIDAwMDAwIG4gCjAwMDAwMDIzMjEgMDAwMDAgbiAKMDAwMDAwNDE3NyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9JRCAKWzxkNzMyMWE1NjgwODllMWE4NzIyYjJiODlmYTNjNTI0MD48ZDczMjFhNTY4MDg5ZTFhODcyMmIyYjg5ZmEzYzUyNDA+XQolIFJlcG9ydExhYiBnZW5lcmF0ZWQgUERGIGRvY3VtZW50IC0tIGRpZ2VzdCAob3BlbnNvdXJjZSkKCi9JbmZvIDE0IDAgUgovUm9vdCAxMyAwIFIKL1NpemUgMTgKPj4Kc3RhcnR4cmVmCjQ4MTkKJSVFT0YK";
+const JOB_OFFER_PDF_FILENAME = "Pre-Onboarding Requirements.pdf";
+const JOB_OFFER_PDF_B64 = "JVBERi0xLjQKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSIC9GMiAzIDAgUiAvRjMgNCAwIFIgL0Y0IDYgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9CYXNlRm9udCAvSGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nIC9OYW1lIC9GMSAvU3VidHlwZSAvVHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjIgL1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iago0IDAgb2JqCjw8Ci9CYXNlRm9udCAvU3ltYm9sIC9OYW1lIC9GMyAvU3VidHlwZSAvVHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0EgPDwKL1MgL1VSSSAvVHlwZSAvQWN0aW9uIC9VUkkgKGh0dHBzOi8vd3d3LnNwZWVkdGVzdC5uZXQvKQo+PiAvQm9yZGVyIFsgMCAwIDAgXSAvUmVjdCBbIDEwOS44MDIgMzQ4LjQ1IDE3Ny40ODUgMzYxLjA1IF0gL1N1YnR5cGUgL0xpbmsgL1R5cGUgL0Fubm90Cj4+CmVuZG9iago2IDAgb2JqCjw8Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUgL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcgL05hbWUgL0Y0IC9TdWJ0eXBlIC9UeXBlMSAvVHlwZSAvRm9udAo+PgplbmRvYmoKNyAwIG9iago8PAovQSA8PAovUyAvVVJJIC9UeXBlIC9BY3Rpb24gL1VSSSAoaHR0cHM6Ly93d3cudHlwaW5ndGVzdC5jb20vKQo+PiAvQm9yZGVyIFsgMCAwIDAgXSAvUmVjdCBbIDEwOS44MDIgMjM1LjQ1IDE4NC40NzggMjQ4LjA1IF0gL1N1YnR5cGUgL0xpbmsgL1R5cGUgL0Fubm90Cj4+CmVuZG9iago4IDAgb2JqCjw8Ci9BIDw8Ci9TIC9VUkkgL1R5cGUgL0FjdGlvbiAvVVJJIChodHRwczovL3d3dy5tYWx3YXJlYnl0ZXMuY29tLykKPj4gL0JvcmRlciBbIDAgMCAwIF0gL1JlY3QgWyAxMzAuODAyIDEyMi40NSAxOTkuNjYxIDEzNS4wNSBdIC9TdWJ0eXBlIC9MaW5rIC9UeXBlIC9Bbm5vdAo+PgplbmRvYmoKOSAwIG9iago8PAovQW5ub3RzIFsgNSAwIFIgNyAwIFIgOCAwIFIgXSAvQ29udGVudHMgMTYgMCBSIC9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0gL1BhcmVudCAxNSAwIFIgL1Jlc291cmNlcyA8PAovRm9udCAxIDAgUiAvUHJvY1NldCBbIC9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUkgXQo+PiAvUm90YXRlIDAgCiAgL1RyYW5zIDw8Cgo+PiAvVHlwZSAvUGFnZQo+PgplbmRvYmoKMTAgMCBvYmoKPDwKL0EgPDwKL1MgL1VSSSAvVHlwZSAvQWN0aW9uIC9VUkkgKGh0dHBzOi8vZG9jcy5nb29nbGUuY29tL2RvY3VtZW50L2QvMUtfWW1HMWZRMElPcWlLMkx0dHpWb2V0Zlp3SmhKaThHTC1USW5XR0R4bzgvZWRpdCkKPj4gL0JvcmRlciBbIDAgMCAwIF0gL1JlY3QgWyAxNzkuNzg1IDY5Mi42NSAzNzQuNjY1IDcwNS4yNSBdIC9TdWJ0eXBlIC9MaW5rIC9UeXBlIC9Bbm5vdAo+PgplbmRvYmoKMTEgMCBvYmoKPDwKL0EgPDwKL1MgL1VSSSAvVHlwZSAvQWN0aW9uIC9VUkkgKG1haWx0bzphZG1pbkBhYi1idXNpbmVzc3N1cHBvcnQuY29tKQo+PiAvQm9yZGVyIFsgMCAwIDAgXSAvUmVjdCBbIDM0NS4wNjU1IDYyNy42NSA1MTEuMDgxIDY0MC4yNSBdIC9TdWJ0eXBlIC9MaW5rIC9UeXBlIC9Bbm5vdAo+PgplbmRvYmoKMTIgMCBvYmoKPDwKL0Fubm90cyBbIDEwIDAgUiAxMSAwIFIgXSAvQ29udGVudHMgMTcgMCBSIC9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0gL1BhcmVudCAxNSAwIFIgL1Jlc291cmNlcyA8PAovRm9udCAxIDAgUiAvUHJvY1NldCBbIC9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUkgXQo+PiAvUm90YXRlIDAgCiAgL1RyYW5zIDw8Cgo+PiAvVHlwZSAvUGFnZQo+PgplbmRvYmoKMTMgMCBvYmoKPDwKL1BhZ2VNb2RlIC9Vc2VOb25lIC9QYWdlcyAxNSAwIFIgL1R5cGUgL0NhdGFsb2cKPj4KZW5kb2JqCjE0IDAgb2JqCjw8Ci9BdXRob3IgKFwoYW5vbnltb3VzXCkpIC9DcmVhdGlvbkRhdGUgKEQ6MjAyNjA4MTAyMTQ4MzYrMDgnMDAnKSAvQ3JlYXRvciAoXCh1bnNwZWNpZmllZFwpKSAvS2V5d29yZHMgKCkgL01vZERhdGUgKEQ6MjAyNjA4MTAyMTQ4MzYrMDgnMDAnKSAvUHJvZHVjZXIgKFJlcG9ydExhYiBQREYgTGlicmFyeSAtIFwob3BlbnNvdXJjZVwpKSAKICAvU3ViamVjdCAoXCh1bnNwZWNpZmllZFwpKSAvVGl0bGUgKFwoYW5vbnltb3VzXCkpIC9UcmFwcGVkIC9GYWxzZQo+PgplbmRvYmoKMTUgMCBvYmoKPDwKL0NvdW50IDIgL0tpZHMgWyA5IDAgUiAxMiAwIFIgXSAvVHlwZSAvUGFnZXMKPj4KZW5kb2JqCjE2IDAgb2JqCjw8Ci9GaWx0ZXIgWyAvQVNDSUk4NURlY29kZSAvRmxhdGVEZWNvZGUgXSAvTGVuZ3RoIDE5NzQKPj4Kc3RyZWFtCkdiIi8oOTY4aUcmQUlJM0NfKDZOOVsiKCs7bjRvRmRyRDZbKksrWC8xVlFbMkEwRTljUk5TQmhoZmYpYixbJGlmVjolPlk9Q1ZzRl5qVVVfcj4pJTNSLnFqJClQbUZQIWRPQzAhMjBydEpDb1NjXy1fLiYlLjRAclMqPGYpbjhVQDApVW9zc0I3Vz9jY1pGbkwzOzFecDp0dU5gOjM7PVluTnUyNltnRT4nKEJbVVpfJjlAKTtsY1guTVkmXWgpSylZYUJCI2g8RElKRyw2JkssIiY1LnEkUSdkY0EydDV1JGtpMVh1QkVZKlY9JydsWSM7QTNScm9gOy5xPDBnQT9RalpmRkZEJFBddFNyIWYnQiM5Y19SdDBDRXAiRkdNWCEqKiNIOjhZM0dhP1U0P1UhR0tpW2oyM01dXVc8VyVWUmJfJlg/bXViY0tMbzRbXktGUlA4K3NXTDs5PGpoQic/NjRObjlcLVBHKWRnQCthaWpSK1NbKDxGWjZNODJPQEJOPjgqKGQyYlZSKD5VOUFRO0QwKUFTSWE/UCFQSUdpYD5XO18tQy0wOWRacmRnYjxDKTAoPy1xKyRAMz4vWVspQVNTYjY9R0xqR3JvZ010YDhRYk9XOEI6cGc7JkUkPFw6bnRHLS0ualNBTUUwKydcJy1hT3BgVF9OMmYiZCQ6TCRsaGchKiNEZkAkSCYkW0xPZT8wJlxackI8KkNgUFIpVHU2RnJOTltrLzosLWRxLGZzWSUvVzZLWDdxIzpfLTRMNlg5SlchQCxfbyJPQHEqPDVbKzVqR1YmaHI4Rz1sZ1pZWGw7LFRoOi5rOGBsW1Qralg7bSFzKyN1NmFhOCVcOlpOUlNkJ1c4J2NpK0pPcjdLVF5pcDc6QmJuTytAInVRQCMpO1RZJ1liT2JjbUFuVTdHVSdCWTVkIylDLWk5OWtAKSltT01HUCk+ZylUc21baElkViMjcFxAczYkIVBpNFQxa1tSUllQamZaOEEqdGkucU5iTlAoclVXOENmOyxpX15DYk49dVtFWHBJKmlsQyMqJippQUdCPGFqUyloUCNPJFNYUT5pOlNFPUc3N1JTcWEwLyNSIVNoVWhcKT5sSlk7NkI9JXM3YlY6bi9jKU47dD5KKFppblJWSHRASTRfWzElMGljTTAvUWZgKidwN3NGRGJ1LUJMMkhhNVRtQ1BGJTdsY00mIkIuXE5sPkIjVT1DcjRFbFUvVG43Lkg6OmRhJzE/N0o5SUc9OXBaMyhfXnFZL11hU1tkbSZwaGsiI2UtRS5NL1lDLVEmIVZBXlRcUDZLJ1BASEZfdVkvcjUpa2g/bFhnWCRkOFleQkc2OjU9MHQ2UUVsZnFDc1BiNlMnay1XOEZZTEtqR2NwZiwkKCFDdDt0PGNuWDVjYC82czk8SyFydC8yKFxPOWojWVxVaG1pOD4oUDkibEZsbDtUSCExK2MuSDNdXnRDXUo4Z0pNWy8tc1tiYUE8U2MnT2UiYkFEXj8kQFBdUTYkQidCKFktSV5bVFtCKEhyUWxDZFpHX25QSWdoNjRTST5IImEyPl5FWWZsTSkrSSNYXiRLJEI4WDZNJFY1TilRQy86YjA8RENnO3FAa1NRXjZQW11pOCgvZVhaKVIicj44dW0nRi9AMmY5UFQ+QTRINF1tW01QRVUwQ15XIkMiJnMwOV0qcFJbUnA8VGRXMSxYLmU2QT5PbS8nMGo5bmhqNkVqQTxBREMvaDlVPDxAQSc9OCMyN3FbRXA3MmhfT2FWMTw0MVFOK1twbTNAXGtjQSZoZXQldHFfQCEjUkcsSjkqNClTOF1uKXAiS1osN3NBMD5dKGpSZWZsW0NfM2cmdDVvL0taQTwiKEEzXUVAamgzZF07P15gPk1oMWI1NzhnPSI6cVpmVmJdYlMyQ2IyUSxSXCtBODxyTTxgYDZvL2AqPTk1RyE0LDNYakskOD0qSFQubj9iZSY1QGMzXCJfJjdeIzNzImMzMHQhZD9gQ11pPyZiUUNqPFwjQj1XRzR0PHA3NWlMcGlrY1c6MEpXJWJBNyEyI1luT1suUnJkKlImU2k0U3Q5dVtKTTJuWkFxSS4kZ0NHU2RcWHJWRiJISklyW2JiUjhyJnE2PlpCZltTNHNVMixKci8rNThuME1JXWM4U2o2U0YjUVB1LENNUS5rWmskJ01eNmcmRDYqVXJ0YTwzZmc6VWc0UmYiWF1lTTl0Nl9RTUw3cHBGOF83cW5ablVKQiFQQWhmLUpDSE0nczxVW2I6Ii1JQDNFPGxQQ3JLWyUocXNxOSg9RDhcclMxTjFzLzg3YSZhOCVsUy9ET1pzVzAlbWVELWcrQ2A6Yl46OVRaYG1pdDNLaVdVXVI0Y1U2KSllQU5kRUBHTShoZkZFOls9VScsTzFMOEhPOVRWS1tnVlVFSj5gNTZPPlxqJ2ErXER1UGxxNl9QTmtLdFBuWG48ST9nW1dxMmcsPEZXZTVPKGg3b2VgaFZrUkpBU2lZTThvbFltVSclLl1NI09DN1ZlWEBsZk1hQWVHUF5YQygqPllLKy1rJUplTzZGOVBlRnFeWSgmUiwvSGQiO2xPJm07b1c6aURHYmhlXTw0Yiwqbl8/NCRvOiFAYDZOLU5+PmVuZHN0cmVhbQplbmRvYmoKMTcgMCBvYmoKPDwKL0ZpbHRlciBbIC9BU0NJSTg1RGVjb2RlIC9GbGF0ZURlY29kZSBdIC9MZW5ndGggODg1Cj4+CnN0cmVhbQpHYXRtOWFfb2llJkFAQltrKj8vViw+bm9HUztKcC8nIiNvXFUrIzpKQTlmLkZROk9IL2xLN09zPCtJQWInKkFQV19fVDNtYyRNN2EpJUo5SUgyI05USjwoIVYlbGVNL2FUVC0iSHE6dWdRYy1GWUdlWiYhOVJyKWdHMzxVTT9AIzlKRzNSamwxNFZBOlQwIlRdNjojTkBNTEVicEAubUJORS4uI01tVzhjTFBVclYtIUI1XENLJCtIWkxyQyRGbStLXHRLdUsyQ0U/RksjJVpRNUVwZWFedTdzN3VaOUZgKVAiLz9rRUk7WXJZQ29IQTtFJWdQZUVQWzhdIzAnIzM3UXJPJylNTDxfP1tDIi0hQC91TSRLMF4iI3MjNjJxYGJLVTFJXGZmN3FIUjNYcWAzYTxea2EjIUAybE4qKlZbL0g3XTRPKENZVmhDXUVdL3F1bTInQ2tdXSRoIyEiK2VRQVkqTlpqKlRYYCJUI2NUNl1VVlpRSD1QKypNNyRYJ0pQPHNKITFePUhcdClHdXAlREBES3EpUkg7Y0AsJVgjZDNKN0xrV01naTpAYE9VWV5dTkRsQz4+WmciQU0wR2o/OScrcGUoUiVLMjJQaWxTKGVcMG9DYW4+LigjRjk9YU43OykyWCczc1JHOTAsXkZWImZwWFBPWnIqV3NoOlgiJjw2Yyhbaz8mL1krJGc0T19pdXFaK29KOFZEOz1oK1Q2dUA/YkBbQkpkKS5DRE1WRV10MlIkK0VobFpUPmQnUDJLYktIMWNGKSo7LitQXWdXS1hzLkxWWHMuaVszTC10JExJNFBdW2QjOms2dWVKSl9DSzVOdGheJVJhczo8LXFLNSw9c0s7LzozK2BnRjM3RlBTVytdRmdyVkkoJzw7YjNrOHMndWY2b2FwU25PcCZtIWA0TSI/NlNedWgraDYsVldUYiVpY3MwPWctWyxlcGhCby49RytGLV9zNDZmLnBsYnJwbU4sPy9BVTNmYCpIIy08OFNsLDJlX2lBUk0+Jz9jXGVtNFxiVEMjZ2BZRmlSNW1waWRqInU+UUJmXUo/NkZNWS04UjdwTzpsVXEiQWYzUFpzZk47M1EvbEQ+bSlcL0chKm81Li9sXj9RdExaW1pFUnJsKEEvLFwiTEJzOT9IY15Vb1E+dShpSXJXQS1GIU5Rfj5lbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCAxOAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwNjEgMDAwMDAgbiAKMDAwMDAwMDEyMiAwMDAwMCBuIAowMDAwMDAwMjI5IDAwMDAwIG4gCjAwMDAwMDAzNDEgMDAwMDAgbiAKMDAwMDAwMDQxOCAwMDAwMCBuIAowMDAwMDAwNTkwIDAwMDAwIG4gCjAwMDAwMDA3MDUgMDAwMDAgbiAKMDAwMDAwMDg3OCAwMDAwMCBuIAowMDAwMDAxMDUzIDAwMDAwIG4gCjAwMDAwMDEyNzggMDAwMDAgbiAKMDAwMDAwMTUwOSAwMDAwMCBuIAowMDAwMDAxNjkyIDAwMDAwIG4gCjAwMDAwMDE5MTQgMDAwMDAgbiAKMDAwMDAwMTk4NCAwMDAwMCBuIAowMDAwMDAyMjY1IDAwMDAwIG4gCjAwMDAwMDIzMzIgMDAwMDAgbiAKMDAwMDAwNDM5OCAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9JRCAKWzwxOWEzMzZkOTIyNGNkYWYzNTU1ZDYxOWRkZTY0MTYzMT48MTlhMzM2ZDkyMjRjZGFmMzU1NWQ2MTlkZGU2NDE2MzE+XQolIFJlcG9ydExhYiBnZW5lcmF0ZWQgUERGIGRvY3VtZW50IC0tIGRpZ2VzdCAob3BlbnNvdXJjZSkKCi9JbmZvIDE0IDAgUgovUm9vdCAxMyAwIFIKL1NpemUgMTgKPj4Kc3RhcnR4cmVmCjUzNzQKJSVFT0YK";
 
 function downloadEmmTemplate(){
   try{
@@ -1344,9 +1343,9 @@ function downloadEmmTemplate(){
   }
 }
 
-function openPreOnboardingPdfTab(){
+function openJobOfferPdfTab(){
   try{
-    const byteChars = atob(PRE_ONBOARDING_PDF_B64);
+    const byteChars = atob(JOB_OFFER_PDF_B64);
     const byteNumbers = new Array(byteChars.length);
     for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
     const byteArray = new Uint8Array(byteNumbers);
@@ -2452,9 +2451,8 @@ function buildDecisionTab(a){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:#0f9d58;color:#fff" onclick="goToOfferEmail(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
         <button class="btn btn-sm" style="background:#1a73e8;color:#fff" onclick="goToOfferEmail(${a.id},'contract')">&#128196; Send Contract</button>
-        <button class="btn btn-sm" style="background:#6d28d9;color:#fff" onclick="goToOfferEmail(${a.id},'pre_onboarding')">&#128187; Send Pre-Onboarding Requirements</button>
       </div>
-      <div style="font-size:11px;color:var(--gray400);margin-top:6px">Send Pre-Onboarding Requirements before the Job Offer / Contract -- these device/security checks are meant as a step before the offer is finalized, not after.</div>
+      <div style="font-size:11px;color:var(--gray400);margin-top:6px">The Job Offer email now includes the pre-onboarding requirements (device/internet/typing/security checks) as an attached PDF -- there's no separate email for those anymore.</div>
     </div>`;
       }
       return out;
@@ -3504,7 +3502,7 @@ Start Date: {startdate}
 Rate: {rate}
 Signed by: {signatory}
 
-Please review the details above. Our HR team will follow up shortly with your onboarding requirements and the formal contract for signature. If you have any questions about this offer, feel free to reach out.
+Please review the details above, and see the attached Pre-Onboarding Requirements PDF for a few quick technical checks (device specs, internet speed, typing speed, and a security scan) to complete before your start date. Our HR team will follow up shortly with the formal contract for signature. If you have any questions about this offer, feel free to reach out.
 
 We are excited to welcome you to the team!
 
@@ -3529,23 +3527,6 @@ Please review these terms carefully and reply to confirm your agreement, or let 
 
 Warm regards,
 {signatory}
-ABBSS`
-  },
-  pre_onboarding:{
-    subject:'[ABBSS] Pre-Onboarding Requirements — {position}',
-    body:`Dear {name},
-
-Thank you for completing your interview process with us! As we prepare to move forward, please complete the following pre-onboarding requirements before we finalize your offer.
-
-Kindly fill out the following:
-https://docs.google.com/forms/d/e/1FAIpQLSdCo3oJFXmEBpEyUlj4UBy1k18wSfUbYJoAHJ52C-MW2prVMA/viewform?usp=sharing&ouid=117445945147911071051
-
-Please also see the attached Pre-Onboarding Requirements PDF for the technical checks (device specs, internet speed, typing speed, and a security scan) to complete before your start date ({startdate}).
-
-Thank you for completing these requirements. We look forward to working with you!
-
-Warm regards,
-HR Team
 ABBSS`
   },
   interview_availability:{
@@ -3578,7 +3559,6 @@ const EMAIL_TEMPLATE_LABELS={
   offer:'Next Steps / Offer',
   job_offer:'Job Offer',
   contract:'Contract',
-  pre_onboarding:'Pre-Onboarding Requirements',
   interview_availability:'Interview Availability Request'
 };
 function setEmailTemplate(key){
@@ -3592,16 +3572,16 @@ function setEmailTemplate(key){
   document.getElementById('etBtn-'+key).style.color='#fff';
   var emmBtn=document.getElementById('emmTemplateBtn');
   if(emmBtn) emmBtn.style.display=(key==='assessment')?'inline-flex':'none';
-  var poBtn=document.getElementById('preOnboardingPdfBtn');
-  if(poBtn) poBtn.style.display=(key==='pre_onboarding')?'inline-flex':'none';
-  var poPreview=document.getElementById('preOnboardingPdfPreview');
-  var poFrame=document.getElementById('preOnboardingPdfFrame');
+  var poBtn=document.getElementById('jobOfferPdfBtn');
+  if(poBtn) poBtn.style.display=(key==='job_offer')?'inline-flex':'none';
+  var poPreview=document.getElementById('jobOfferPdfPreview');
+  var poFrame=document.getElementById('jobOfferPdfFrame');
   if(poPreview && poFrame){
-    if(key==='pre_onboarding'){
+    if(key==='job_offer'){
       // Lazy-set the src (only when this template is actually selected) so the
-      // ~240KB data URL isn't sitting loaded in the DOM for every other template.
+      // data URL isn't sitting loaded in the DOM for every other template.
       if(!poFrame.src || poFrame.src.indexOf('data:application/pdf')!==0){
-        poFrame.src = 'data:application/pdf;base64,' + PRE_ONBOARDING_PDF_B64;
+        poFrame.src = 'data:application/pdf;base64,' + JOB_OFFER_PDF_B64;
       }
       poPreview.style.display='block';
     } else {
@@ -3609,7 +3589,7 @@ function setEmailTemplate(key){
     }
   }
   var offerFields=document.getElementById('et-offer-fields');
-  if(offerFields) offerFields.style.display=(key==='job_offer'||key==='contract'||key==='pre_onboarding')?'block':'none';
+  if(offerFields) offerFields.style.display=(key==='job_offer'||key==='contract')?'block':'none';
   updateEmail();
   updateEmailSentStatus();
 }
@@ -3648,11 +3628,12 @@ async function sendEmailAutomatically(){
     payload.attachmentBase64=EMM_TEMPLATE_B64;
     payload.attachmentName=EMM_TEMPLATE_FILENAME;
     payload.attachmentMimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  } else if(currentTemplate==='pre_onboarding'){
-    // Same pattern -- the detailed device/internet/typing/security checklist
-    // lives in this PDF now instead of the email body, so attach it here.
-    payload.attachmentBase64=PRE_ONBOARDING_PDF_B64;
-    payload.attachmentName=PRE_ONBOARDING_PDF_FILENAME;
+  } else if(currentTemplate==='job_offer'){
+    // Pre-onboarding requirements (device/internet/typing/security checklist)
+    // now ride along with the Job Offer email instead of their own separate
+    // send -- same attachment pattern as the EMM template above.
+    payload.attachmentBase64=JOB_OFFER_PDF_B64;
+    payload.attachmentName=JOB_OFFER_PDF_FILENAME;
     payload.attachmentMimeType='application/pdf';
   }
   var btn=document.getElementById('sendAutoBtn');
