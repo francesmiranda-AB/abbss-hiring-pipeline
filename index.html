@@ -5112,7 +5112,7 @@ function handleViewAssessment(id, which){
     '<body style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555">' +
     '<h2>Taking you to the assessment&hellip;</h2>' +
     '<p>If you are not redirected automatically, <a href="' + safeTarget + '" target="_top">click here to continue</a>.</p>' +
-    '<script>try{ window.top.location.href = ' + jsTarget + '; }catch(e){ window.location.href = ' + jsTarget + '; }</script>' +
+    '<script>try{ window.top.location.href = ' + jsTarget + '; }catch(e){ window.location.href = ' + jsTarget + '; }<' + '/script>' +
     '</body></html>';
   return HtmlService.createHtmlOutput(html);
 }
