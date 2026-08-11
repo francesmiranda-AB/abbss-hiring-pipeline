@@ -1091,7 +1091,21 @@ tbody tr:last-child td{border-bottom:none}
 // ============================================================
 // Paste your Apps Script Web App URL here after deploying
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZDQpLmOfHd2rRAsrMy9WPcVK8-ReqI279-hn_SDjkLLqmC7Ap4AaW4MGI0mlDLPRM/exec';
-let SCRIPT_URL = localStorage.getItem('abbss_script_url') || DEFAULT_SCRIPT_URL;
+// A Google Workspace user's OWN browser often shows/copies a domain-qualified
+// variant of a script's URL (script.google.com/a/macros/YOURDOMAIN/s/ID/exec)
+// instead of the plain public one (script.google.com/macros/s/ID/exec). That
+// variant is what you see in YOUR OWN address bar since you're signed into
+// the domain, but it does not reliably work for external applicants who
+// aren't signed into a matching Workspace account -- it fails silently
+// (blank page / broken-image icon) with no clear error. Every assessment
+// link embedded in an outgoing email is built from SCRIPT_URL, so this must
+// always be collapsed back to the plain form before it's used for anything,
+// no matter what got saved into Settings/localStorage in the past.
+function normalizeScriptUrl(url){
+  if(!url) return url;
+  return String(url).replace(/^(https:\/\/script\.google\.com)\/a\/macros\/[^/]+\/s\//, '$1/macros/s/');
+}
+let SCRIPT_URL = normalizeScriptUrl(localStorage.getItem('abbss_script_url')) || DEFAULT_SCRIPT_URL;
 
 // Turns a fetch response into either the parsed JSON the backend sent, or --
 // when that's not possible -- a {success:false, error, _networkFailure:true}
@@ -5546,11 +5560,13 @@ function installComplianceTrigger(){
   return 'Compliance trigger installed (runs every 15 minutes)';
 }`;
 function saveScriptUrl(){
-  const url = document.getElementById('scriptUrlInput').value.trim();
-  if(!url){showSettingsMsg('Please enter a URL.','#b52a2a');return;}
+  const rawUrl = document.getElementById('scriptUrlInput').value.trim();
+  if(!rawUrl){showSettingsMsg('Please enter a URL.','#b52a2a');return;}
+  const url = normalizeScriptUrl(rawUrl);
   SCRIPT_URL = url;
   localStorage.setItem('abbss_script_url', url);
-  showSettingsMsg('✓ URL saved. Testing connection...','#1a7a4a');
+  document.getElementById('scriptUrlInput').value = url;
+  showSettingsMsg(url!==rawUrl ? '✓ URL saved (auto-corrected to the public form so applicant links work). Testing connection...' : '✓ URL saved. Testing connection...', '#1a7a4a');
   testConnection();
 }
 
@@ -8339,8 +8355,9 @@ else if(typeof applyRoleNavVisibility==='function') applyRoleNavVisibility();
 setEmailTemplate('assessment');
 renderDashboard();
 updateTrackerBadge();
-var savedUrl = localStorage.getItem('abbss_script_url');
+var savedUrl = normalizeScriptUrl(localStorage.getItem('abbss_script_url'));
 SCRIPT_URL = savedUrl || DEFAULT_SCRIPT_URL;
+if(savedUrl) localStorage.setItem('abbss_script_url', savedUrl); // persist the corrected form
 document.getElementById('scriptUrlInput').value = SCRIPT_URL;
 document.getElementById('connectionStatus').className = 'badge badge-pass';
 document.getElementById('connectionStatus').textContent = '✓ Connected';
