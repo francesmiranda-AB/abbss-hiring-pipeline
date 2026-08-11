@@ -3881,6 +3881,21 @@ const GRIT_FORM_LINK = 'https://forms.gle/JwGGt8UWnR6NgFga8';
 const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
 const DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
 
+// The plain, public web app URL for THIS deployment (matches the URL shown
+// in Deploy > Manage deployments). ScriptApp.getService().getUrl() looks
+// like the "correct" way to get this, but for a script deployed from a
+// Google Workspace account it can return a domain-qualified variant instead
+// (script.google.com/a/macros/YOURDOMAIN/s/.../exec) -- that variant is
+// what shows up in YOUR OWN browser address bar since you're signed into
+// the domain, but it does not reliably work for external applicants who
+// aren't signed into a matching Workspace account, and it silently breaks
+// (blank page / broken-image icon) instead of showing a clear error. Every
+// candidate/applicant-facing link (assessment links, the scheduling page,
+// the email-open tracking pixel) must be built from this hardcoded constant
+// instead, so they can never pick up that broken variant. If this
+// deployment is ever redeployed under a new URL, update this one line.
+const PUBLIC_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwZDQpLmOfHd2rRAsrMy9WPcVK8-ReqI279-hn_SDjkLLqmC7Ap4AaW4MGI0mlDLPRM/exec';
+
 // ============================================================
 // CANDIDATE STAGE MODEL V4 -- refines V3 to line up with the four-role
 // (HR / Operations / PM / CEO) architecture. There is deliberately no
@@ -4977,7 +4992,7 @@ function sendApplicantEmail(data){
       // the encoder has nothing to misfire on; browsers decode &#61; back to
       // "=" normally when rendering/following the link.
       var escapedBody = plainBody.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/=/g,'&#61;').replace(/\n/g,'<br>');
-      var pixelUrl = ScriptApp.getService().getUrl() + '?action=trackOpen&id=' + encodeURIComponent(data.applicantId) + '&t=' + encodeURIComponent(data.templateKey);
+      var pixelUrl = PUBLIC_WEBAPP_URL + '?action=trackOpen&id=' + encodeURIComponent(data.applicantId) + '&t=' + encodeURIComponent(data.templateKey);
       var safePixelUrl = pixelUrl.replace(/=/g,'&#61;');
       options.htmlBody = escapedBody + '<img src="' + safePixelUrl + '" width="1" height="1" style="display:none" alt="">';
       // SAFETY NET: the only literal "=" characters that should ever remain in
@@ -5167,7 +5182,7 @@ function renderSchedulingPage(id, token){
     var html = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:40px auto;padding:0 16px">' +
       '<h2>Interview Scheduling' + (name?(' — '+escapeHtml(name)):'') + '</h2>' +
       '<p style="color:#555">Please check all the times below that work for you, then submit. Our team will confirm one final time by email.</p>' +
-      '<form method="POST" action="' + ScriptApp.getService().getUrl() + '">' +
+      '<form method="POST" action="' + PUBLIC_WEBAPP_URL + '">' +
       '<input type="hidden" name="formAction" value="submitAvailability">' +
       '<input type="hidden" name="id" value="' + escapeHtml(String(id)) + '">' +
       '<input type="hidden" name="token" value="' + escapeHtml(String(token)) + '">' +
@@ -5501,7 +5516,7 @@ function sendComplianceReminderEmail(email,name,position,enteredBy,id){
   // view -- but only when we actually have an applicant id and a deployed
   // script URL to build the link from; otherwise fall back to the plain
   // form links so the reminder can never go out broken.
-  var scriptUrl = id ? ScriptApp.getService().getUrl() : '';
+  var scriptUrl = id ? PUBLIC_WEBAPP_URL : '';
   var gritLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'grit') : GRIT_FORM_LINK;
   var valuesLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'values') : VALUES_FORM_LINK;
   var emmLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'emm') : EMM_RESPONDER_LINK;
