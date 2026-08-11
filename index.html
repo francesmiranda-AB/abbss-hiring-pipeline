@@ -5099,11 +5099,20 @@ function handleViewAssessment(id, which){
   }
   try{ recordAssessmentView(id, which); }catch(e){ /* never let tracking block the candidate from reaching the form */ }
   var safeTarget = String(target).replace(/"/g,'&quot;');
-  var html = '<!doctype html><html><head><meta http-equiv="refresh" content="0;url=' + safeTarget + '">' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1.0"></head>' +
+  var jsTarget = JSON.stringify(String(target));
+  // Apps Script serves HtmlService output inside a sandboxed iframe, where a
+  // <meta http-equiv="refresh"> redirect can silently fail (blank page /
+  // broken-image placeholder) instead of leaving the candidate stuck on the
+  // form. A client-side top-level navigation is more reliable there, so we
+  // lead with that and keep the meta-refresh + manual link as fallbacks.
+  var html = '<!doctype html><html><head>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<meta http-equiv="refresh" content="1;url=' + safeTarget + '">' +
+    '</head>' +
     '<body style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555">' +
     '<h2>Taking you to the assessment&hellip;</h2>' +
-    '<p>If you are not redirected automatically, <a href="' + safeTarget + '">click here to continue</a>.</p>' +
+    '<p>If you are not redirected automatically, <a href="' + safeTarget + '" target="_top">click here to continue</a>.</p>' +
+    '<script>try{ window.top.location.href = ' + jsTarget + '; }catch(e){ window.location.href = ' + jsTarget + '; }</script>' +
     '</body></html>';
   return HtmlService.createHtmlOutput(html);
 }
