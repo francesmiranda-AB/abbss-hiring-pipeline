@@ -5093,6 +5093,7 @@ function getDavidBusyBlocks(startIso, endIso){
 }
 
 function handleViewAssessment(id, which){
+ try{
   var target = ASSESSMENT_LINK_TARGETS[which];
   if(!target){
     return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Link not valid</h2><p>This assessment link is missing information. Please contact HR for a new one.</p></div>');
@@ -5114,7 +5115,25 @@ function handleViewAssessment(id, which){
     '<p>If you are not redirected automatically, <a href="' + safeTarget + '" target="_top">click here to continue</a>.</p>' +
     '<script>try{ window.top.location.href = ' + jsTarget + '; }catch(e){ window.location.href = ' + jsTarget + '; }<' + '/script>' +
     '</body></html>';
-  return HtmlService.createHtmlOutput(html);
+  return HtmlService.createHtmlOutput(html).setTitle('Assessment Redirect');
+ }catch(err){
+  // Whatever goes wrong above (bad id/which, a Sheet read failing, anything
+  // unforeseen) must NEVER surface as a blank page or a broken-image icon --
+  // the candidate always gets a real, readable page with working links to
+  // every assessment form so they're never stuck.
+  var links = '';
+  try{
+    links = Object.keys(ASSESSMENT_LINK_TARGETS).map(function(k){
+      return '<p><a href="' + ASSESSMENT_LINK_TARGETS[k] + '" target="_top">Open the ' + k.toUpperCase() + ' assessment</a></p>';
+    }).join('');
+  }catch(e2){}
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555">' +
+    '<h2>Something went wrong loading this link</h2>' +
+    '<p>Please contact HR for a new link, or try one of these directly:</p>' + links +
+    '</div>'
+  ).setTitle('Assessment Redirect');
+ }
 }
 
 // ============================================================
