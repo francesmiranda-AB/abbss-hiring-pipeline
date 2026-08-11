@@ -5129,20 +5129,25 @@ function handleViewAssessment(id, which){
   }
   try{ recordAssessmentView(id, which); }catch(e){ /* never let tracking block the candidate from reaching the form */ }
   var safeTarget = String(target).replace(/"/g,'&quot;');
-  var jsTarget = JSON.stringify(String(target));
-  // Apps Script serves HtmlService output inside a sandboxed iframe, where a
-  // <meta http-equiv="refresh"> redirect can silently fail (blank page /
-  // broken-image placeholder) instead of leaving the candidate stuck on the
-  // form. A client-side top-level navigation is more reliable there, so we
-  // lead with that and keep the meta-refresh + manual link as fallbacks.
+  // Apps Script serves HtmlService output inside Google's own nested wrapper
+  // frame (the "This application was created by a Google Apps Script user"
+  // banner is part of that). Any AUTOMATIC redirect out of it -- meta-refresh
+  // or a JS window.top.location assignment -- gets treated as that wrapper
+  // trying to load the destination INSIDE a frame, and Google Forms actively
+  // refuses to be framed (anti-clickjacking), producing a "refused to
+  // connect" page instead of the form. A real click on a normal link is NOT
+  // subject to that restriction -- browsers only block a page from loading
+  // another page inside itself, not a user-initiated navigation away from
+  // the current page. So this page deliberately does NOT auto-redirect; the
+  // candidate clicks a real, prominent button instead, every time.
   var html = '<!doctype html><html><head>' +
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-    '<meta http-equiv="refresh" content="1;url=' + safeTarget + '">' +
     '</head>' +
     '<body style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555">' +
-    '<h2>Taking you to the assessment&hellip;</h2>' +
-    '<p>If you are not redirected automatically, <a href="' + safeTarget + '" target="_top">click here to continue</a>.</p>' +
-    '<script>try{ window.top.location.href = ' + jsTarget + '; }catch(e){ window.location.href = ' + jsTarget + '; }<' + '/script>' +
+    '<h2>Your assessment is ready</h2>' +
+    '<p>Tap the button below to open it.</p>' +
+    '<p style="margin-top:24px"><a href="' + safeTarget + '" target="_top" style="display:inline-block;background:#3b3f8c;color:#fff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 28px;border-radius:8px">Open Assessment &rarr;</a></p>' +
+    '<p style="margin-top:24px;font-size:13px;color:#888">If the button does not work, copy and paste this link into your browser:<br>' + safeTarget + '</p>' +
     '</body></html>';
   return HtmlService.createHtmlOutput(html).setTitle('Assessment Redirect');
  }catch(err){
