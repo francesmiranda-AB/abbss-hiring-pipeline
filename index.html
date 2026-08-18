@@ -500,6 +500,8 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
   <div class="sidebar-section" id="navsec-projects">Hiring Projects</div>
   <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> Hiring Projects</button>
+  <div class="sidebar-section" id="navsec-offboarding">Offboarding</div>
+  <button class="nav-item" id="nav-offboarding" onclick="showPage('offboarding',this)"><span class="nav-icon">&#128682;</span> Offboarding</button>
   <div class="sidebar-section" id="navsec-executive">Executive</div>
   <button class="nav-item" id="nav-execdash" onclick="showPage('execdash',this)"><span class="nav-icon">&#128202;</span> Executive Dashboard</button>
   <div class="sidebar-section" id="navsec-reports">Reports</div>
@@ -729,6 +731,39 @@ tbody tr:last-child td{border-bottom:none}
     <p style="font-size:14px;color:var(--gray500);margin-top:4px">Where applicants come from, and which platforms actually lead to a hire. Click a row to see those applicants in the Tracker.</p>
   </div>
   <div id="sourcesContent"></div>
+</div>
+
+<div id="page-offboarding" class="page">
+  <div style="margin-bottom:20px">
+    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Offboarding</h1>
+    <p style="font-size:14px;color:var(--gray500);margin-top:4px">Track clearance for anyone leaving &mdash; entered manually, on their last working day going forward. Reaching out to Ethel about final pay/invoicing stays a manual step we do ourselves; the checklist just makes sure it doesn't get missed.</p>
+  </div>
+  <div class="card card-accent-blue" style="max-width:760px;margin-bottom:24px">
+    <div class="card-header"><div class="card-title-lg">Add Departing Employee / Contractor</div></div>
+    <div class="g2" style="gap:14px;margin-bottom:14px">
+      <div><label class="lbl">Full Name *</label><input class="inp" id="ob-name" placeholder="Juan dela Cruz"></div>
+      <div><label class="lbl">Track *</label>
+        <select class="inp" id="ob-track">
+          <option value="employee">Regular Employee</option>
+          <option value="contractor">Independent Contractor</option>
+        </select>
+      </div>
+      <div><label class="lbl">Position</label><input class="inp" id="ob-position" placeholder="AR Specialist"></div>
+      <div><label class="lbl">Department</label>
+        <select class="inp" id="ob-department">
+          <option value="">Select department</option>
+          <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
+        </select>
+      </div>
+      <div><label class="lbl">Date Hired / Engagement Start</label><input class="inp" id="ob-datehired" type="date"></div>
+      <div><label class="lbl">Resignation / Notice Date</label><input class="inp" id="ob-noticedate" type="date"></div>
+      <div><label class="lbl">Last Working Day *</label><input class="inp" id="ob-lastday" type="date"></div>
+      <div><label class="lbl">Supervisor / Project Lead</label><input class="inp" id="ob-supervisor" placeholder="Name"></div>
+    </div>
+    <button class="btn btn-primary" onclick="submitOffboardingCase()">Add Case</button>
+    <span id="obFormMsg" style="margin-left:10px;font-size:12px;color:var(--gray500)"></span>
+  </div>
+  <div id="offboardingListContent"></div>
 </div>
 
 <div id="page-analytics" class="page">
@@ -4844,6 +4879,98 @@ function uploadCV(d){
   }
 }
 
+// ============================================================
+// OFFBOARDING / CLEARANCE TRACKING
+// Requested by Andrealiz Uy (per Slack) -- track resignation/contract-end
+// clearance so nothing falls through the cracks. Per Frances: manual entry
+// only (no auto-pull from any HR system), and "reach out to Ethel" stays a
+// manual step HR does themselves -- the app just reminds, it never emails
+// Ethel automatically. Checklist items are taken directly from "Clearance
+// Forms AB BSS.docx" and "Resignation Clearance Process AB BSS.docx".
+// ============================================================
+var OFFBOARD_CHECKLIST_EMPLOYEE=[
+  'Resignation letter received; last working day confirmed with supervisor/HR',
+  'Clearance Form issued to employee',
+  'Turnover of pending tasks / knowledge transfer completed',
+  'Laptop / equipment returned; system, email, and application access disabled (IT)',
+  'Company ID, access card, and keys returned (Admin)',
+  'Cash advances, loans, and unliquidated expenses settled (Finance)',
+  'Company property/assets accounted for (Finance)',
+  'Exit interview conducted (HR)',
+  'Company documents, manuals, and confidential files returned (HR)',
+  'Reach out to Ethel re: final pay computation',
+  'Quitclaim and Release signed',
+  'Final pay released (within 30 days of last day, per DOLE Labor Advisory 06-20)',
+  'Certificate of Employment (COE) and BIR Form 2316 issued'
+];
+var OFFBOARD_CHECKLIST_CONTRACTOR=[
+  'Notice of contract termination received; end date and wind-down plan confirmed',
+  'Turnover of deliverables and work-in-progress files',
+  'System / platform access credentials returned or disabled',
+  'Company-issued equipment or resources returned (if applicable)',
+  'Outstanding invoices reconciled',
+  'Advances or accountabilities settled',
+  'Reach out to Ethel re: final invoice review/approval',
+  'Quitclaim and Release signed',
+  'Final payment released',
+  'Certificate of Engagement/Completion issued (upon request)'
+];
+function getOffboardChecklistTemplate(track){
+  return track==='contractor'?OFFBOARD_CHECKLIST_CONTRACTOR:OFFBOARD_CHECKLIST_EMPLOYEE;
+}
+function setupOffboardingSheet(){
+  const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
+  let t=ss.getSheetByName('Offboarding');if(!t)t=ss.insertSheet('Offboarding');
+  if(t.getLastRow()===0){
+    t.appendRow(['ID','Name','Track','Position','Department','Date Hired / Engagement Start',
+      'Resignation / Notice Date','Last Working Day','Supervisor / Project Lead',
+      'Checklist JSON','Status','Notes','Created At','Completed At']);
+    t.getRange(1,1,1,14).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+    t.setFrozenRows(1);
+  }
+  return t;
+}
+function saveOffboarding(d){
+  const t=setupOffboardingSheet();
+  const rows=t.getDataRange().getValues();
+  const idx=rows.findIndex((r,i)=>i>0&&String(r[0])===String(d.id));
+  let checklist=d.checklist;
+  if(!checklist){
+    // Brand-new case -- seed the checklist from the track's template so the
+    // frontend always has one item per line to check off, in order.
+    checklist={};
+    getOffboardChecklistTemplate(d.track).forEach(item=>{checklist[item]=false;});
+  }
+  const allDone=Object.keys(checklist).length>0 && Object.values(checklist).every(v=>v===true);
+  const existing=idx>0?rows[idx]:null;
+  const row=[
+    d.id, d.name||'', d.track||'employee', d.position||'', d.department||'',
+    d.dateHired||'', d.noticeDate||'', d.lastWorkingDay||'', d.supervisor||'',
+    JSON.stringify(checklist),
+    allDone?'Completed':'In Progress',
+    d.notes||'',
+    existing?(existing[12]||new Date().toISOString()):new Date().toISOString(),
+    allDone?(existing&&existing[13]?existing[13]:new Date().toISOString()):''
+  ];
+  if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
+  return{success:true};
+}
+function getAllOffboarding(){
+  const t=setupOffboardingSheet();
+  const data=t.getDataRange().getValues();if(data.length<=1)return[];
+  return data.slice(1)
+    .filter(r=>String(r[0]).trim()!=='')
+    .map(r=>{
+      let checklist={};
+      try{ checklist=JSON.parse(r[9]||'{}'); }catch(e){}
+      return{
+        id:r[0], name:r[1], track:r[2], position:r[3], department:r[4],
+        dateHired:r[5], noticeDate:r[6], lastWorkingDay:r[7], supervisor:r[8],
+        checklist:checklist, status:r[10], notes:r[11], createdAt:r[12], completedAt:r[13]
+      };
+    });
+}
+
 function doGet(e){
   // trackOpen (tracking-pixel image) and pickSlot (candidate scheduling page)
   // return non-JSON responses (binary image / HTML), so they must bypass
@@ -4865,6 +4992,7 @@ function doGet(e){
     else if(a==='previewStageModelV4')out=previewStageModelV4();
     else if(a==='previewMigrationDateFix')out=previewMigrationDateFix();
     else if(a==='getRoleDashboard')out=getRoleDashboardData();
+    else if(a==='getAllOffboarding')out={success:true,data:getAllOffboarding()};
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -4890,6 +5018,7 @@ function doPost(e){
     else if(p.action==='runStageModelV4')out=migrateStageModelV4();
     else if(p.action==='applyMigrationDateFix')out=applyMigrationDateFix();
     else if(p.action==='setRoleHealthOverride')out=setRoleHealthOverride(p.data.role, p.data.status, p.data.reason, p.data.setBy, p.data.pmNote);
+    else if(p.action==='saveOffboarding')out=saveOffboarding(p.data);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
@@ -5769,6 +5898,7 @@ function showPage(id, btn) {
   if (id === 'sources') renderSourcesReport();
   if (id === 'interviewcal') renderInterviewCalendar();
   if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); renderUnmatchedEmmCard(); }
+  if (id === 'offboarding') { loadOffboardingFromSheets().then(renderOffboardingList); renderOffboardingList(); }
 }
 
 // ============================================================
@@ -5961,7 +6091,7 @@ function closeRoleSwitchModal(){
 // Operations works only inside candidates already endorsed to them, PM
 // manages hiring PROJECTS not people, CEO gets the executive rollup only.
 var NAV_VISIBILITY_BY_ROLE = {
-  'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-settings'],
+  'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-offboarding','nav-settings'],
   'Operations': ['nav-dashboard','nav-tracker','nav-interviewcal'],
   'PM':         ['nav-eod','nav-board','nav-sources','nav-analytics'],
   'CEO':        ['nav-execdash','nav-analytics']
@@ -6331,6 +6461,26 @@ function renderDashboard() {
     if(role && t.role !== role) return null;
     return { a:a, def:t, sortAt: a.createdAt || a.dateReceived || '' };
   }).filter(Boolean);
+
+  // Offboarding: once a case's Last Working Day is today or has passed and
+  // its checklist isn't fully done, surface it here too -- same "flat list
+  // of what to do right now" the rest of Your Tasks already is. HR-owned
+  // (per Andrealiz Uy's request, relayed to Frances & Wen), so it only
+  // shows under "Everyone" or the HR role filter.
+  if(!role || role === 'HR'){
+    (OFFBOARDING_CASES||[]).forEach(function(c){
+      if(!isOffboardingDue(c)) return;
+      var checklist = c.checklist || {};
+      var items = Object.keys(checklist);
+      var doneCount = items.filter(function(k){ return checklist[k]; }).length;
+      tasks.push({
+        isOffboarding: true,
+        name: c.name,
+        sortAt: c.lastWorkingDay,
+        def: { role:'HR', hint: 'Offboarding clearance — ' + doneCount + '/' + items.length + ' complete. Last working day: ' + c.lastWorkingDay + '.' }
+      });
+    });
+  }
   tasks.sort(function(x,y){ return new Date(x.sortAt) - new Date(y.sortAt); });
 
   var countEl = document.getElementById('dashTasksCount');
@@ -6342,6 +6492,18 @@ function renderDashboard() {
       tasksEl.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-icon">&#9989;</div><div class="empty-title">' + (role ? 'Nothing for ' + role + ' to do right now.' : 'Nothing needs action right now.') + '</div></div>';
     } else {
       tasksEl.innerHTML = '<div class="table-wrap" style="border-radius:12px">' + tasks.map(function(t){
+        if(t.isOffboarding){
+          var avOff = getAvatar(t.name);
+          var roleTagOff = role ? '' : ' <span style="font-size:10px;font-weight:700;color:var(--gray500);border:1px solid var(--gray200);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:none;letter-spacing:0">HR</span>';
+          return '<div onclick="showPage(\'offboarding\',document.getElementById(\'nav-offboarding\'))" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100)">' +
+            '<div class="avatar avatar-sm" style="background:' + avOff.gradient + '">' + avOff.initials + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-weight:700;font-size:14px">' + escapeHtml(t.name) + roleTagOff + ' <span class="badge badge-fail" style="margin-left:6px;font-size:10px">Offboarding</span></div>' +
+              '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + t.def.hint + '</div>' +
+            '</div>' +
+            '<span style="font-weight:800;font-size:16px;color:var(--gray300);flex-shrink:0">&#8250;</span>' +
+          '</div>';
+        }
         var av = getAvatar(t.a.name);
         var roleTag = role ? '' : ' <span style="font-size:10px;font-weight:700;color:var(--gray500);border:1px solid var(--gray200);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:none;letter-spacing:0">' + t.def.role + '</span>';
         return '<div onclick="openApplicant(' + t.a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100)">' +
@@ -8369,6 +8531,171 @@ function updateSyncStatus(connected) {
 }
 
 // ============================================================
+// OFFBOARDING / CLEARANCE TRACKING (frontend)
+// Per Andrealiz Uy's request (Slack, relayed to Frances & Wen): track
+// clearance for anyone leaving on their last working day going forward.
+// Manual entry only -- no auto-pull from any HR system -- and reaching out
+// to Ethel about final pay/invoicing stays a manual step HR does itself;
+// this just adds it as a checklist line so it's never silently skipped.
+// Cases + their checklists live in the 'Offboarding' Sheet tab via
+// saveOffboarding/getAllOffboarding in Code.gs. Kept in-memory here (not
+// localStorage) and re-pulled from Sheets on every page visit and after
+// every save, since writes are always awaited immediately -- there's no
+// offline-queueing need for this low-volume, HR-only feature.
+// ============================================================
+var OFFBOARDING_CASES = [];
+
+async function loadOffboardingFromSheets(){
+  if(!SCRIPT_URL) return false;
+  var res = await apiGet('getAllOffboarding');
+  if(res && res.success && res.data){
+    OFFBOARDING_CASES = res.data;
+    return true;
+  }
+  return false;
+}
+
+function isOffboardingDue(c){
+  if(!c || c.status==='Completed' || !c.lastWorkingDay) return false;
+  var lwd = new Date(c.lastWorkingDay);
+  if(isNaN(lwd.getTime())) return false;
+  var today = new Date(); today.setHours(0,0,0,0);
+  lwd.setHours(0,0,0,0);
+  return lwd.getTime() <= today.getTime();
+}
+
+function getSortedOffboardingCases(){
+  return OFFBOARDING_CASES.slice().sort(function(a,b){
+    if((a.status==='Completed') !== (b.status==='Completed')) return a.status==='Completed' ? 1 : -1;
+    var da = a.lastWorkingDay ? new Date(a.lastWorkingDay).getTime() : Infinity;
+    var db = b.lastWorkingDay ? new Date(b.lastWorkingDay).getTime() : Infinity;
+    return da - db;
+  });
+}
+
+async function submitOffboardingCase(){
+  var name = document.getElementById('ob-name').value.trim();
+  var lastDay = document.getElementById('ob-lastday').value;
+  var msgEl = document.getElementById('obFormMsg');
+  if(!name || !lastDay){
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'Full Name and Last Working Day are required.';
+    return;
+  }
+  var record = {
+    id: 'off_' + Date.now(),
+    name: name,
+    track: document.getElementById('ob-track').value,
+    position: document.getElementById('ob-position').value.trim(),
+    department: document.getElementById('ob-department').value,
+    dateHired: document.getElementById('ob-datehired').value,
+    noticeDate: document.getElementById('ob-noticedate').value,
+    lastWorkingDay: lastDay,
+    supervisor: document.getElementById('ob-supervisor').value.trim(),
+    notes: ''
+  };
+  msgEl.style.color = 'var(--gray500)';
+  msgEl.textContent = 'Saving...';
+  var res = await apiPost('saveOffboarding', {data: record});
+  if(res && res.success){
+    ['ob-name','ob-position','ob-datehired','ob-noticedate','ob-lastday','ob-supervisor'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('ob-track').value='employee';
+    document.getElementById('ob-department').value='';
+    msgEl.textContent = '';
+    showToast('✓ Offboarding case added for ' + name);
+    await loadOffboardingFromSheets();
+    renderOffboardingList();
+  } else {
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'Could not save — check your connection and try again.';
+  }
+}
+
+async function toggleOffboardingItem(id, itemKey){
+  var c = OFFBOARDING_CASES.find(function(x){ return String(x.id)===String(id); });
+  if(!c) return;
+  var checklist = Object.assign({}, c.checklist);
+  checklist[itemKey] = !checklist[itemKey];
+  c.checklist = checklist; // optimistic local update so the click feels instant
+  renderOffboardingList();
+  var res = await apiPost('saveOffboarding', {data: Object.assign({}, c, {checklist: checklist})});
+  if(res && res.success){
+    await loadOffboardingFromSheets();
+    renderOffboardingList();
+    if(typeof renderDashboard==='function') renderDashboard();
+  } else {
+    showToast('Could not save checklist change — check your connection.');
+  }
+}
+
+async function saveOffboardingNotes(id, notes){
+  var c = OFFBOARDING_CASES.find(function(x){ return String(x.id)===String(id); });
+  if(!c) return;
+  c.notes = notes;
+  var res = await apiPost('saveOffboarding', {data: Object.assign({}, c, {notes: notes})});
+  if(res && res.success){
+    await loadOffboardingFromSheets();
+  } else {
+    showToast('Could not save notes — check your connection.');
+  }
+}
+
+function renderOffboardingCaseCard(c){
+  var checklist = c.checklist || {};
+  var items = Object.keys(checklist);
+  var doneCount = items.filter(function(k){ return checklist[k]; }).length;
+  var due = isOffboardingDue(c);
+  var statusBadge = c.status==='Completed'
+    ? '<span class="badge badge-pass">Completed</span>'
+    : due
+      ? '<span class="badge badge-fail">Last day passed — clearance still open</span>'
+      : '<span class="badge badge-warn">In Progress</span>';
+  var itemsHtml = items.map(function(k){
+    var checked = !!checklist[k];
+    var isEthel = /Ethel/i.test(k);
+    var keyLiteral = "'" + String(k).replace(/'/g,"\\'") + "'";
+    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--gray100)">' +
+      '<input type="checkbox" ' + (checked?'checked':'') + ' onchange="toggleOffboardingItem(\'' + String(c.id).replace(/'/g,"\\'") + '\',' + keyLiteral + ')" style="width:16px;height:16px;flex-shrink:0;cursor:pointer;margin-top:2px">' +
+      '<span style="font-size:13px;' + (checked?'color:var(--gray400);text-decoration:line-through':'color:var(--gray700)') + '">' + escapeHtml(k) + (isEthel?' <span class="badge badge-blue" style="margin-left:4px;font-size:10px">Ask Ethel</span>':'') + '</span>' +
+    '</div>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:16px' + (due?';border-left:3px solid var(--red)':'') + '">' +
+    '<div class="card-header" style="align-items:flex-start">' +
+      '<div>' +
+        '<div class="card-title-lg">' + escapeHtml(c.name||'') + '</div>' +
+        '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' +
+          (c.track==='contractor'?'Independent Contractor':'Regular Employee') +
+          (c.position?' &middot; '+escapeHtml(c.position):'') +
+          (c.department?' &middot; '+escapeHtml(c.department):'') +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--gray500);margin-top:2px">Last Working Day: <strong>' + (c.lastWorkingDay || 'Not set') + '</strong>' +
+          (c.supervisor?' &middot; Supervisor: '+escapeHtml(c.supervisor):'') +
+        '</div>' +
+      '</div>' +
+      '<div style="text-align:right">' + statusBadge +
+        '<div style="font-size:11px;color:var(--gray400);margin-top:6px">' + doneCount + ' / ' + items.length + ' complete</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="padding-top:8px">' + itemsHtml + '</div>' +
+    '<div style="margin-top:10px">' +
+      '<label class="lbl">Notes</label>' +
+      '<textarea class="inp" rows="2" placeholder="Any notes on this case..." onblur="saveOffboardingNotes(\'' + String(c.id).replace(/'/g,"\\'") + '\',this.value)">' + escapeHtml(c.notes||'') + '</textarea>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderOffboardingList(){
+  var el = document.getElementById('offboardingListContent');
+  if(!el) return;
+  var cases = getSortedOffboardingCases();
+  if(!cases.length){
+    el.innerHTML = '<div class="card" style="max-width:760px;color:var(--gray500);font-size:13px">No offboarding cases yet. Add one above when someone resigns or their contract ends.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="max-width:760px">' + cases.map(renderOffboardingCaseCard).join('') + '</div>';
+}
+
+// ============================================================
 // INIT
 // ============================================================
 renderRoleSwitcherPill();
@@ -8400,6 +8727,10 @@ updateSyncStatus(true);
     }
   }
   if(loaded){ renderDashboard(); updateTrackerBadge(); }
+  // Pull Offboarding cases too so a due clearance task shows up in "Your
+  // Tasks" on first paint, not just after someone opens the Offboarding page.
+  var offLoaded = await loadOffboardingFromSheets();
+  if(offLoaded) renderDashboard();
 })();
 var nd = document.getElementById('na-date');
 if (nd) nd.value = new Date().toISOString().slice(0,10);
