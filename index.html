@@ -658,7 +658,8 @@ tbody tr:last-child td{border-bottom:none}
         <option value="Hired">Hired</option>
         <option value="Rejected">Rejected</option>
         <option value="Hold">On Hold</option>
-        <option value="NonCompliant">Non Compliant / Archive</option>
+        <option value="NonCompliant">Doesn&#39;t Respond</option>
+        <option value="Departed">No Longer With Us</option>
       </select>
       <select class="filter-inp" id="filterGrit" onchange="filterTracker()">
         <option value="">All GRIT Ratings</option>
@@ -702,7 +703,12 @@ tbody tr:last-child td{border-bottom:none}
       <option value="Refunds Specialist">Refunds Specialist</option>
       <option value="FP&amp;A Specialist">FP&amp;A Specialist</option>
     </select>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-ghost btn-sm" onclick="setAllBoardColumns(false)">Expand all</button>
+      <button class="btn btn-ghost btn-sm" onclick="setAllBoardColumns(true)">Collapse all</button>
+    </div>
   </div>
+  <p style="font-size:12px;color:var(--gray400);margin:-16px 0 14px">Click any column heading to collapse or expand it. Closed columns start collapsed, since those keep growing and rarely need reading.</p>
   <div id="boardColumns" style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;align-items:flex-start"></div>
 </div>
 
@@ -2507,14 +2513,19 @@ function buildDecisionTab(a){
       }
       return out;
     })()}
-    ${a.overallStatus && a.overallStatus!=='In Progress' ? `<div style="padding:8px 12px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:13px;font-weight:700;color:#3730a3;margin-bottom:10px">Current decision: ${a.overallStatus==='NonCompliant'?'Non Compliant/Archived':a.overallStatus}</div>` : ''}
+    ${a.overallStatus && a.overallStatus!=='In Progress' ? `<div style="padding:8px 12px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:13px;font-weight:700;color:#3730a3;margin-bottom:10px">Current decision: ${a.overallStatus==='NonCompliant'?"Doesn't Respond":(a.overallStatus==='Departed'?'No Longer With Us':a.overallStatus)}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm btn-green${a.overallStatus==='Hired'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hired')">${a.overallStatus==='Hired'?'✓ ':''}✅ Mark as Hired</button>
       <button class="btn-sm btn-red${a.overallStatus==='Rejected'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Rejected')">${a.overallStatus==='Rejected'?'✓ ':''}✗ Mark as Rejected</button>
       <button class="btn-sm btn-amber${a.overallStatus==='Hold'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hold')">${a.overallStatus==='Hold'?'✓ ':''}⏸ Put on Hold</button>
-      <button class="btn-sm btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Non Compliant/Archive</button>
+      <button class="btn-sm btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying even after reminders. Sets automatically 24 hours after the assessment invite if nothing comes in; you can also set it yourself at any stage.">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Doesn&#39;t Respond</button>
       ${a.overallStatus && a.overallStatus!=='In Progress' ? `<button class="btn-sm" style="background:#e2e8f0;color:#334155;border:none" onclick="setDecision(${a.id},'In Progress')">&#8630; Undo / Back to In Progress</button>` : ''}
     </div>
+    ${a.overallStatus==='Hired' || a.overallStatus==='Departed' ? `
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray200)">
+      <div style="font-size:12px;color:var(--gray500);margin-bottom:6px">They were hired, but have since resigned or their contract ended. Marking this keeps the candidate list honest about who is actually still with us &mdash; it does not remove them or change the fact that they were a successful hire.</div>
+      <button class="btn-sm btn-gray${a.overallStatus==='Departed'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Departed')">${a.overallStatus==='Departed'?'✓ ':''}&#128682; Mark as No Longer With Us</button>
+    </div>` : ''}
     <div style="margin-top:12px">
       <label class="lbl">Final Decision Notes</label>
       <textarea onchange="updateField(${a.id},'decisionNotes',this.value)" placeholder="Reason for decision, who approved, next steps...">${a.decisionNotes||''}</textarea>
@@ -4337,6 +4348,10 @@ function getAllApplicants(){
 function deriveNewStageForRow(r){
   const overallStatus = r[9]||'In Progress';
   if(overallStatus==='Hired') return 'Hired';
+  // Departed = was hired, then resigned/contract ended. Stage-wise they
+  // completed the pipeline, so they map to 'Hired' here; "are they still with
+  // us" lives in Overall Status, not the stage field.
+  if(overallStatus==='Departed') return 'Hired';
   if(overallStatus==='Rejected') return 'Closed - Rejected';
   // NonCompliant and Hold are NOT terminal in the new model -- they keep
   // whatever active stage they're actually at, and become visible instead
@@ -4755,24 +4770,39 @@ function getRoleDashboardData(){
       };
       return byRole[role];
     }
+    // A candidate can be finished without their STAGE saying so. Rejected,
+    // Doesn't Respond and No Longer With Us deliberately keep whatever stage
+    // the person last reached (see deriveNewStageForRow) -- the outcome lives
+    // in Overall Status instead. So deciding "is this person still active?"
+    // from the stage alone counts every ghosted candidate as active forever,
+    // and because they keep aging past their stage SLA they also sit in
+    // overdueReminders forever, which pins the role's health to amber
+    // permanently. Health then stops meaning anything, which is the whole
+    // point of the indicator. Judge it on both fields.
+    const FINISHED_STATUSES=['Hired','Rejected','NonCompliant','Departed'];
     apps.forEach(function(a){
       const role=a.roleCategory || '(Unassigned)';
       const stage=a.candidateStage || '(Not set)';
       const bucket=ensureRole(role);
-      const isClosed=CLOSED_STAGES.indexOf(stage)>=0;
+      const isClosed=CLOSED_STAGES.indexOf(stage)>=0 || FINISHED_STATUSES.indexOf(a.overallStatus)>=0;
+      // On Hold is different from finished: the person is still ours and we
+      // mean to come back to them, so they keep counting as active. But the
+      // pause was deliberate, so their clock stops -- they must not trigger
+      // an overdue flag or drag the role's average days-in-stage upward.
+      const isPaused=a.overallStatus==='Hold';
       if(!isClosed) bucket.activeCandidates++;
       bucket.stageCounts[stage]=(bucket.stageCounts[stage]||0)+1;
 
       const dates=a.candidateStageDates||{};
       const enteredAt=dates[stage];
       const daysInStage=enteredAt ? Math.round(((now-new Date(enteredAt))/86400000)*10)/10 : null;
-      if(!isClosed && daysInStage!==null){
+      if(!isClosed && !isPaused && daysInStage!==null){
         bucket._stageDaysSum[stage]=(bucket._stageDaysSum[stage]||0)+daysInStage;
         bucket._stageDaysCount[stage]=(bucket._stageDaysCount[stage]||0)+1;
       }
 
       const slaDays=STAGE_SLA_DAYS[stage];
-      const isOverdue=!isClosed && daysInStage!==null && slaDays!==undefined && daysInStage>slaDays;
+      const isOverdue=!isClosed && !isPaused && daysInStage!==null && slaDays!==undefined && daysInStage>slaDays;
 
       const summary={id:a.id, name:a.name, stage:stage, nextAction:a.nextAction||'', daysInStage:daysInStage};
       bucket.candidates.push(summary);
@@ -5608,8 +5638,19 @@ function checkAssessmentCompliance(){
     // the cutoff, or the score just got attached above) -- put them back to In
     // Progress automatically instead of leaving them stuck until someone
     // remembers to run restoreCompliantApplicants() by hand.
+    // Only ever un-do the automation's OWN archiving. 'Status Changed At'
+    // (col 43) is written by the Decision-tab buttons and never by this
+    // function, so a value there means a person deliberately set this status
+    // -- e.g. HR marking someone "Doesn't Respond" after they went silent on
+    // interview scheduling, which the candidate's existing assessment scores
+    // must not silently override. Without this guard the mark reappears as
+    // "In Progress" on the next run and looks like the app ignored HR.
     if(status==='NonCompliant'){
+      const setByPerson=String(r[42]||'').trim()!=='';
       if(hasGrit||hasValues){
+        if(setByPerson){
+          continue;
+        }
         t.getRange(i+1,10).setValue('In Progress');
         status='In Progress';
         healed++;
@@ -6231,7 +6272,7 @@ var STAGE_HINTS = {
 // which the separate Outcomes cards already cover.
 function getStageTask(a){
   if(!a) return null;
-  if(a.overallStatus==='Hired' || a.overallStatus==='Rejected' || a.overallStatus==='Hold' || a.overallStatus==='NonCompliant') return null;
+  if(a.overallStatus==='Hired' || a.overallStatus==='Rejected' || a.overallStatus==='Hold' || a.overallStatus==='NonCompliant' || a.overallStatus==='Departed') return null;
   var stage = a.candidateStage;
   if(!stage){
     return { key:'__not_migrated__', label:'Not Migrated Yet', color:'#6b7280', hint:'Run the one-time stage migration in Settings before this record can show up correctly.', role:'HR', actionable:true, waiting:false };
@@ -6385,7 +6426,8 @@ var CARD_FILTERS = {
   statusHired: { label:'Hired', fn: function(a){ return a.overallStatus === 'Hired'; } },
   statusRejected: { label:'Rejected', fn: function(a){ return a.overallStatus === 'Rejected'; } },
   statusHold: { label:'On Hold', fn: function(a){ return a.overallStatus === 'Hold'; } },
-  statusNonCompliant: { label:'Non Compliant / Archive', fn: function(a){ return a.overallStatus === 'NonCompliant'; } }
+  statusNonCompliant: { label:"Doesn't Respond", fn: function(a){ return a.overallStatus === 'NonCompliant'; } },
+  statusDeparted: { label:'No Longer With Us', fn: function(a){ return a.overallStatus === 'Departed'; } }
 };
 STAGE_LABELS.forEach(function(label, i){
   var n = i + 1;
@@ -6550,7 +6592,8 @@ function renderDashboard() {
     { key:'statusHired', label:'Hired', color:'#059669', hint:'Done — nothing to do.', fn: function(a){ return a.overallStatus==='Hired'; } },
     { key:'statusRejected', label:'Rejected', color:'#dc2626', hint:'Done — nothing to do.', fn: function(a){ return a.overallStatus==='Rejected'; } },
     { key:'statusHold', label:'On Hold', color:'#d97706', hint:'Come back to these later.', fn: function(a){ return a.overallStatus==='Hold'; } },
-    { key:'statusNonCompliant', label:'Non Compliant', color:'#6b7280', hint:'They did not reply in time, so this closed on its own.', fn: function(a){ return a.overallStatus==='NonCompliant'; } }
+    { key:'statusNonCompliant', label:"Doesn't Respond", color:'#6b7280', hint:'They stopped replying, even after reminders.', fn: function(a){ return a.overallStatus==='NonCompliant'; } },
+    { key:'statusDeparted', label:'No Longer With Us', color:'#6b7280', hint:'Was hired, then resigned or their contract ended.', fn: function(a){ return a.overallStatus==='Departed'; } }
   ];
   document.getElementById('dashStatusGrid').innerHTML = statusDefs.map(function(s) {
     var count = apps.filter(s.fn).length;
@@ -6583,7 +6626,8 @@ function getNextStep(a) {
   if (a.overallStatus === 'Hired') return { label: 'Hired \u2014 no action needed', tone: 'done', icon: '\uD83C\uDF89' };
   if (a.overallStatus === 'Rejected') return { label: 'Not moving forward \u2014 no action needed', tone: 'done', icon: '\u2715' };
   if (a.overallStatus === 'Hold') return { label: 'On hold \u2014 revisit when ready', tone: 'waiting', icon: '\u23F8' };
-  if (a.overallStatus === 'NonCompliant') return { label: 'Non compliant \u2014 no response within 24 hours', tone: 'done', icon: '\u26D4' };
+  if (a.overallStatus === 'NonCompliant') return { label: "Didn't respond, even after reminders \u2014 no action needed", tone: 'done', icon: '\u26D4' };
+  if (a.overallStatus === 'Departed') return { label: 'No longer with us \u2014 no action needed', tone: 'done', icon: '\uD83D\uDEAA' };
 
   var stage = a.stage || 1;
   var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
@@ -6682,7 +6726,7 @@ function assessmentGapWarning(a){
 
 function checkAutoAdvance(a){
   if(!a) return null;
-  if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold'||a.overallStatus==='NonCompliant') return null;
+  if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold'||a.overallStatus==='NonCompliant'||a.overallStatus==='Departed') return null;
   var stage = a.stage||1;
   var target = stage;
   var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
@@ -6734,7 +6778,7 @@ function recomputeStageFromEvidence(a){
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
   var invited = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
 
-  if(a.overallStatus==='Hired') return getStageLabels(a).length;
+  if(a.overallStatus==='Hired' || a.overallStatus==='Departed') return getStageLabels(a).length;
 
   if(isTrackB(a)){
     // Only advance to stage 3 if the assessments actually PASSED -- a
@@ -7075,7 +7119,7 @@ function getStageProgressBar(a, size){
     var color;
     if(isRejectedOrNC){
       color = (i<=current) ? (a.overallStatus==='Rejected' ? '#f3a5a5' : '#c7cad1') : '#e2e8f0';
-    } else if(i < current || (a.overallStatus==='Hired' && i<=current)){
+    } else if(i < current || ((a.overallStatus==='Hired'||a.overallStatus==='Departed') && i<=current)){
       color = '#06d6a0';
     } else if(i === current){
       color = '#4361ee';
@@ -7139,7 +7183,8 @@ function getPipelineStep(a){
   if(a.overallStatus==='Hired') return { key:'pl_hired', label:'Hired', tone:'#166534', bg:'#e8f5e9' };
   if(a.overallStatus==='Rejected') return { key:'pl_rejected', label:'Rejected', tone:'#b52a2a', bg:'#fdecea' };
   if(a.overallStatus==='Hold') return { key:'pl_hold', label:'On Hold', tone:'#b45309', bg:'#fff8e1' };
-  if(a.overallStatus==='NonCompliant') return { key:'pl_noncompliant', label:'Non Compliant', tone:'#6b7280', bg:'#f1f1f4' };
+  if(a.overallStatus==='NonCompliant') return { key:'pl_noncompliant', label:"Doesn't Respond", tone:'#6b7280', bg:'#f1f1f4' };
+  if(a.overallStatus==='Departed') return { key:'pl_departed', label:'No Longer With Us', tone:'#6b7280', bg:'#f1f1f4' };
 
   var stage = a.stage || 1;
   var jobOfferStage = getStageLabels(a).length - 1;
@@ -7331,6 +7376,45 @@ function getEmmBadge(a){
 // map of the whole pipeline, and an empty column is a clear "nothing to
 // check here" signal rather than looking like a missing step.
 // ============================================================
+// ============================================================
+// BOARD COLUMN COLLAPSE
+// Requested by Andi: the board gets unreadably long as applicants pile up.
+// The real cause is that three of the fourteen columns -- Hired, Closed -
+// Rejected, Closed - Withdrawn -- never drain, so they grow forever while
+// the active columns stay roughly constant. Those three therefore start
+// collapsed; everything else starts open. Per-device (localStorage), not
+// per-account, so one person tidying their own view doesn't change what
+// anybody else sees.
+// ============================================================
+var BOARD_COLLAPSE_KEY = 'abbss_board_collapsed';
+function getBoardCollapsed(){
+  try{
+    var saved = JSON.parse(localStorage.getItem(BOARD_COLLAPSE_KEY)||'null');
+    if(saved && typeof saved === 'object') return saved;
+  }catch(e){}
+  var d = {};
+  CLOSED_STAGES.forEach(function(s){ d[s] = true; });
+  return d;
+}
+function setBoardCollapsed(map){
+  try{ localStorage.setItem(BOARD_COLLAPSE_KEY, JSON.stringify(map)); }catch(e){}
+}
+function toggleBoardColumn(key){
+  var map = getBoardCollapsed();
+  map[key] = !map[key];
+  setBoardCollapsed(map);
+  renderBoard();
+}
+function setAllBoardColumns(collapsed){
+  var map = {};
+  if(collapsed){
+    CANDIDATE_STAGES.forEach(function(s){ map[s] = true; });
+    map['__not_migrated__'] = true;
+  }
+  setBoardCollapsed(map);
+  renderBoard();
+}
+
 function renderBoard(){
   var apps = getApplicants();
   // PM can see this page (it's the pipeline-shape view under Reports) but
@@ -7355,9 +7439,17 @@ function renderBoard(){
     return { def:d, apps: colApps };
   });
 
+  var collapsedMap = getBoardCollapsed();
   var el = document.getElementById('boardColumns');
   el.innerHTML = cols.map(function(c){
     var isEmpty = c.apps.length===0;
+    var keyAttr = String(c.def.key).replace(/'/g,"\\'");
+    if(collapsedMap[c.def.key]){
+      return '<div title="Click to expand" onclick="toggleBoardColumn(\'' + keyAttr + '\')" style="flex:0 0 42px;background:var(--gray50);border-radius:12px;padding:10px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;min-height:140px">' +
+        '<div style="font-size:13px;font-weight:800;color:' + c.def.color + '">' + c.apps.length + '</div>' +
+        '<div style="writing-mode:vertical-rl;font-size:11px;font-weight:700;color:var(--gray500);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;max-height:200px">' + c.def.label + '</div>' +
+      '</div>';
+    }
     var cards = c.apps.map(function(a){
       var av = getAvatar(a.name);
       var openAttr = boardCanOpenCard ? (' onclick="openApplicant(' + a.id + ')" style="cursor:pointer;background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)"') : (' style="background:#fff;border:1px solid var(--gray200);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)"');
@@ -7368,7 +7460,10 @@ function renderBoard(){
       '</div>';
     }).join('') || '<div style="border:1.5px dashed var(--gray200);border-radius:10px;padding:16px 8px;text-align:center;font-size:11px;color:var(--gray400)">Nobody here right now</div>';
     return '<div style="flex:0 0 240px;background:var(--gray50);border-radius:12px;padding:10px;opacity:' + (isEmpty?'.55':'1') + '">' +
-      '<div style="font-size:12px;font-weight:800;color:' + c.def.color + ';text-transform:uppercase;letter-spacing:.02em;margin-bottom:8px;padding:0 2px">' + c.def.label + ' &middot; ' + c.apps.length + '</div>' +
+      '<div title="Click to collapse" onclick="toggleBoardColumn(\'' + keyAttr + '\')" style="font-size:12px;font-weight:800;color:' + c.def.color + ';text-transform:uppercase;letter-spacing:.02em;margin-bottom:8px;padding:0 2px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px">' +
+        '<span>' + c.def.label + ' &middot; ' + c.apps.length + '</span>' +
+        '<span style="color:var(--gray400);font-size:14px;flex-shrink:0">&minus;</span>' +
+      '</div>' +
       cards +
     '</div>';
   }).join('');
@@ -7875,7 +7970,12 @@ function getSourceBreakdown(){
     var name = (a.source||'').trim() || 'Not Specified';
     var b = bucket(name);
     b.total++;
-    if(a.overallStatus==='Hired') b.hired++;
+    // 'Departed' counts as a hire here on purpose. This page measures whether
+    // a source produced a hire at all -- it did, and the person genuinely
+    // worked here -- so a later resignation shouldn't retroactively penalise
+    // the platform we found them on. It also must not fall through to the
+    // 'else' below, which would wrongly file them under "Still In Progress."
+    if(a.overallStatus==='Hired' || a.overallStatus==='Departed') b.hired++;
     else if(a.overallStatus==='Rejected' || a.overallStatus==='NonCompliant') b.rejectedOrNC++;
     else b.deciding++; // In Progress or Hold
   });
