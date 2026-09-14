@@ -3438,6 +3438,8 @@ Thank you for your interest in the {position} role at ABBSS. We are pleased to i
 
 Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
+Important: please use this same email address ({email}) when filling out each form below — that's how we match your results back to your application.
+
 1. GRIT Assessment (approx. 5 minutes)
    Link: {gritlink}
    → Your results will be recorded automatically.
@@ -3464,6 +3466,8 @@ ABBSS`
     body:`Dear {name},
 
 This is a friendly reminder that we have not yet received your completed assessments for the {position} role.
+
+Important: please use this same email address ({email}) when filling out each form — that's how we match your results back to your application.
 
 As a reminder, please submit:
 • GRIT form: {gritlink}
@@ -3515,6 +3519,8 @@ ABBSS`
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
 Please complete all of the following assessments and submit them within 24 hours of this invitation:
+
+Important: please use this same email address ({email}) when filling out each form below — that's how we match your results back to your application.
 
 1. GRIT Assessment (approx. 5 minutes)
    Link: {gritlink}
@@ -3779,6 +3785,8 @@ function updateEmail(){
   const contracttype=(contracttypeEl&&contracttypeEl.value)||'[CONTRACT TYPE]';
   const rateEl=document.getElementById('et-rate');
   const rate=(rateEl&&rateEl.value)||'[RATE]';
+  const emailEl=document.getElementById('et-email');
+  const email=(emailEl&&emailEl.value)||'[EMAIL ADDRESS]';
   const t=EMAIL_TEMPLATES[currentTemplate];
   const schedulingLink=currentSchedulingLink||'[SCHEDULING LINK]';
   // Personalized assessment links: routed through the Apps Script tracking
@@ -3799,7 +3807,8 @@ function updateEmail(){
   const fill=(s)=>s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
     .replace(/{jd}/g,jd).replace(/{startdate}/g,startdate).replace(/{signatory}/g,signatory)
     .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate).replace(/{schedulinglink}/g,schedulingLink)
-    .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink);
+    .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink)
+    .replace(/{email}/g,email);
   document.getElementById('emailSubject').value=fill(t.subject);
   document.getElementById('emailBody').textContent=fill(t.body);
 }
