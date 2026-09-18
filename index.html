@@ -2590,6 +2590,16 @@ function uploadCvFile(id,file){
     reader.onload=async function(e){
       const base64=e.target.result.split(',')[1];
       const res=await apiPost('uploadCV',{data:{id,filename:file.name,mimeType:file.type||'application/octet-stream',data:base64}});
+      // Same fingerprint as the applicant-record sync path: "Failed to fetch"
+      // means the browser never got a response at all -- for a resume this
+      // usually means the base64-encoded file (~33% larger than the original)
+      // was too big to send. Surface the actual size instead of a generic
+      // network-error message, so it's obvious whether this is a size problem
+      // or something else.
+      if(res && res._networkFailure){
+        const kb=Math.round(file.size/1024);
+        res.error=(res.error||'Network error.')+` — this file is ${kb}KB. If it's much larger than other resumes that upload fine, that's likely why.`;
+      }
       resolve(res);
     };
     reader.onerror=function(){resolve({success:false,error:'Could not read that file.'});};
@@ -2850,11 +2860,21 @@ async function loadUnmatchedEmmFile(fileUrl, name){
     if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
     return;
   }
-  var byteChars=atob(res.base64);
-  var byteNumbers=new Array(byteChars.length);
-  for(var i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
-  var byteArray=new Uint8Array(byteNumbers);
-  gradeFile={name:res.filename||((name||'submission')+'.xlsx'), data:byteArray.buffer};
+  try{
+    var byteChars=atob(res.base64);
+    var byteNumbers=new Array(byteChars.length);
+    for(var i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+    var byteArray=new Uint8Array(byteNumbers);
+    gradeFile={name:res.filename||((name||'submission')+'.xlsx'), data:byteArray.buffer};
+  }catch(decodeErr){
+    // Without this, a bad/unexpected res.base64 throws here and the function
+    // just dies -- "Loading..." stays on screen forever with the button still
+    // disabled and no error shown at all, indistinguishable from a hang.
+    alert('Could not read that file after loading it from Drive: '+decodeErr.message);
+    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
+    if(btn) btn.disabled=false;
+    return;
+  }
   if(nameEl) nameEl.textContent=gradeFile.name+' (from Drive)';
   var subEl=document.getElementById('gradeFileSub');
   if(subEl) subEl.style.display='block';
@@ -2886,11 +2906,21 @@ async function loadEmmFromDrive(applicantId){
     if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
     return;
   }
-  const byteChars=atob(res.base64);
-  const byteNumbers=new Array(byteChars.length);
-  for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
-  const byteArray=new Uint8Array(byteNumbers);
-  gradeFile={name:res.filename||(a.name+'.xlsx'),data:byteArray.buffer};
+  try{
+    var byteChars=atob(res.base64);
+    var byteNumbers=new Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+    var byteArray=new Uint8Array(byteNumbers);
+    gradeFile={name:res.filename||(a.name+'.xlsx'),data:byteArray.buffer};
+  }catch(decodeErr){
+    // Same guard as loadUnmatchedEmmFile -- otherwise a bad res.base64 throws
+    // here and the function just dies, leaving "Loading..." on screen forever
+    // with no error shown, indistinguishable from a hang.
+    alert('Could not read '+a.name+"'s file after loading it from Drive: "+decodeErr.message);
+    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
+    if(btn) btn.disabled=false;
+    return;
+  }
   if(nameEl) nameEl.textContent=gradeFile.name+' (from Drive)';
   const subEl=document.getElementById('gradeFileSub');
   if(subEl) subEl.style.display='block';
