@@ -419,6 +419,12 @@ tbody tr:last-child td{border-bottom:none}
 .filter-inp{padding:8px 12px;border:1.5px solid var(--gray200);border-radius:var(--radius);font-size:13px;outline:none;font-family:var(--font);background:var(--white);transition:var(--transition)}
 .filter-inp:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(67,97,238,.08)}
 .filter-inp:hover{border-color:var(--gray300)}
+.qv-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 18px;border-bottom:1px solid var(--gray200)}
+.qv-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-full);border:1.5px solid var(--gray200);background:var(--white);color:var(--gray700);font-size:13px;font-weight:600;transition:var(--transition)}
+.qv-chip:hover{border-color:var(--gray300);background:var(--gray50)}
+.qv-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.qv-chip .qv-count{background:rgba(0,0,0,.08);border-radius:var(--radius-full);padding:1px 7px;font-size:11px;font-weight:700}
+.qv-chip.active .qv-count{background:rgba(255,255,255,.25)}
 
 /* ── Bar chart (category breakdown) ──────────────────────── */
 .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -494,7 +500,7 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard',this)"><span class="nav-icon">&#128202;</span> Dashboard</button>
   <button class="nav-item" id="nav-new" onclick="showPage('new',this)"><span class="nav-icon">&#10133;</span> New Applicant</button>
   <div class="sidebar-section" id="navsec-pipeline">Pipeline</div>
-  <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span> Candidates <span id="trackerBadge" class="nav-badge-blue" style="display:none">0</span></button>
+  <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span> Candidates <span id="trackerActionBadge" class="nav-badge" style="display:none" title="New + Awaiting Response + Recently Responded">0</span> <span id="trackerBadge" class="nav-badge-blue" style="display:none">0</span></button>
   <button class="nav-item" id="nav-interviewcal" onclick="showPage('interviewcal',this)"><span class="nav-icon">&#128197;</span> Interview Calendar</button>
   <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> Assessments &amp; EMM</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
@@ -610,8 +616,17 @@ tbody tr:last-child td{border-bottom:none}
     <span>Showing only candidates endorsed to Operations (Initial Interview or later). HR sees the full list.</span>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
-    <div class="filters">
+    <div class="qv-bar" id="trackerQuickViews">
       <input class="filter-inp" id="searchInput" placeholder="Search name or email..." oninput="filterTracker()" style="width:220px">
+      <button class="qv-chip active" data-qv="default" onclick="setTrackerQuickView('default')">Active <span class="qv-count" id="qv-count-default">0</span></button>
+      <button class="qv-chip" data-qv="new" onclick="setTrackerQuickView('new')">🆕 New <span class="qv-count" id="qv-count-new">0</span></button>
+      <button class="qv-chip" data-qv="awaiting" onclick="setTrackerQuickView('awaiting')">⏳ Awaiting Response <span class="qv-count" id="qv-count-awaiting">0</span></button>
+      <button class="qv-chip" data-qv="responded" onclick="setTrackerQuickView('responded')">🔔 Recently Responded <span class="qv-count" id="qv-count-responded">0</span></button>
+      <button class="qv-chip" data-qv="nonresponsive" onclick="setTrackerQuickView('nonresponsive')">🔕 Doesn&#39;t Respond <span class="qv-count" id="qv-count-nonresponsive">0</span></button>
+      <button class="qv-chip" data-qv="all" onclick="setTrackerQuickView('all')">Everyone <span class="qv-count" id="qv-count-all">0</span></button>
+      <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="toggleAdvancedFilters()" id="advFiltersToggle">Advanced filters ▾</button>
+    </div>
+    <div class="filters" id="advancedFiltersRow" style="display:none">
       <select class="filter-inp" id="filterDept" onchange="filterTracker()">
         <option value="">All Departments</option>
         <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
@@ -1548,6 +1563,12 @@ async function createApplicant(){
     requiresEmm: inferRequiresEmm(document.getElementById('na-position').value.trim(), document.getElementById('na-department').value),
     stage:1,status:'Applied',createdAt:new Date().toISOString(),
     stageDates:{1:new Date().toISOString()},
+    // Without this, a brand-new applicant's blank candidateStage gets read
+    // by getStageTask() as "not yet migrated" (an admin nag) instead of
+    // "New Application" -- so they never show up correctly as a new
+    // applicant needing screening until someone happens to run the
+    // one-time stage migration again.
+    candidateStage:'New Application', nextAction:'Screen CV',
     grit:{score:'',outcome:'',notes:''},
     values:{score:'',confScore:'',intScore:'',outcome:'',notes:''},
     emm:{graded:false,overallPct:null,catPct:null,actPct:null,pass:null,gradedAt:'',notes:'',fullResult:''},
@@ -1592,6 +1613,7 @@ async function createApplicant(){
 
 function renderTracker(){
   populateApplicantSelect();
+  syncQuickViewChipActiveState();
   filterTracker();
   updateTrackerBadge();
 }
@@ -1606,6 +1628,62 @@ function isEndorsedToOperations(a){
   var cutoff = CANDIDATE_STAGES.indexOf('Initial Interview');
   return idx >= 0 && idx >= cutoff;
 }
+
+// ============================================================
+// TRACKER QUICK VIEWS -- one-click navigation presets, replacing the old
+// "manually reconstruct a filter combination every time" default. Sits on
+// top of the existing filter/sort pipeline below, doesn't replace it -- the
+// Advanced filters row is still fully available for real power-search.
+// ============================================================
+var TRACKER_QUICK_VIEW_KEY = 'abbss_tracker_quickview';
+// Remembered across visits, same pattern as the Board's collapse state
+// (BOARD_COLLAPSE_KEY) -- otherwise it silently resets to Active every time
+// she leaves and comes back to Candidates.
+var TRACKER_QUICK_VIEW = (function(){
+  try{ return localStorage.getItem(TRACKER_QUICK_VIEW_KEY) || 'default'; }catch(e){ return 'default'; }
+})();
+
+function isNewApplicant(a){
+  return !!(a && a.createdAt && (Date.now() - new Date(a.createdAt).getTime()) < 24*3600*1000);
+}
+
+function setTrackerQuickView(view){
+  TRACKER_QUICK_VIEW = view;
+  try{ localStorage.setItem(TRACKER_QUICK_VIEW_KEY, view); }catch(e){}
+  syncQuickViewChipActiveState();
+  filterTracker();
+}
+
+function syncQuickViewChipActiveState(){
+  document.querySelectorAll('.qv-chip').forEach(function(btn){
+    btn.classList.toggle('active', btn.getAttribute('data-qv')===TRACKER_QUICK_VIEW);
+  });
+}
+
+function toggleAdvancedFilters(){
+  var row = document.getElementById('advancedFiltersRow');
+  var btn = document.getElementById('advFiltersToggle');
+  if(!row) return;
+  var open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : 'flex';
+  if(btn) btn.textContent = open ? 'Advanced filters ▾' : 'Advanced filters ▴';
+}
+
+function updateQuickViewCounts(apps){
+  var counts = {
+    default: apps.filter(a=>(a.overallStatus||'In Progress')!=='NonCompliant').length,
+    new: apps.filter(isNewApplicant).length,
+    awaiting: apps.filter(a=>!!getSlaStatus(a)).length,
+    responded: apps.filter(a=>a.emailsSent && a.emailsSent.lateResponseNotify).length,
+    nonresponsive: apps.filter(a=>(a.overallStatus||'In Progress')==='NonCompliant').length,
+    all: apps.length
+  };
+  Object.keys(counts).forEach(function(k){
+    var el = document.getElementById('qv-count-'+k);
+    if(el) el.textContent = counts[k];
+  });
+}
+
 function filterTracker(){
   let apps=getApplicants();
   var opsBanner = document.getElementById('opsQueueBanner');
@@ -1613,6 +1691,7 @@ function filterTracker(){
     apps = apps.filter(isEndorsedToOperations);
     if(opsBanner) opsBanner.style.display='flex';
   } else if(opsBanner) opsBanner.style.display='none';
+  updateQuickViewCounts(apps);
   const search=document.getElementById('searchInput').value.toLowerCase();
   const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
   const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
@@ -1637,6 +1716,21 @@ function filterTracker(){
   if(statusF)apps=apps.filter(a=>(a.overallStatus||'In Progress')===statusF);
   if(gritF)apps=apps.filter(a=>gritOutcome(a.grit&&a.grit.score).label===gritF);
   if(valuesF)apps=apps.filter(a=>valuesOutcome(a.values&&a.values.score,(a.values&&a.values.confScore)||'',(a.values&&a.values.intScore)||'').label===valuesF);
+  // Quick-view cohort, applied on top of whatever the Advanced filters say.
+  // 'default' only hides non-responsive applicants when she hasn't already
+  // explicitly asked to see a specific status -- if Status is deliberately
+  // set to "Doesn't Respond" (or anything else), her explicit choice wins.
+  if(TRACKER_QUICK_VIEW==='default'){
+    if(!statusF) apps=apps.filter(a=>(a.overallStatus||'In Progress')!=='NonCompliant');
+  } else if(TRACKER_QUICK_VIEW==='new'){
+    apps=apps.filter(isNewApplicant);
+  } else if(TRACKER_QUICK_VIEW==='awaiting'){
+    apps=apps.filter(a=>!!getSlaStatus(a));
+  } else if(TRACKER_QUICK_VIEW==='responded'){
+    apps=apps.filter(a=>a.emailsSent && a.emailsSent.lateResponseNotify);
+  } else if(TRACKER_QUICK_VIEW==='nonresponsive'){
+    apps=apps.filter(a=>(a.overallStatus||'In Progress')==='NonCompliant');
+  }
   if(sortF==='name')apps.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sortF==='stage')apps.sort((a,b)=>CANDIDATE_STAGES.indexOf(b.candidateStage||'')-CANDIDATE_STAGES.indexOf(a.candidateStage||''));
   else apps.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -2518,7 +2612,7 @@ function buildDecisionTab(a){
       <button class="btn-sm btn-green${a.overallStatus==='Hired'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hired')">${a.overallStatus==='Hired'?'✓ ':''}✅ Mark as Hired</button>
       <button class="btn-sm btn-red${a.overallStatus==='Rejected'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Rejected')">${a.overallStatus==='Rejected'?'✓ ':''}✗ Mark as Rejected</button>
       <button class="btn-sm btn-amber${a.overallStatus==='Hold'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hold')">${a.overallStatus==='Hold'?'✓ ':''}⏸ Put on Hold</button>
-      <button class="btn-sm btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying even after reminders. Sets automatically 24 hours after the assessment invite if nothing comes in; you can also set it yourself at any stage.">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Doesn&#39;t Respond</button>
+      <button class="btn-sm btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying even after reminders. Sets automatically 48 hours after the assessment invite if nothing comes in; you can also set it yourself at any stage.">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Doesn&#39;t Respond</button>
       ${a.overallStatus && a.overallStatus!=='In Progress' ? `<button class="btn-sm" style="background:#e2e8f0;color:#334155;border:none" onclick="setDecision(${a.id},'In Progress')">&#8630; Undo / Back to In Progress</button>` : ''}
     </div>
     ${a.overallStatus==='Hired' || a.overallStatus==='Departed' ? `
@@ -3436,7 +3530,7 @@ const EMAIL_TEMPLATES={
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 24 hours of this invitation:
+Please complete all of the following assessments and submit them within 48 hours of this invitation:
 
 Important: please use this same email address ({email}) when filling out each form below — that's how we match your results back to your application.
 
@@ -3453,7 +3547,7 @@ Important: please use this same email address ({email}) when filling out each fo
    Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
    Format: Save your completed file as AR_Assessment_{name}.xlsx.
    Submit here (do not reply to this email with the file): {emmlink}
-   Deadline: Please submit the completed file within 24 hours of this invitation, or as soon as possible.
+   Deadline: Please submit the completed file within 48 hours of this invitation, or as soon as possible.
 
 We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
 
@@ -3474,7 +3568,7 @@ As a reminder, please submit:
 • Value-Integrity form: {valueslink}
 • Completed AR EMM Excel assessment — submit here: {emmlink}
 
-The deadline is 24 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
+The deadline is 48 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
 
 Warm regards,
 HR Team
@@ -3518,7 +3612,7 @@ ABBSS`
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 24 hours of this invitation:
+Please complete all of the following assessments and submit them within 48 hours of this invitation:
 
 Important: please use this same email address ({email}) when filling out each form below — that's how we match your results back to your application.
 
@@ -3530,7 +3624,7 @@ Important: please use this same email address ({email}) when filling out each fo
    Link: {valueslink}
    → Your results will be recorded automatically.
 
-Please complete both forms within 24 hours of this invitation — your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
+Please complete both forms within 48 hours of this invitation — your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
 
 We look forward to reviewing your results.
 
@@ -7092,17 +7186,20 @@ function getSlaStatus(a){
   var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
   if(hasGrit && hasValues && emmDone) return null;
   var reminderSent = a.emailsSent && (a.emailsSent.autoReminder || a.emailsSent.reminder);
+  // Mirrors the server-side checkAssessmentCompliance() 24h reminder / 48h
+  // archive timing -- keep these two numbers in sync if that ever changes
+  // again (this frontend copy won't update itself).
   var hoursElapsed = (Date.now() - new Date(invitedAt).getTime()) / 3600000;
-  if(hoursElapsed >= 24) return { label: '⛔ Overdue — will be archived soon', tone: '#b52a2a' };
+  if(hoursElapsed >= 48) return { label: '⛔ Overdue — will be archived soon', tone: '#b52a2a' };
   if(reminderSent){
-    var left = Math.max(0, Math.ceil(24 - hoursElapsed));
+    var left = Math.max(0, Math.ceil(48 - hoursElapsed));
     return { label: '✉️ Reminder sent · ' + left + 'h to deadline', tone: '#b45309' };
   }
-  if(hoursElapsed >= 12){
-    var left2 = Math.max(0, Math.ceil(24 - hoursElapsed));
+  if(hoursElapsed >= 24){
+    var left2 = Math.max(0, Math.ceil(48 - hoursElapsed));
     return { label: '⏳ ' + left2 + 'h left — reminder due soon', tone: '#b45309' };
   }
-  var leftReminder = Math.max(0, Math.ceil(12 - hoursElapsed));
+  var leftReminder = Math.max(0, Math.ceil(24 - hoursElapsed));
   return { label: '⏱️ ' + leftReminder + 'h until auto-reminder', tone: '#1e40af' };
 }
 
@@ -8482,6 +8579,26 @@ async function markSmsSentFromCal(id){
 function openApplicant(id) {
   var a = getApplicant(id);
   if (!a) return;
+  if(a.emailsSent && a.emailsSent.lateResponseNotify){
+    // Opening the profile is the one thing that's supposed to acknowledge a
+    // "quietly came back" notice -- clear it locally right away so the
+    // Recently Responded chip count updates immediately, and fire the
+    // authoritative backend clear (a plain re-save here isn't enough to make
+    // this stick, see saveApplicant()'s sticky-preserve logic on the backend).
+    // getRawApplicants() re-parses localStorage on every call, so getApplicant()
+    // and getApplicants() return independent object copies -- mutate and save
+    // the SAME array instance (same pattern as toggleEmmReceived()), or the
+    // save is a silent no-op.
+    var appsForClear = getApplicants();
+    var target = appsForClear.find(function(x){ return x.id === id; });
+    if(target && target.emailsSent){
+      delete target.emailsSent.lateResponseNotify;
+      saveApplicants(appsForClear);
+    }
+    delete a.emailsSent.lateResponseNotify;
+    if(typeof filterTracker==='function') filterTracker();
+    if(SCRIPT_URL) apiPost('clearLateResponseNotify', {data:{id:id}});
+  }
   var av = getAvatar(a.name);
   document.getElementById('modalAvatar').style.background = av.gradient;
   document.getElementById('modalAvatar').textContent = av.initials;
@@ -8626,9 +8743,18 @@ function showSettingsMsg(msg, color) {
 // OVERRIDE updateTrackerBadge
 // ============================================================
 function updateTrackerBadge() {
-  var n = getApplicants().length;
+  var apps = getApplicants();
+  var n = apps.length;
   var b = document.getElementById('trackerBadge');
   if (b) { if (n > 0) { b.textContent = n; b.style.display = 'inline'; } else b.style.display = 'none'; }
+  // Actionable count, visible from anywhere in the app, not just after
+  // opening Candidates -- same three checks the Quick View chips use, so
+  // the two numbers always agree.
+  var actionable = apps.filter(function(a){
+    return isNewApplicant(a) || !!getSlaStatus(a) || (a.emailsSent && a.emailsSent.lateResponseNotify);
+  }).length;
+  var ab = document.getElementById('trackerActionBadge');
+  if (ab) { if (actionable > 0) { ab.textContent = actionable; ab.style.display = 'inline'; } else ab.style.display = 'none'; }
 }
 
 // ============================================================
