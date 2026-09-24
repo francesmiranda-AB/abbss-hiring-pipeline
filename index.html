@@ -1895,7 +1895,7 @@ var TRACKER_QUICK_VIEW = (function(){
 })();
 
 function isNewApplicant(a){
-  return !!(a && a.createdAt && (Date.now() - new Date(a.createdAt).getTime()) < 24*3600*1000);
+  return !!(a && a.createdAt && isSameLocalDay(a.createdAt, new Date()));
 }
 
 // Click-to-sort table headers. Takes over from the #sortBy dropdown once a
