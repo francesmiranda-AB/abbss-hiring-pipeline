@@ -4584,8 +4584,8 @@ function setupSheet(){
       'CV URL','CV File ID','CV File Name','CV Uploaded At','GRIT Perseverance','GRIT Consistency','Entered By','EMM Received At','Department','EMM File URL',
       'Offer Details JSON','Status Changed At',
       'Emails Opened JSON','Interview Slots JSON','Scheduling Token','Candidate Slot Picks JSON','Candidate Contact','Availability Submitted At','Confirmed Slot JSON','Confirmed At','SMS Sent At','Assessment Views JSON',
-      'Candidate Stage','Next Action','Role Category','Closed Reason','Candidate Stage Dates JSON']);
-    t.getRange(1,1,1,58).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      'Candidate Stage','Next Action','Role Category','Closed Reason','Candidate Stage Dates JSON','Calendar Event ID']);
+    t.getRange(1,1,1,59).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
     t.setFrozenRows(1);
   }
   return 'Setup complete';
@@ -4763,7 +4763,10 @@ function saveApplicant(d){
       const newStage = d.candidateStage||'';
       if(newStage && newStage!==oldStage) dates[newStage]=new Date().toISOString();
       return JSON.stringify(dates);
-    })()
+    })(),
+    // Column 59 (Calendar Event ID) is server-only, written by confirmInterview
+    // when it adds the interview to David's calendar -- same reasoning as columns 43-50.
+    existing?(existing[58]||''):''
   ];
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
@@ -4828,7 +4831,7 @@ function getAllApplicants(){
       confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',smsSentAt:r[51]||'',
       assessmentViews:assessmentViews,
       candidateStage:r[53]||'',nextAction:r[54]||'',roleCategory:r[55]||'',closedReason:r[56]||'',
-      candidateStageDates:candidateStageDates
+      candidateStageDates:candidateStageDates,calendarEventId:r[58]||''
     };
   });
 }
@@ -5570,6 +5573,8 @@ function doPost(e){
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
     else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
     else if(p.action==='confirmInterview')out=confirmInterview(p.data);
+    else if(p.action==='unconfirmInterview')out=unconfirmInterview(p.data);
+    else if(p.action==='removeInterviewSlot')out=removeInterviewSlot(p.data);
     else if(p.action==='saveInterviewSlots')out=saveInterviewSlots(p.data);
     else if(p.action==='recordAvailability')out={success:recordAvailability(p.data.id, p.data.token, p.data.picks, p.data.contact)};
     else if(p.action==='runStageMigrationV3')out=migrateStageModelV3();
@@ -5799,7 +5804,9 @@ function recordAssessmentView(id, which){
 // busy/free only -- it never reads or exposes event titles/descriptions,
 // even though David's sharing permission may technically allow more detail.
 // It only tells the Interview Calendar "something is already booked here,"
-// not what that something is. Nothing is ever written back to his calendar.
+// not what that something is. (Confirmed interviews ARE written to his
+// calendar -- see the WRITE section below -- but this read never returns
+// any event details.)
 //
 // Setup required (one-time, does not touch this file):
 // 1. David shares HIS Google Calendar with this script's own Google
@@ -5822,6 +5829,136 @@ function getDavidBusyBlocks(startIso, endIso){
       return {start: e.getStartTime().toISOString(), end: e.getEndTime().toISOString()};
     });
     return {success:true, blocks:blocks};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+// ============================================================
+// DAVID'S GOOGLE CALENDAR -- WRITE. Creates the confirmed interview directly
+// on David's calendar (not the deploying account's), with a Google Meet
+// link, and no guests -- so no invitations are sent from anyone's account.
+// The call still runs as whoever deployed this script; that account's
+// "created by" shows on the event, but the event itself only lives on
+// David's calendar.
+//
+// Setup required (one-time, does not touch this file):
+// 1. David shares HIS calendar with the deploying account at "Make changes
+//    to events" (the read-only cross-check above only needed "See all
+//    event details").
+// 2. The Calendar advanced service is enabled for this script
+//    (appsscript.json: dependencies.enabledAdvancedServices, userSymbol
+//    "Calendar", v3), and the Google Calendar API is enabled in the linked
+//    Google Cloud project.
+// 3. After pushing, run any function once from the Apps Script editor so
+//    any new permission prompt appears and can be approved.
+// ============================================================
+function writeDavidCalendarInvite(candidateName, position, startDate, endDate, contact){
+  var resource = {
+    summary: 'Interview: ' + candidateName + ' — ' + position,
+    description: contact ? ('Candidate contact: ' + contact) : '',
+    start: {dateTime: startDate.toISOString()},
+    end: {dateTime: endDate.toISOString()},
+    conferenceData: {createRequest: {requestId: Utilities.getUuid(), conferenceSolutionKey: {type: 'hangoutsMeet'}}}
+  };
+  var ev = Calendar.Events.insert(resource, DAVID_CALENDAR_ID, {conferenceDataVersion: 1, sendUpdates: 'none'});
+  var meetLink = getMeetLink(ev);
+  if(!meetLink){
+    // Meet creation can briefly report "pending"; one re-read usually has it.
+    try{ meetLink = getMeetLink(Calendar.Events.get(DAVID_CALENDAR_ID, ev.id)); }catch(e){}
+  }
+  return {eventId: ev.id, meetLink: meetLink};
+}
+
+// Run by hand from the Apps Script editor (not exposed as a web action) to
+// check the deploying account's access to David's calendar. Read-only.
+function checkDavidCalendarAccess(){
+  var msg;
+  try{
+    var role = Calendar.CalendarList.get(DAVID_CALENDAR_ID).accessRole;
+    var ok = role==='writer' || role==='owner';
+    msg = 'Access to ' + DAVID_CALENDAR_ID + ': ' + role + (ok ? ' -- OK, the app can add interviews.' : ' -- NOT enough. Needs "Make changes to events" (writer).');
+  }catch(e){
+    msg = 'Could not read access to ' + DAVID_CALENDAR_ID + ' from your calendar list: ' + e.message;
+    try{
+      var cal = Calendar.Calendars.get(DAVID_CALENDAR_ID);
+      msg += ' | But the calendar itself is reachable ("' + cal.summary + '"), so it is shared but not added to your calendar list.';
+    }catch(e2){
+      msg += ' | The calendar itself is not reachable either: ' + e2.message;
+    }
+  }
+  Logger.log(msg);
+  try{
+    var items = Calendar.CalendarList.list({maxResults: 250}).items || [];
+    Logger.log('Calendars this account can see (' + items.length + '):');
+    items.forEach(function(c){ Logger.log('  ' + c.accessRole + '  |  ' + c.id + '  |  ' + c.summary); });
+  }catch(e3){
+    Logger.log('Could not list calendars: ' + e3.message);
+  }
+  return msg;
+}
+
+function getMeetLink(ev){
+  if(!ev) return '';
+  if(ev.hangoutLink) return ev.hangoutLink;
+  var eps = (ev.conferenceData && ev.conferenceData.entryPoints) || [];
+  for(var i=0;i<eps.length;i++){ if(eps[i].entryPointType==='video' && eps[i].uri) return eps[i].uri; }
+  return '';
+}
+
+function cancelDavidCalendarInvite(eventId){
+  if(!eventId) return;
+  try{
+    Calendar.Events.remove(DAVID_CALENDAR_ID, eventId, {sendUpdates: 'none'});
+  }catch(e){ /* already deleted/missing -- nothing to clean up */ }
+}
+
+// Undo/remove on the Interview Calendar must go through these, not the
+// generic saveApplicant sync: saveApplicant deliberately keeps the Sheet's
+// copy of columns 44-51 (slots, confirmed slot, confirmed-at) and 59 (event
+// ID), so a client-side clear would silently come back on the next reload.
+function clearConfirmedInterview(t, idx, row){
+  cancelDavidCalendarInvite(row[58]);
+  t.getRange(idx+1, 50).setValue(''); // Confirmed Slot JSON
+  t.getRange(idx+1, 51).setValue(''); // Confirmed At
+  t.getRange(idx+1, 52).setValue(''); // SMS Sent At -- stale once unconfirmed
+  t.getRange(idx+1, 59).setValue(''); // Calendar Event ID
+}
+
+function findApplicantRow(id){
+  var t = SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+  if(!t) return {error:'Applicants sheet not found.'};
+  var rows = t.getDataRange().getValues();
+  var idx = rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(id); });
+  if(idx<=0) return {error:'Applicant not found.'};
+  return {t:t, idx:idx, row:rows[idx]};
+}
+
+function unconfirmInterview(data){
+  try{
+    if(!data || !data.id) return {success:false, error:'Missing applicant id.'};
+    var f = findApplicantRow(data.id);
+    if(f.error) return {success:false, error:f.error};
+    clearConfirmedInterview(f.t, f.idx, f.row);
+    return {success:true};
+  }catch(e){
+    return {success:false, error:e.message};
+  }
+}
+
+function removeInterviewSlot(data){
+  try{
+    if(!data || !data.id || !data.slotId) return {success:false, error:'Missing applicant id or slot.'};
+    var f = findApplicantRow(data.id);
+    if(f.error) return {success:false, error:f.error};
+    var slots = [];
+    try{ slots = f.row[44] ? JSON.parse(f.row[44]) : []; }catch(e){}
+    slots = slots.filter(function(s){ return String(s.id)!==String(data.slotId); });
+    f.t.getRange(f.idx+1, 45).setValue(JSON.stringify(slots)); // Interview Slots JSON
+    var confirmed = null;
+    try{ confirmed = f.row[49] ? JSON.parse(f.row[49]) : null; }catch(e){}
+    if(confirmed && String(confirmed.id)===String(data.slotId)) clearConfirmedInterview(f.t, f.idx, f.row);
+    return {success:true};
   }catch(e){
     return {success:false, error:e.message};
   }
@@ -5990,11 +6127,14 @@ function recordAvailability(id, token, picks, contact){
   return true;
 }
 
-// Finalizes one proposed slot as the confirmed interview time. Fully native
-// (Sheet-only) -- no Calendar API calls, so it can't fail on missing Google
-// permissions. Sends the candidate a confirmation email; texting them is a
-// manual step for now (see the Interview Calendar page, which surfaces their
-// phone number prominently once confirmed) until an SMS provider is set up.
+// Finalizes one proposed slot as the confirmed interview time. Adds it to
+// David's calendar with a Meet link (best-effort, via
+// writeDavidCalendarInvite), then sends the candidate a confirmation email
+// that includes the Meet link when one was created. A Calendar failure
+// never fails the confirmation itself, same as the email. Texting
+// the candidate is a manual step for now (see the Interview Calendar page,
+// which surfaces their phone number prominently once confirmed) until an
+// SMS provider is set up.
 function confirmInterview(data){
   try{
     if(!data || !data.id || !data.slotId) return {success:false, error:'Missing applicant id or slot.'};
@@ -6025,18 +6165,51 @@ function confirmInterview(data){
     var email = rows[idx][2] || '';
     var position = rows[idx][4] || '';
 
+    var contact = data.contact || rows[idx][47] || '';
+
+    // Claim the confirmation first so the idempotency guard above catches a
+    // double-click while the calendar call below is still running.
     t.getRange(idx+1, 50).setValue(JSON.stringify(slot));     // col 50 = index 49
     t.getRange(idx+1, 51).setValue(new Date().toISOString()); // col 51 = index 50
-    t.getRange(idx+1, 52).setValue('');                       // col 52 = index 51 (unused now -- kept for schema stability)
+
+    // Calendar before email, so the candidate's email can carry the Meet
+    // link. A calendar failure never blocks the confirmation or the email.
+    var calendarWarning = '';
+    var meetLink = '';
+    var confirmedTimeText = slot.label;
+    if(data.startIso && data.durationMin){
+      var startDate = new Date(data.startIso);
+      var endDate = new Date(startDate.getTime() + Number(data.durationMin)*60000);
+      confirmedTimeText = Utilities.formatDate(startDate, Session.getScriptTimeZone(), 'EEEE, MMMM d, yyyy, h:mm a');
+      try{
+        var invite = writeDavidCalendarInvite(name, position, startDate, endDate, contact);
+        meetLink = invite.meetLink || '';
+        t.getRange(idx+1, 59).setValue(invite.eventId); // col 59 = index 58 (Calendar Event ID -- new column; col 52/index 51 is already SMS Sent At, do not reuse)
+        slot.startIso = startDate.toISOString();
+        slot.durationMin = Number(data.durationMin);
+        slot.meetLink = meetLink;
+        t.getRange(idx+1, 50).setValue(JSON.stringify(slot));
+      }catch(e){
+        t.getRange(idx+1, 59).setValue('');
+        calendarWarning = "Interview confirmed, but couldn't add it to David's calendar: " + e.message;
+      }
+    } else {
+      t.getRange(idx+1, 59).setValue('');
+    }
 
     if(email){
       try{
         MailApp.sendEmail(email, '[ABBSS] Interview Confirmed: ' + position,
-          'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + slot.label + '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS',
+          'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + confirmedTimeText +
+          (meetLink ? ('\n\nGoogle Meet link: ' + meetLink) : '') +
+          '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS',
           {replyTo: DEFAULT_REPLY_TO, name: 'ABBSS HR Team'});
       }catch(e){ /* don't fail the whole confirmation just because the email didn't send */ }
     }
-    return {success:true, slotLabel:slot.label};
+
+    var result = {success:true, slotLabel:slot.label, meetLink:meetLink};
+    if(calendarWarning) result.calendarWarning = calendarWarning;
+    return result;
   }catch(e){
     return {success:false, error:e.message};
   }
@@ -9168,6 +9341,10 @@ function openInterviewCalDetail(applicantId, slotId){
   if(confirmed){
     body += '<div style="padding:12px 14px;border-radius:10px;background:#eaf7f0;border:1.5px solid #a3d9bc;font-size:14px;color:#166534;margin-bottom:10px">✓ Confirmed. A confirmation email has been sent to the candidate. Their other proposed times have been declined.' +
       (a.candidateContact ? ' Remember to call them to confirm they\'re prepared.' : '') + '</div>';
+    var meetLink = a.confirmedSlot && a.confirmedSlot.meetLink;
+    if(meetLink && /^https:\/\/meet\.google\.com\//.test(meetLink)){
+      body += '<div style="font-size:14px;margin-bottom:10px">🎥 <a href="'+meetLink+'" target="_blank" rel="noopener">Join Google Meet</a> <span style="color:var(--gray400);font-size:12px">('+meetLink.replace('https://','')+')</span></div>';
+    }
     if(a.candidateContact){
       body += a.smsSentAt
         ? '<div style="font-size:13px;color:#166534;font-weight:700">✓ HR sent a text message ('+new Date(a.smsSentAt).toLocaleString()+') <button class="btn-sm btn-ghost" style="margin-left:6px;padding:2px 8px;font-size:11px" onclick="unmarkSmsSentFromCal('+a.id+')">Undo</button></div>'
@@ -9175,8 +9352,29 @@ function openInterviewCalDetail(applicantId, slotId){
     }
     body += '<button class="btn btn-full btn-ghost" style="margin-top:10px" onclick="unconfirmInterviewCalSlot('+a.id+')">↺ Undo Confirmation</button>';
   } else {
-    body += '<button id="interviewCalConfirmBtn" class="btn btn-primary btn-full" style="font-size:16px;padding:14px" onclick="confirmInterviewCalSlot('+a.id+',\''+String(slot.id).replace(/'/g,"\\'")+'\')">✓ Confirm This Time</button>' +
-      '<div style="font-size:12px;color:var(--gray400);margin-top:8px">This sends the candidate a confirmation email and declines their other proposed times.</div>';
+    // Slot labels are free-text HR typed from a phone call -- clientParseSlotDate
+    // is only a best-effort guess. We need a real, human-verified start/end to
+    // create David's calendar invite, so ask for it here, right where he's
+    // already manually cross-checking against his busy blocks (the overlap
+    // banner above). Pre-fill from the guess when it parsed; leave blank
+    // (and required) otherwise.
+    var pad2 = function(n){ return (n<10?'0':'')+n; };
+    var prefillDate = slotDate ? (slotDate.getFullYear()+'-'+pad2(slotDate.getMonth()+1)+'-'+pad2(slotDate.getDate())) : '';
+    var prefillTime = slotDate ? (pad2(slotDate.getHours())+':'+pad2(slotDate.getMinutes())) : '';
+    body += '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+        '<div style="flex:1"><label class="lbl" for="interviewCalDate">Date</label><input class="inp" id="interviewCalDate" type="date" value="'+prefillDate+'"></div>' +
+        '<div style="flex:1"><label class="lbl" for="interviewCalTime">Time</label><input class="inp" id="interviewCalTime" type="time" value="'+prefillTime+'"></div>' +
+      '</div>' +
+      '<div style="margin-bottom:10px"><label class="lbl" for="interviewCalDuration">Duration</label>' +
+      '<select class="inp" id="interviewCalDuration">' +
+        '<option value="30">30 min</option>' +
+        '<option value="45" selected>45 min</option>' +
+        '<option value="60">1 hour</option>' +
+        '<option value="90">1.5 hours</option>' +
+      '</select></div>' +
+      '<div style="font-size:12px;color:var(--gray400);margin-bottom:10px">This is the time that goes on David\'s calendar and in the candidate\'s email -- double-check it, it does not have to match the label above exactly.</div>' +
+      '<button id="interviewCalConfirmBtn" class="btn btn-primary btn-full" style="font-size:16px;padding:14px" onclick="confirmInterviewCalSlot('+a.id+',\''+String(slot.id).replace(/'/g,"\\'")+'\')">✓ Confirm This Time</button>' +
+      '<div style="font-size:12px;color:var(--gray400);margin-top:8px">This adds it to David\'s calendar with a Google Meet link, emails the candidate the time and link, and declines their other proposed times.</div>';
   }
 
   body += '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--gray200);text-align:right">' +
@@ -9202,11 +9400,22 @@ function closeInterviewCalOverlay(){
 async function confirmInterviewCalSlot(id, slotId){
   if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- cannot confirm from here.'); return; }
   var a = getApplicant(id);
+  var dateEl = document.getElementById('interviewCalDate');
+  var timeEl = document.getElementById('interviewCalTime');
+  var durationEl = document.getElementById('interviewCalDuration');
+  var startIso = '', durationMin = '';
+  if(dateEl && timeEl){
+    if(!dateEl.value || !timeEl.value){ alert('Enter the actual interview date and time before confirming -- this is what goes on David\'s calendar.'); return; }
+    var startDate = new Date(dateEl.value + 'T' + timeEl.value);
+    if(isNaN(startDate.getTime())){ alert('That date/time is not valid.'); return; }
+    startIso = startDate.toISOString();
+    durationMin = durationEl ? durationEl.value : '45';
+  }
   var btn = document.getElementById('interviewCalConfirmBtn');
   if(btn){ btn.disabled=true; btn.textContent='Confirming...'; }
-  var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:(a&&a.candidateContact)||''}});
+  var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:(a&&a.candidateContact)||'', startIso:startIso, durationMin:durationMin}});
   if(res && res.success){
-    showToast('✓ Interview confirmed. Confirmation email sent, other times declined');
+    showToast(res.calendarWarning ? ('✓ Interview confirmed. ' + res.calendarWarning) : '✓ Interview confirmed. Added to David\'s calendar, confirmation email sent, other times declined');
     await loadFromSheets();
     renderInterviewCalendar();
     openInterviewCalDetail(id, slotId); // refresh the overlay in place to show the confirmed state
@@ -9265,38 +9474,44 @@ function unmarkSmsSentFromCal(id){
 
 // Removes a proposed time entirely -- for stale/wrong entries with nothing
 // left to do (e.g. the parser couldn't read a date and the candidate never
-// followed up). Local-first like deleteApplicant: no backend round-trip
-// needed since this just reuses the generic saveApplicant sync.
+// followed up). Updates the screen right away, then the dedicated backend
+// action makes it stick. The generic saveApplicant sync can't: it keeps the
+// Sheet's copy of the slot columns, and running both at once could race.
 function deleteInterviewCalSlot(applicantId, slotId){
   var apps = getApplicants();
   var a = apps.find(function(x){ return x.id===applicantId; });
   if(!a) return;
   var slot = (a.interviewSlots||[]).find(function(s){ return String(s.id)===String(slotId); });
-  if(!confirm('Remove '+(slot?('"'+slot.label+'" for '):'this proposed time for ')+a.name+'? This cannot be undone.')) return;
+  var wasConfirmedSlot = a.confirmedSlot && String(a.confirmedSlot.id)===String(slotId);
+  if(!confirm('Remove '+(slot?('"'+slot.label+'" for '):'this proposed time for ')+a.name+'?'+(wasConfirmedSlot?' It will also be removed from David\'s calendar.':'')+' This cannot be undone.')) return;
   a.interviewSlots = (a.interviewSlots||[]).filter(function(s){ return String(s.id)!==String(slotId); });
-  if(a.confirmedSlot && String(a.confirmedSlot.id)===String(slotId)){ a.confirmedSlot=null; a.confirmedAt=''; }
+  if(wasConfirmedSlot){ a.confirmedSlot=null; a.confirmedAt=''; a.smsSentAt=''; a.calendarEventId=''; }
   saveApplicants(apps);
-  syncApplicantToSheets(a);
   showToast('✓ Removed');
   closeInterviewCalOverlay();
   renderInterviewCalendar();
+  apiPost('removeInterviewSlot', {data:{id:applicantId, slotId:slotId}}).then(function(res){
+    if(!(res && res.success)) showToast('⚠️ Could not save the removal to the Sheet ('+((res&&res.error)||'no response')+'). It may reappear after a refresh -- try again.');
+  });
 }
 
 // Reverses a confirmation made by mistake. Does NOT email the candidate --
 // there's no cancellation template, so the confirm() prompt says so plainly
 // rather than implying this notifies anyone.
 function unconfirmInterviewCalSlot(applicantId){
-  if(!confirm('Undo this confirmation? It goes back to "Ready to Confirm." This does NOT email the candidate -- if they need to be told, do that separately.')) return;
+  if(!confirm('Undo this confirmation? It goes back to "Ready to Confirm" and is removed from David\'s calendar. This does NOT email the candidate -- if they need to be told, do that separately.')) return;
   var apps = getApplicants();
   var a = apps.find(function(x){ return x.id===applicantId; });
   if(!a) return;
   var slotId = a.confirmedSlot && a.confirmedSlot.id;
-  a.confirmedSlot=null; a.confirmedAt=''; a.smsSentAt='';
+  a.confirmedSlot=null; a.confirmedAt=''; a.smsSentAt=''; a.calendarEventId='';
   saveApplicants(apps);
-  syncApplicantToSheets(a);
   showToast('✓ Confirmation undone');
   renderInterviewCalendar();
   if(slotId) openInterviewCalDetail(applicantId, slotId);
+  apiPost('unconfirmInterview', {data:{id:applicantId}}).then(function(res){
+    if(!(res && res.success)) showToast('⚠️ Could not save the undo to the Sheet ('+((res&&res.error)||'no response')+'). It may show as confirmed again after a refresh -- try again.');
+  });
 }
 
 // ============================================================
