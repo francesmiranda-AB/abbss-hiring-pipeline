@@ -10,10 +10,19 @@ function envProp_(key, fallback){
     return v ? v : fallback;
   }catch(e){ return fallback; }
 }
+// Only the production script ever falls back to production values. Any other
+// copy (staging) must set its own properties, and can never point at the
+// production Sheet -- it fails closed instead.
+const PROD_SCRIPT_ID = '1kt0pyJYL0Vu_4o46hYYY5GO91kWrtpDQxi4z0dvXyVfQsJdiJQk83sTm';
 const PROD_MASTER_SHEET_ID = '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0';
 const PROD_DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
-const MASTER_SHEET_ID = envProp_('MASTER_SHEET_ID', PROD_MASTER_SHEET_ID);
-const IS_STAGING = MASTER_SHEET_ID !== PROD_MASTER_SHEET_ID;
+const PROD_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec';
+const IS_PROD_SCRIPT = (function(){ try{ return ScriptApp.getScriptId()===PROD_SCRIPT_ID; }catch(e){ return false; } })();
+const IS_STAGING = !IS_PROD_SCRIPT;
+const MASTER_SHEET_ID = (function(){
+  var id = envProp_('MASTER_SHEET_ID', IS_PROD_SCRIPT ? PROD_MASTER_SHEET_ID : '');
+  return (IS_STAGING && id===PROD_MASTER_SHEET_ID) ? '' : id;
+})();
 // Staging only: every outgoing email goes to this address instead.
 const MAIL_REDIRECT = envProp_('MAIL_REDIRECT', '');
 const GRIT_SHEET_ID   = '1sU7HPe9Nn69RdHyuCrpisCKdGTDHNO3c0furVEqgfFk';
@@ -22,7 +31,7 @@ const EMM_FORM_SHEET_ID = '1ZTh5NtZtxvcFfx1kmiW40s4jRyAZdz9T3sNhoZB3SEI';
 const EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 const GRIT_FORM_LINK = 'https://forms.gle/JwGGt8UWnR6NgFga8';
 const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
-const DAVID_CALENDAR_ID = envProp_('DAVID_CALENDAR_ID', PROD_DAVID_CALENDAR_ID);
+const DAVID_CALENDAR_ID = envProp_('DAVID_CALENDAR_ID', IS_PROD_SCRIPT ? PROD_DAVID_CALENDAR_ID : '');
 const CV_FOLDER_NAME = envProp_('CV_FOLDER_NAME', 'ABBSS Applicant CVs');
 
 // The plain, public web app URL for THIS deployment (matches the URL shown
@@ -38,7 +47,7 @@ const CV_FOLDER_NAME = envProp_('CV_FOLDER_NAME', 'ABBSS Applicant CVs');
 // the email-open tracking pixel) must be built from this hardcoded constant
 // instead, so they can never pick up that broken variant. If this
 // deployment is ever redeployed under a new URL, update this one line.
-const PUBLIC_WEBAPP_URL = envProp_('PUBLIC_WEBAPP_URL', 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec');
+const PUBLIC_WEBAPP_URL = envProp_('PUBLIC_WEBAPP_URL', IS_PROD_SCRIPT ? PROD_WEBAPP_URL : '');
 
 // Every email goes through here. Staging fails closed: without MAIL_REDIRECT
 // it refuses to send, so a copied Sheet can never email a real candidate.
@@ -56,8 +65,8 @@ function sendMail_(to, subject, body, options){
 
 // Staging fails closed for calendar writes too: never David's real calendar.
 function assertCalendarWritable_(){
-  if(IS_STAGING && DAVID_CALENDAR_ID===PROD_DAVID_CALENDAR_ID){
-    throw new Error("Staging backend is still pointed at David's real calendar -- set DAVID_CALENDAR_ID.");
+  if(IS_STAGING && (!DAVID_CALENDAR_ID || DAVID_CALENDAR_ID===PROD_DAVID_CALENDAR_ID)){
+    throw new Error("Staging backend has no test calendar (or is pointed at David's real calendar) -- set DAVID_CALENDAR_ID.");
   }
 }
 
