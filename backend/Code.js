@@ -1,14 +1,29 @@
 // ABBSS Hiring Pipeline - Google Apps Script Backend
-// Generated automatically - paste into Extensions > Apps Script
+// Deployed with clasp from this folder (see docs in the root repo).
 
-const MASTER_SHEET_ID = '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0';
+// Environment. Production values are the defaults; a staging copy of this
+// script overrides them in Project Settings -> Script Properties so the same
+// code can run against a copy of the Sheet without touching real people.
+function envProp_(key, fallback){
+  try{
+    var v = PropertiesService.getScriptProperties().getProperty(key);
+    return v ? v : fallback;
+  }catch(e){ return fallback; }
+}
+const PROD_MASTER_SHEET_ID = '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0';
+const PROD_DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
+const MASTER_SHEET_ID = envProp_('MASTER_SHEET_ID', PROD_MASTER_SHEET_ID);
+const IS_STAGING = MASTER_SHEET_ID !== PROD_MASTER_SHEET_ID;
+// Staging only: every outgoing email goes to this address instead.
+const MAIL_REDIRECT = envProp_('MAIL_REDIRECT', '');
 const GRIT_SHEET_ID   = '1sU7HPe9Nn69RdHyuCrpisCKdGTDHNO3c0furVEqgfFk';
 const VALUES_SHEET_ID = '16jRYZIFG_5O2Dh-7Wvj4MKVfsDV9FsOIXKPJiTFYCbc';
 const EMM_FORM_SHEET_ID = '1ZTh5NtZtxvcFfx1kmiW40s4jRyAZdz9T3sNhoZB3SEI';
 const EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 const GRIT_FORM_LINK = 'https://forms.gle/JwGGt8UWnR6NgFga8';
 const VALUES_FORM_LINK = 'https://forms.gle/RH5HGDDvPL9H5YvRA';
-const DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
+const DAVID_CALENDAR_ID = envProp_('DAVID_CALENDAR_ID', PROD_DAVID_CALENDAR_ID);
+const CV_FOLDER_NAME = envProp_('CV_FOLDER_NAME', 'ABBSS Applicant CVs');
 
 // The plain, public web app URL for THIS deployment (matches the URL shown
 // in Deploy > Manage deployments). ScriptApp.getService().getUrl() looks
@@ -23,7 +38,28 @@ const DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
 // the email-open tracking pixel) must be built from this hardcoded constant
 // instead, so they can never pick up that broken variant. If this
 // deployment is ever redeployed under a new URL, update this one line.
-const PUBLIC_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec';
+const PUBLIC_WEBAPP_URL = envProp_('PUBLIC_WEBAPP_URL', 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec');
+
+// Every email goes through here. Staging fails closed: without MAIL_REDIRECT
+// it refuses to send, so a copied Sheet can never email a real candidate.
+function sendMail_(to, subject, body, options){
+  options = options || {};
+  if(IS_STAGING || MAIL_REDIRECT){
+    if(!MAIL_REDIRECT) throw new Error('Staging backend has no MAIL_REDIRECT set -- refusing to send email.');
+    subject = '[STAGING to ' + to + '] ' + subject;
+    to = MAIL_REDIRECT;
+    delete options.cc;
+    delete options.bcc;
+  }
+  MailApp.sendEmail(to, subject, body, options);
+}
+
+// Staging fails closed for calendar writes too: never David's real calendar.
+function assertCalendarWritable_(){
+  if(IS_STAGING && DAVID_CALENDAR_ID===PROD_DAVID_CALENDAR_ID){
+    throw new Error("Staging backend is still pointed at David's real calendar -- set DAVID_CALENDAR_ID.");
+  }
+}
 
 // ============================================================
 // CANDIDATE STAGE MODEL V4 -- refines V3 to line up with the four-role
@@ -945,7 +981,7 @@ function getValuesLabel(s,c,i){
 }
 
 function getOrCreateCVFolder(){
-  const folderName='ABBSS Applicant CVs';
+  const folderName=CV_FOLDER_NAME;
   const folders=DriveApp.getFoldersByName(folderName);
   if(folders.hasNext())return folders.next();
   return DriveApp.createFolder(folderName);
@@ -1287,7 +1323,7 @@ function sendApplicantEmail(data){
         return {success:false, error:'Blocked unsafe email: HTML body contains an unescaped "=" next to characters that Gmail\'s quoted-printable encoder can misread and corrupt (the exact bug that broke assessment links before). Check sendApplicantEmail for a new unescaped link/merge field before resending.'};
       }
     }
-    MailApp.sendEmail(data.to, data.subject||'', plainBody, options);
+    sendMail_(data.to, data.subject||'', plainBody, options);
     return {success:true};
   }catch(e){
     return {success:false, error:e.message};
@@ -1408,6 +1444,7 @@ function getDavidBusyBlocks(startIso, endIso){
 //    any new permission prompt appears and can be approved.
 // ============================================================
 function writeDavidCalendarInvite(candidateName, position, startDate, endDate, contact){
+  assertCalendarWritable_();
   var resource = {
     summary: 'Interview: ' + candidateName + ' — ' + position,
     description: contact ? ('Candidate contact: ' + contact) : '',
@@ -1461,7 +1498,7 @@ function getMeetLink(ev){
 }
 
 function cancelDavidCalendarInvite(eventId){
-  if(!eventId) return;
+  if(!eventId) return; assertCalendarWritable_();
   try{
     Calendar.Events.remove(DAVID_CALENDAR_ID, eventId, {sendUpdates: 'none'});
   }catch(e){ /* already deleted/missing -- nothing to clean up */ }
@@ -1753,7 +1790,7 @@ function confirmInterview(data){
 
     if(email){
       try{
-        MailApp.sendEmail(email, '[ABBSS] Interview Confirmed: ' + position,
+        sendMail_(email, '[ABBSS] Interview Confirmed: ' + position,
           'Dear ' + name + ',\n\nYour interview has been confirmed for:\n' + confirmedTimeText +
           (meetLink ? ('\n\nGoogle Meet link: ' + meetLink) : '') +
           '\n\nWe look forward to speaking with you.\n\nWarm regards,\nHR Team\nABBSS',
@@ -1785,7 +1822,7 @@ function parseSlotToDate(label){
 
 function authorizeMailSending(){
   var me = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
-  MailApp.sendEmail(me, 'ABBSS Hiring Pipeline - Authorization Test', 'This is a one-time test to authorize automatic email sending (assessment invites, reminders, and the Send Automatically button). You can ignore or delete this message.');
+  sendMail_(me, 'ABBSS Hiring Pipeline - Authorization Test', 'This is a one-time test to authorize automatic email sending (assessment invites, reminders, and the Send Automatically button). You can ignore or delete this message.');
   return 'Authorization test email sent to ' + me + '. Automatic sending should now work.';
 }
 
@@ -1996,7 +2033,7 @@ function sendComplianceReminderEmail(email,name,position,enteredBy,id){
   // attribute it to whoever entered this applicant's record so the reply reaches
   // the actual person responsible for that candidate, not just whoever authorized the script.
   const replyTo = TEAM_DIRECTORY[enteredBy] || DEFAULT_REPLY_TO;
-  MailApp.sendEmail(email,subject,body,{replyTo: replyTo, name: enteredBy || 'ABBSS HR Team'});
+  sendMail_(email,subject,body,{replyTo: replyTo, name: enteredBy || 'ABBSS HR Team'});
 }
 
 function installComplianceTrigger(){
@@ -2007,4 +2044,26 @@ function installComplianceTrigger(){
   // late, so the gap between "they answered" and "the app shows it" is short.
   ScriptApp.newTrigger('checkAssessmentCompliance').timeBased().everyMinutes(15).create();
   return 'Compliance trigger installed (runs every 15 minutes)';
+}
+
+// Staging only, run by hand from the editor. Replaces every candidate email
+// and phone number in the COPIED Sheet with test values, so the staging copy
+// holds no real contact details. Refuses to run against the production Sheet.
+function scrubStagingData(){
+  if(!IS_STAGING) throw new Error('Refusing to scrub: this script points at the production Sheet.');
+  if(!MAIL_REDIRECT || MAIL_REDIRECT.indexOf('@')<0) throw new Error('Set MAIL_REDIRECT first; test addresses are built from it.');
+  const t=SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+  const rows=t.getDataRange().getValues();
+  const at=MAIL_REDIRECT.indexOf('@');
+  const local=MAIL_REDIRECT.slice(0,at), domain=MAIL_REDIRECT.slice(at);
+  let n=0;
+  for(let i=1;i<rows.length;i++){
+    if(!rows[i][0]) continue;
+    t.getRange(i+1,3).setValue(local+'+cand'+i+domain); // Email
+    t.getRange(i+1,4).setValue('0000000000');          // Phone
+    if(rows[i][47]) t.getRange(i+1,48).setValue('0000000000'); // Candidate Contact
+    n++;
+  }
+  Logger.log('Scrubbed '+n+' applicant rows.');
+  return 'Scrubbed '+n+' applicant rows.';
 }

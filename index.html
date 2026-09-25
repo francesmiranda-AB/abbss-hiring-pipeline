@@ -1264,7 +1264,16 @@ function normalizeScriptUrl(url){
   if(!url) return url;
   return String(url).replace(/^(https:\/\/script\.google\.com)\/a\/macros\/[^/]+\/s\//, '$1/macros/s/');
 }
-let SCRIPT_URL = normalizeScriptUrl(localStorage.getItem('abbss_script_url')) || DEFAULT_SCRIPT_URL;
+// A local preview must never talk to the production backend: its merge logic
+// can push local test data into the live Sheet. On localhost only a saved,
+// non-production (staging) URL is used; otherwise the app runs disconnected.
+const IS_LOCAL_PREVIEW = location.protocol==='file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+function resolveScriptUrl(){
+  var saved = normalizeScriptUrl(localStorage.getItem('abbss_script_url'));
+  if(IS_LOCAL_PREVIEW) return (saved && saved!==DEFAULT_SCRIPT_URL) ? saved : '';
+  return saved || DEFAULT_SCRIPT_URL;
+}
+let SCRIPT_URL = resolveScriptUrl();
 
 // Turns a fetch response into either the parsed JSON the backend sent, or --
 // when that's not possible -- a {success:false, error, _networkFailure:true}
@@ -4438,6 +4447,7 @@ function saveScriptUrl(){
   const rawUrl = document.getElementById('scriptUrlInput').value.trim();
   if(!rawUrl){showSettingsMsg('Please enter a URL.','#b52a2a');return;}
   const url = normalizeScriptUrl(rawUrl);
+  if(IS_LOCAL_PREVIEW && url===DEFAULT_SCRIPT_URL){showSettingsMsg('This is a local preview: it can only connect to a staging backend, never production.','#b52a2a');return;}
   SCRIPT_URL = url;
   localStorage.setItem('abbss_script_url', url);
   document.getElementById('scriptUrlInput').value = url;
@@ -4447,8 +4457,9 @@ function saveScriptUrl(){
 
 function resetScriptUrlToDefault(){
   localStorage.removeItem('abbss_script_url');
-  SCRIPT_URL = DEFAULT_SCRIPT_URL;
-  document.getElementById('scriptUrlInput').value = DEFAULT_SCRIPT_URL;
+  SCRIPT_URL = resolveScriptUrl();
+  document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+  if(!SCRIPT_URL){showSettingsMsg('This is a local preview: running disconnected until a staging URL is saved.','#b52a2a');return;}
   showSettingsMsg('✓ Reset to the default URL. Testing connection...','#1a7a4a');
   testConnection();
 }
@@ -8011,7 +8022,6 @@ setEmailTemplate('assessment');
 renderDashboard();
 updateTrackerBadge();
 var savedUrl = normalizeScriptUrl(localStorage.getItem('abbss_script_url'));
-SCRIPT_URL = savedUrl || DEFAULT_SCRIPT_URL;
 if(savedUrl) localStorage.setItem('abbss_script_url', savedUrl); // persist the corrected form
 document.getElementById('scriptUrlInput').value = SCRIPT_URL;
 document.getElementById('connectionStatus').className = 'badge badge-pass';
@@ -8019,7 +8029,7 @@ document.getElementById('connectionStatus').textContent = '✓ Connected';
 updateSyncStatus(true);
 (async function(){
   var loaded = await loadFromSheets();
-  if(!loaded && savedUrl && savedUrl !== DEFAULT_SCRIPT_URL){
+  if(!loaded && !IS_LOCAL_PREVIEW && savedUrl && savedUrl !== DEFAULT_SCRIPT_URL){
     // This device's saved connection is stale/broken (points at an old, no-longer-working
     // Apps Script deployment) — fall back to the current shared default automatically so
     // nobody has to know to go into Settings and fix this by hand.
