@@ -1133,15 +1133,6 @@ tbody tr:last-child td{border-bottom:none}
     <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">🗂️ One-Time Migration Tools (safe to ignore once run, click to expand)</summary>
     <div style="margin-top:16px">
   <div class="card card-accent-blue" style="max-width:700px">
-    <div class="card-header"><div class="card-title-lg">Set Up Candidate Stages &amp; Roles</div></div>
-    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">One-time setup the Executive Dashboard and per-role Tracker/Board filters need. Existing applicants have no Candidate Stage or Role yet, so they all show under "(Unassigned)" instead of split across AR/AP/Refunds/FP&amp;A. This reads each applicant's real GRIT/Values/EMM/interview answers to set their Candidate Stage, and guesses a Role from their position title (review afterward, it leaves Role blank rather than guess wrong). Skips anyone who already has a Candidate Stage, so it's safe to run more than once. Preview first, nothing changes until you click Apply.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="previewCandidateStageMigration()">👀 Preview (no changes)</button>
-      <button class="btn btn-primary" id="stageMigV3ApplyBtn" style="display:none;margin-left:auto" onclick="applyCandidateStageMigration()">✓ Apply Migration</button>
-    </div>
-    <div id="stageMigV3Msg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
-  </div>
-  <div class="card card-accent-blue" style="max-width:700px">
     <div class="card-header"><div class="card-title-lg">Update Stage Names (V4)</div></div>
     <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The Candidate Stage list was updated to match the HR / Operations / PM / CEO role structure: "Preliminary Interview" is now "HR Preliminary Interview," "Final Interview" was folded into "Endorsed to Client," a new "Operations Decision" stage makes the Approve/Hold/Reject/Endorse point visible on dashboards, and "Job Offer" is now just "Offer." This moves any applicant still on one of the three old stage names to its new equivalent. Skips anyone already on a current stage name, so it's safe to run more than once. Preview first, nothing changes until you click Apply.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -2030,7 +2021,7 @@ function buildCandidateStageHeader(a){
   var badge = getCandidateStageBadge(a);
   var pill = '<span style="background:'+badge.bg+';color:'+badge.tone+';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">'+badge.label+'</span>';
   var nextActionText = a.nextAction ? '<span style="font-size:13px;color:var(--gray600);font-weight:500;margin-left:10px">Next: '+a.nextAction+'</span>' : '';
-  var roleText = a.roleCategory ? '<span style="font-size:12px;color:var(--gray500);margin-left:10px">'+a.roleCategory+'</span>' : '';
+  var roleText = a.roleCategory ? '<span style="font-size:12px;color:var(--gray500);margin-left:10px">'+escapeHtml(a.roleCategory)+'</span>' : '';
   var hint = badge.key==='__not_migrated__'
     ? '<div style="font-size:11px;color:#b45309;margin-top:8px">This record hasn\'t been through the stage migration yet. Set Candidate Stage below, or run the migration in Settings.</div>'
     : '<div style="font-size:11px;color:var(--gray400);margin-top:8px">Change stage, next action, or role in the Candidate Stage panel below.</div>';
@@ -2107,7 +2098,7 @@ function getNextStepActionAttr(a, n){
     return "advanceStage(" + a.id + ",2)";
   }
   if (n.label === 'Send the assessment invite email') {
-    return "setEmailAndSwitch('" + String(a.name).replace(/'/g,"\\'") + "','" + String(a.position||'').replace(/'/g,"\\'") + "'," + (a.requiresEmm?'true':'false') + ",'" + a.email + "'," + a.id + ")";
+    return "setEmailAndSwitch(" + jsArg(a.name) + "," + jsArg(a.position) + "," + (a.requiresEmm?'true':'false') + "," + jsArg(a.email) + "," + a.id + ")";
   }
   if (n.label.indexOf('Grade their EMM assessment')===0) {
     return "jumpToModalTab('emm'," + a.id + ")";
@@ -2257,10 +2248,10 @@ function buildStageHistory(a){
 function buildProfileTab(a){
   return`
   <div class="g2" style="margin-bottom:12px">
-    <div><label class="lbl">Full Name</label><div style="font-size:14px;font-weight:600">${a.name}</div></div>
-    <div><label class="lbl">Email</label><div style="font-size:14px">${a.email}</div></div>
-    <div><label class="lbl">Phone</label><div style="font-size:14px">${a.phone||'-'}</div></div>
-    <div><label class="lbl">Position</label><div style="font-size:14px">${a.position||'-'}</div></div>
+    <div><label class="lbl">Full Name</label><div style="font-size:14px;font-weight:600">${escapeHtml(a.name)}</div></div>
+    <div><label class="lbl">Email</label><div style="font-size:14px">${escapeHtml(a.email)}</div></div>
+    <div><label class="lbl">Phone</label><div style="font-size:14px">${escapeHtml(a.phone||'-')}</div></div>
+    <div><label class="lbl">Position</label><div style="font-size:14px">${escapeHtml(a.position||'-')}</div></div>
     <div>
       <label class="lbl">Source</label>
       ${(function(){
@@ -2281,7 +2272,7 @@ function buildProfileTab(a){
   ${buildCandidateStagePanel(a)}
   <div style="margin-bottom:var(--space-4)">
     <label class="lbl">Resume Notes</label>
-    <textarea class="inp" id="resumeNotesInput_${a.id}" onchange="updateField(${a.id},'resumeNotes',this.value);flashSaved(this)">${a.resumeNotes||''}</textarea>
+    <textarea class="inp" id="resumeNotesInput_${a.id}" onchange="updateField(${a.id},'resumeNotes',this.value);flashSaved(this)">${escapeHtml(a.resumeNotes)}</textarea>
     <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
       <button class="btn btn-sm btn-primary" onclick="saveResumeNotesNow(${a.id})">💾 Save Notes Now</button>
       <span id="resumeNotesSavedMsg_${a.id}" style="font-size:12px;color:#166534;display:none">✓ Saved</span>
@@ -2290,7 +2281,7 @@ function buildProfileTab(a){
   <div style="margin-bottom:12px">
     <label class="lbl">Resume / CV File</label>
     ${a.cvUrl ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f4f4f8;border-radius:8px;flex-wrap:wrap">
-      <a href="${a.cvUrl}" target="_blank" style="font-size:13px;font-weight:600;color:var(--blue);text-decoration:none">📄 ${a.cvFileName||'View CV'} ↗</a>
+      <a href="${escapeHtml(a.cvUrl)}" target="_blank" style="font-size:13px;font-weight:600;color:var(--blue);text-decoration:none">📄 ${escapeHtml(a.cvFileName||'View CV')} ↗</a>
       <span style="font-size:11px;color:var(--gray400)">Uploaded ${a.cvUploadedAt?new Date(a.cvUploadedAt).toLocaleDateString():''}</span>
       <label class="btn btn-sm btn-ghost" style="cursor:pointer;margin-left:auto">Replace<input type="file" accept=".pdf,.doc,.docx" style="display:none" onchange="handleCvUpload(${a.id},this)"></label>
     </div>` : `<label class="dropzone" style="padding:14px 16px;display:block;cursor:pointer;text-align:left">
@@ -2304,7 +2295,7 @@ function buildProfileTab(a){
   ${buildEmailActivitySummary(a)}
   ${buildAssessmentViewSummary(a)}
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-sm btn-blue" onclick="setEmailAndSwitch('${a.name}','${a.position||''}',${a.requiresEmm||false},'${a.email}',${a.id})">📧 Generate Assessment Email</button>
+    <button class="btn btn-sm btn-blue" onclick="setEmailAndSwitch(${jsArg(a.name)},${jsArg(a.position)},${a.requiresEmm||false},${jsArg(a.email)},${a.id})">📧 Generate Assessment Email</button>
     <button class="btn btn-sm btn-red" onclick="deleteApplicant(${a.id})">🗑 Delete Record</button>
   </div>`;
 }
@@ -2562,7 +2553,7 @@ function printEmmReport(id){
   }).join(''):'';
   const flColor=l=>l==='high'?'#b52a2a':l==='medium'?'#b07d0c':l==='pass'?'#1a7a4a':'#3b3f8c';
   const flagsHtml=hasDetail?(g.flags||[]).map(f=>`<div style="padding:10px 12px;border:1px solid ${flColor(f.level)}55;border-radius:8px;margin-bottom:8px"><strong style="color:${flColor(f.level)}">${f.level==='high'?'HIGH':f.level==='medium'?'MEDIUM':'CLEAR'} \u2014 ${f.title}</strong><div style="font-size:12px;color:#444;margin-top:4px">${f.desc}</div><div style="font-size:12px;color:#333;margin-top:4px"><em>Suggested action:</em> ${f.action}</div></div>`).join(''):'';
-  const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>EMM Assessment Report - '+a.name+'</title>'+
+  const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>EMM Assessment Report - '+escapeHtml(a.name)+'</title>'+
   '<style>'+
   'body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:32px;max-width:800px;margin:0 auto}'+
   'h1{font-size:20px;margin-bottom:4px}'+
@@ -2580,7 +2571,7 @@ function printEmmReport(id){
   '@media print{ body{padding:10px} }'+
   '</style></head><body>'+
   '<h1>EMM Cognitive Assessment Report</h1>'+
-  '<div class="sub">'+a.name+' &middot; '+(a.position||'No position')+' &middot; '+a.email+'</div>'+
+  '<div class="sub">'+escapeHtml(a.name)+' &middot; '+escapeHtml(a.position||'No position')+' &middot; '+escapeHtml(a.email)+'</div>'+
   '<div class="banner">'+
     '<div><div style="font-size:11px;color:#888;text-transform:uppercase">Overall Score</div><div class="score">'+a.emm.overallPct+'%</div><div class="'+(a.emm.pass?(emmHighRiskFlag(a)?'warn':'pass'):'fail')+'">'+emmStatusLabel(a)+'</div></div>'+
     '<div style="text-align:right;font-size:13px;color:#555">'+
@@ -2622,14 +2613,14 @@ function buildSchedulingCard(a){
 
   const timesList = slots.length ? ('<div style="margin-bottom:10px">' + slots.map(function(s){
     const isConfirmed = confirmed && String(confirmed.id)===String(s.id);
-    return `<div style="font-size:13px;padding:6px 10px;border-radius:var(--radius-sm);margin-bottom:4px;background:${isConfirmed?'#dcfce7':'var(--gray100)'};color:${isConfirmed?'#166534':'var(--gray700)'};font-weight:${isConfirmed?'700':'400'}">${isConfirmed?'✓ ':''}${s.label}${isConfirmed?' (Confirmed)':''}</div>`;
+    return `<div style="font-size:13px;padding:6px 10px;border-radius:var(--radius-sm);margin-bottom:4px;background:${isConfirmed?'#dcfce7':'var(--gray100)'};color:${isConfirmed?'#166534':'var(--gray700)'};font-weight:${isConfirmed?'700':'400'}">${isConfirmed?'✓ ':''}${escapeHtml(s.label)}${isConfirmed?' (Confirmed)':''}</div>`;
   }).join('') + '</div>') : '';
 
   return `<div class="assess-card" style="margin-bottom:18px">
     <div style="font-weight:700;font-size:14px;margin-bottom:2px">📅 Interview Time</div>
     <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Call the candidate. Get their preferred time (and a backup, if they have one) plus their Viber/WhatsApp number. Enter both below and save. This adds it to the Interview Calendar for David to confirm.</div>
     <label class="lbl">Time(s) They're Available (most preferred first)</label>
-    <textarea class="inp" id="ivSlotsInput_${a.id}" style="min-height:70px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM (backup)" ${confirmed?'disabled':''}>${slots.map(function(s){return s.label;}).join('\n')}</textarea>
+    <textarea class="inp" id="ivSlotsInput_${a.id}" style="min-height:70px" placeholder="e.g. Mon, Aug 10 - 2:00 PM&#10;Tue, Aug 11 - 10:00 AM (backup)" ${confirmed?'disabled':''}>${escapeHtml(slots.map(function(s){return s.label;}).join('\n'))}</textarea>
     <label class="lbl" style="margin-top:10px">Candidate's Viber/WhatsApp Number</label>
     <input class="inp" id="ivContactInput_${a.id}" value="${contact.replace(/"/g,'&quot;')}" placeholder="e.g. +63 917 123 4567" ${confirmed?'disabled':''}>
     ${!confirmed ? `<div style="margin-top:10px;margin-bottom:12px">
@@ -2788,7 +2779,7 @@ function buildInterviewTab(a){
 
     <div class="assess-card" style="margin-top:14px">
       <label class="lbl">Interview Notes</label>
-      <textarea class="inp" onchange="updateNestedField(${a.id},'interview','notes',this.value);flashSaved(this)" style="min-height:120px" placeholder="Overall observations, answers, red flags, resilience/adaptability examples...">${iv.notes||''}</textarea>
+      <textarea class="inp" onchange="updateNestedField(${a.id},'interview','notes',this.value);flashSaved(this)" style="min-height:120px" placeholder="Overall observations, answers, red flags, resilience/adaptability examples...">${escapeHtml(iv.notes)}</textarea>
     </div>
 
     <div class="assess-card" style="margin-top:14px">
@@ -2861,10 +2852,10 @@ function buildDecisionTab(a){
         out += `<div class="assess-card" style="margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;margin-bottom:8px">Job Offer &amp; Contract Details</div>
       <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Fill these in once, then use the buttons below to send the Job Offer email and/or Contract. The details carry over automatically.</div>
-      <div style="margin-bottom:10px"><label class="lbl">Job Description (JD)</label><textarea class="inp" onchange="updateNestedField(${a.id},'offerDetails','jd',this.value)" placeholder="Key duties and responsibilities...">${od.jd||''}</textarea></div>
+      <div style="margin-bottom:10px"><label class="lbl">Job Description (JD)</label><textarea class="inp" onchange="updateNestedField(${a.id},'offerDetails','jd',this.value)" placeholder="Key duties and responsibilities...">${escapeHtml(od.jd)}</textarea></div>
       <div class="g2" style="margin-bottom:10px">
         <div><label class="lbl">Start Date</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','startDate',this.value)" value="${od.startDate||''}" placeholder="e.g. August 4, 2026"></div>
-        <div><label class="lbl">Rate</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','rate',this.value)" value="${od.rate||''}" placeholder="e.g. PHP 30,000/month"></div>
+        <div><label class="lbl">Rate</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','rate',this.value)" value="${escapeHtml(od.rate)}" placeholder="e.g. PHP 30,000/month"></div>
       </div>
       <div class="g2" style="margin-bottom:12px">
         <div><label class="lbl">Contract Type</label><select class="inp" onchange="updateNestedField(${a.id},'offerDetails','contractType',this.value)">
@@ -2872,7 +2863,7 @@ function buildDecisionTab(a){
           <option value="Employee" ${od.contractType==='Employee'?'selected':''}>Employee</option>
           <option value="Independent Contractor" ${od.contractType==='Independent Contractor'?'selected':''}>Independent Contractor</option>
         </select></div>
-        <div><label class="lbl">Signatory</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','signatory',this.value)" value="${od.signatory||''}" placeholder="e.g. Frances Miranda"></div>
+        <div><label class="lbl">Signatory</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','signatory',this.value)" value="${escapeHtml(od.signatory)}" placeholder="e.g. Frances Miranda"></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm btn-amber" onclick="goToOfferEmail(${a.id},'offer')">&#128203; Send Next Steps Email</button>
@@ -2902,7 +2893,7 @@ function buildDecisionTab(a){
     </div>` : ''}
     <div style="margin-top:12px">
       <label class="lbl">Final Decision Notes</label>
-      <textarea class="inp" onchange="updateField(${a.id},'decisionNotes',this.value);flashSaved(this)" placeholder="Reason for decision, who approved, next steps...">${a.decisionNotes||''}</textarea>
+      <textarea class="inp" onchange="updateField(${a.id},'decisionNotes',this.value);flashSaved(this)" placeholder="Reason for decision, who approved, next steps...">${escapeHtml(a.decisionNotes)}</textarea>
     </div>`;
 }
 
@@ -3151,7 +3142,7 @@ function populateApplicantSelect(){
   const sel=document.getElementById('gradeApplicantSelect');
   if(!sel)return;
   const apps=getApplicants();
-  sel.innerHTML='<option value="">Grade standalone</option>'+apps.map(a=>`<option value="${a.id}">${a.name} (${a.position||'no position'})</option>`).join('');
+  sel.innerHTML='<option value="">Grade standalone</option>'+apps.map(a=>`<option value="${a.id}">${escapeHtml(a.name)} (${escapeHtml(a.position||'no position')})</option>`).join('');
 }
 
 // ============================================================
@@ -3180,8 +3171,8 @@ function renderPendingGradingQueue(){
       ${pending.map(a=>`
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e8e8f0;border-radius:8px;background:#fafafa;flex-wrap:wrap">
           <div>
-            <div style="font-weight:700;font-size:13px">${a.name}</div>
-            <div style="font-size:12px;color:#888">${a.position||'No position'}${a.emmReceivedAt?' · submitted '+new Date(a.emmReceivedAt).toLocaleString():''}</div>
+            <div style="font-weight:700;font-size:13px">${escapeHtml(a.name)}</div>
+            <div style="font-size:12px;color:#888">${escapeHtml(a.position||'No position')}${a.emmReceivedAt?' · submitted '+new Date(a.emmReceivedAt).toLocaleString():''}</div>
           </div>
           <div style="display:flex;gap:8px">
             <a href="${a.emmFileUrl}" target="_blank" class="btn btn-sm btn-ghost" style="text-decoration:none">View File ↗</a>
@@ -3215,11 +3206,11 @@ async function renderUnmatchedEmmCard(){
       var safeName = String(u.name||'').replace(/'/g,"\\'");
       return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #fcd34d;border-radius:8px;background:#fffbeb;flex-wrap:wrap">' +
         '<div>' +
-          '<div style="font-weight:700;font-size:13px">'+(u.name||'(no name given)')+'</div>' +
-          '<div style="font-size:12px;color:#888">'+(u.email||'no email given')+(u.timestamp?' · submitted '+new Date(u.timestamp).toLocaleString():'')+'</div>' +
+          '<div style="font-weight:700;font-size:13px">'+escapeHtml(u.name||'(no name given)')+'</div>' +
+          '<div style="font-size:12px;color:#888">'+escapeHtml(u.email||'no email given')+(u.timestamp?' · submitted '+new Date(u.timestamp).toLocaleString():'')+'</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px">' +
-          '<a href="'+u.fileUrl+'" target="_blank" class="btn btn-sm btn-ghost" style="text-decoration:none">View File ↗</a>' +
+          '<a href="'+escapeHtml(u.fileUrl)+'" target="_blank" class="btn btn-sm btn-ghost" style="text-decoration:none">View File ↗</a>' +
           '<button class="btn btn-sm btn-primary" onclick="loadUnmatchedEmmFile(\''+safeUrl+'\',\''+safeName+'\')">⚡ Grade Standalone</button>' +
         '</div>' +
       '</div>';
@@ -4568,7 +4559,9 @@ function showToast(msg, type, onUndo) {
   type = type || 'success';
   var t = document.getElementById('toast');
   t.className = 'show toast-' + type;
-  t.innerHTML = (type === 'success' ? '&#10003; ' : '&#9888; ') + msg;
+  // The icon comes from the type; callers that also prefix one would show it twice.
+  var text = String(msg == null ? '' : msg).replace(/^\s*(✓|✅|⚠️|⚠)\s*/, '');
+  t.innerHTML = (type === 'success' ? '&#10003; ' : '&#9888; ') + escapeHtml(text);
   if(onUndo){
     var btn = document.createElement('button');
     btn.textContent = 'Undo';
@@ -4590,7 +4583,7 @@ function getAvatar(name) {
   var words = name.trim().split(' ');
   var initials = (words[0][0] + (words.length > 1 ? words[words.length-1][0] : '')).toUpperCase();
   var idx = name.charCodeAt(0) % AVATAR_COLORS.length;
-  return { initials: initials, gradient: AVATAR_COLORS[idx] };
+  return { initials: escapeHtml(initials), gradient: AVATAR_COLORS[idx] };
 }
 function avatarHtml(name, cls) {
   cls = cls || '';
@@ -5188,8 +5181,8 @@ function showCardApplicants(key){
     var av = getAvatar(a.name);
     return '<div class="applicant-row" onclick="openApplicant(' + a.id + ')">' +
       '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
-      '<div class="applicant-info"><div class="applicant-name">' + a.name + '</div>' +
-      '<div class="applicant-meta">' + (a.position||'No position') + ' \u00b7 ' + a.email + '</div></div>' +
+      '<div class="applicant-info"><div class="applicant-name">' + escapeHtml(a.name) + '</div>' +
+      '<div class="applicant-meta">' + escapeHtml(a.position||'No position') + ' \u00b7 ' + escapeHtml(a.email) + '</div></div>' +
       '<div style="text-align:right;flex-shrink:0">' + candidateStageDrilldownBadge(a) + '</div></div>';
   }).join('') : '<div class="empty" style="padding:24px"><div class="empty-icon">&#128269;</div><div class="empty-title">No applicants in this group</div></div>';
   panel.innerHTML = '<div class="card-header"><div class="card-title">' + cfg.label + ' (' + list.length + ')</div><button class="btn btn-sm btn-ghost" onclick="showCardApplicants(\'' + key + '\')">&#10005; Close</button></div>' + rows;
@@ -5285,7 +5278,7 @@ function renderDashboard() {
         return '<div onclick="openApplicant(' + t.a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100);border-left:3px solid var(--blue)">' +
           '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
           '<div style="flex:1;min-width:0">' +
-            '<div style="font-weight:700;font-size:14px">' + t.a.name + roleTag + '</div>' +
+            '<div style="font-weight:700;font-size:14px">' + escapeHtml(t.a.name) + roleTag + '</div>' +
             '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + (t.def.hint||'') + '</div>' +
           '</div>' +
           '<span style="font-weight:800;font-size:16px;color:var(--gray300);flex-shrink:0">&#8250;</span>' +
@@ -5561,91 +5554,8 @@ async function recalculateAllStages(){
 }
 
 // ============================================================
-// CANDIDATE STAGE MODEL V3 -- ONE-TIME MIGRATION UI. The backend functions
-// (previewStageMigrationV3 / migrateStageModelV3) already existed and are
-// idempotent -- this is the actual button to run them, which was missing
-// until now. Preview is a hard requirement before Apply is even clickable:
-// it calls the real doGet route so it reflects your actual live Sheet, not
-// a guess. Apply only ever touches rows where Candidate Stage is still
-// blank, so re-running it after new applicants come in is always safe.
-// ============================================================
-async function previewCandidateStageMigration(){
-  var msgEl = document.getElementById('stageMigV3Msg');
-  var applyBtn = document.getElementById('stageMigV3ApplyBtn');
-  if(!msgEl) return;
-  if(!SCRIPT_URL){
-    msgEl.style.display='block';
-    msgEl.innerHTML = '<span style="color:#b45309">Connect Google Sheets above first. This migration runs against your shared Sheet.</span>';
-    return;
-  }
-  msgEl.style.display='block';
-  msgEl.innerHTML = 'Checking your data&hellip;';
-  if(applyBtn) applyBtn.style.display='none';
-
-  var res = await apiGet('previewStageMigrationV3');
-  if(!res || !res.success){
-    msgEl.innerHTML = '<span style="color:#b52a2a">Could not preview: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
-    return;
-  }
-  window._stageMigV3Preview = res;
-
-  if(res.totalToMigrate === 0){
-    msgEl.innerHTML = '<span style="color:#166534">✓ Everything is already set up. No records need this.</span>';
-    return;
-  }
-
-  var stageLines = Object.keys(res.countsByStage).filter(function(s){ return res.countsByStage[s]>0; })
-    .map(function(s){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+s+'</span><span style="font-weight:700">'+res.countsByStage[s]+'</span></div>'; }).join('');
-  var roleLines = Object.keys(res.countsByRole)
-    .map(function(r){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+r+'</span><span style="font-weight:700">'+res.countsByRole[r]+'</span></div>'; }).join('');
-  var sampleRows = res.sample.map(function(p){
-    return '<tr><td style="padding:5px 8px;font-size:12px">'+p.name+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px">'+p.newStage+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px">'+(p.suggestedRole?p.suggestedRole:'<span style="color:#b45309">needs manual review</span>')+'</td></tr>';
-  }).join('');
-
-  msgEl.innerHTML =
-    '<div style="font-weight:700;margin-bottom:10px;color:var(--gray900)">' + res.totalToMigrate + ' record(s) will be updated &mdash; nothing has changed yet, this is a preview.</div>' +
-    '<div class="g2" style="gap:20px;margin-bottom:14px">' +
-      '<div><div class="card-title-sm" style="margin-bottom:4px">New Candidate Stage</div>' + stageLines + '</div>' +
-      '<div><div class="card-title-sm" style="margin-bottom:4px">Role guessed from position title</div>' + roleLines + '</div>' +
-    '</div>' +
-    '<div class="card-title-sm" style="margin-bottom:4px">First 20 examples</div>' +
-    '<div class="table-wrap" style="max-height:240px;overflow:auto"><table><thead><tr><th style="padding:5px 8px;font-size:11px">Name</th><th style="padding:5px 8px;font-size:11px">New Stage</th><th style="padding:5px 8px;font-size:11px">Suggested Role</th></tr></thead><tbody>' + sampleRows + '</tbody></table></div>' +
-    '<div style="margin-top:10px;font-size:12px;color:var(--gray500)">Role is only a best guess from the position title &mdash; review and fix any "needs manual review" or wrong ones afterward on each candidate\'s profile (Candidate Stage panel).</div>';
-
-  if(applyBtn) applyBtn.style.display='inline-block';
-}
-
-async function applyCandidateStageMigration(){
-  var preview = window._stageMigV3Preview;
-  var msgEl = document.getElementById('stageMigV3Msg');
-  if(!preview || !preview.totalToMigrate){
-    showToast('Run Preview first.');
-    return;
-  }
-  if(!confirm('Set Candidate Stage / Next Action / suggested Role on ' + preview.totalToMigrate + ' applicant record(s) that don\'t have one yet? Records that already have a Candidate Stage set are never touched, so this is safe to run again later too.')) return;
-
-  if(msgEl) msgEl.innerHTML = 'Applying&hellip;';
-  var res = await apiPost('runStageMigrationV3', {});
-  if(res && res.success){
-    showToast('✓ Migrated ' + res.migrated + ' record(s).');
-    if(msgEl) msgEl.innerHTML = '<span style="color:#166534">✓ Done &mdash; ' + res.migrated + ' record(s) updated. The Executive Dashboard, Tracker, and Board will now show them split by role.</span>';
-    var applyBtn = document.getElementById('stageMigV3ApplyBtn');
-    if(applyBtn) applyBtn.style.display='none';
-    window._stageMigV3Preview = null;
-    if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
-    if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
-    if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
-  } else {
-    if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
-  }
-}
-
-// ============================================================
-// STAGE MODEL V4 -- ONE-TIME UPDATE UI. Same preview-before-apply pattern
-// as the V3 migration above, just for the smaller V3->V4 stage renames
-// (previewStageModelV4 / migrateStageModelV4 on the backend).
+// STAGE MODEL V4 -- ONE-TIME UPDATE UI. Preview before apply, for the
+// V3->V4 stage renames (previewStageModelV4 / migrateStageModelV4 on the backend).
 // ============================================================
 async function previewStageModelV4Migration(){
   var msgEl = document.getElementById('stageMigV4Msg');
@@ -5675,7 +5585,7 @@ async function previewStageModelV4Migration(){
   var oldStageLines = Object.keys(res.countsByOldStage)
     .map(function(s){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+s+'</span><span style="font-weight:700">'+res.countsByOldStage[s]+'</span></div>'; }).join('');
   var sampleRows = res.sample.map(function(p){
-    return '<tr><td style="padding:5px 8px;font-size:12px">'+p.name+'</td>' +
+    return '<tr><td style="padding:5px 8px;font-size:12px">'+escapeHtml(p.name)+'</td>' +
       '<td style="padding:5px 8px;font-size:12px">'+p.oldStage+'</td>' +
       '<td style="padding:5px 8px;font-size:12px">'+p.newStage+'</td></tr>';
   }).join('');
@@ -5740,7 +5650,7 @@ async function previewMigrationDateFixUI(){
   }
 
   var sampleRows = res.sample.map(function(p){
-    return '<tr><td style="padding:5px 8px;font-size:12px">'+p.name+'</td>' +
+    return '<tr><td style="padding:5px 8px;font-size:12px">'+escapeHtml(p.name)+'</td>' +
       '<td style="padding:5px 8px;font-size:12px">'+p.stage+'</td>' +
       '<td style="padding:5px 8px;font-size:12px;color:#b52a2a">'+(p.oldDate?new Date(p.oldDate).toLocaleDateString():'')+'</td>' +
       '<td style="padding:5px 8px;font-size:12px;color:#166534">'+(p.newDate?new Date(p.newDate).toLocaleDateString():'<span style="color:var(--gray500)">cleared (unknown)</span>')+'</td></tr>';
@@ -5885,8 +5795,8 @@ function buildQuickStatusView(a){
   var av = getAvatar(a.name);
   return '<div style="text-align:center;padding:10px 6px 24px">' +
     '<div class="avatar" style="width:64px;height:64px;font-size:24px;background:'+av.gradient+';margin:0 auto 14px">'+av.initials+'</div>' +
-    '<div style="font-size:26px;font-weight:800;color:var(--gray900)">'+a.name+'</div>' +
-    '<div style="font-size:16px;color:#888;margin-top:4px;margin-bottom:24px">'+(a.position||'No position')+(a.department?' &middot; '+a.department:'')+'</div>' +
+    '<div style="font-size:26px;font-weight:800;color:var(--gray900)">'+escapeHtml(a.name)+'</div>' +
+    '<div style="font-size:16px;color:#888;margin-top:4px;margin-bottom:24px">'+escapeHtml(a.position||'No position')+(a.department?' &middot; '+escapeHtml(a.department):'')+'</div>' +
     getStageProgressBar(a,'large') +
     '<div style="font-size:22px;font-weight:800;margin:22px 0 6px;color:'+st.tone+'">'+st.label+'</div>' +
     (sla ? '<div style="font-size:16px;font-weight:700;color:'+sla.tone+';margin-bottom:10px">'+sla.label+'</div>' : '') +
@@ -6074,10 +5984,10 @@ function renderTrackerTable(apps) {
     var notesCell = '<textarea onchange="updateFieldImmediate(' + a.id + ',\'resumeNotes\',this.value)" onclick="event.stopPropagation()" placeholder="Add a note..." style="width:100%;min-height:56px;font-size:13px;line-height:1.6;border:1px solid var(--gray200);border-radius:6px;padding:6px 9px;resize:vertical;font-family:inherit">' + escNote + '</textarea>';
     return '<tr onclick="openApplicant(' + a.id + ')">' +
       '<td onclick="event.stopPropagation()" style="width:1%"><input type="checkbox" ' + (TRACKER_SELECTED.has(a.id)?'checked':'') + ' onchange="toggleTrackerRowSelect(' + a.id + ',this.checked)" style="width:16px;height:16px;cursor:pointer"></td>' +
-      '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:14px">' + a.name + '</div></div></td>' +
-      '<td style="font-size:13px;color:var(--gray700)">' + (a.department||'-') + '</td>' +
-      '<td style="font-size:13px;color:var(--gray700)">' + (a.position||'-') + '</td>' +
-      '<td style="font-size:13px;color:var(--gray600)">' + (a.enteredBy||'-') + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:14px">' + escapeHtml(a.name) + '</div></div></td>' +
+      '<td style="font-size:13px;color:var(--gray700)">' + escapeHtml(a.department||'-') + '</td>' +
+      '<td style="font-size:13px;color:var(--gray700)">' + escapeHtml(a.position||'-') + '</td>' +
+      '<td style="font-size:13px;color:var(--gray600)">' + escapeHtml(a.enteredBy||'-') + '</td>' +
       '<td>' + emmCell + '</td>' +
       '<td style="min-width:180px">' + stageStatusCell + '</td>' +
       '<td style="min-width:150px" onclick="event.stopPropagation()">' + notesCell + '</td></tr>';
@@ -6369,8 +6279,8 @@ function renderBoard(){
       var av = getAvatar(a.name);
       var openAttr = boardCanOpenCard ? (' class="board-card" onclick="openApplicant(' + a.id + ')" style="cursor:pointer"') : (' class="board-card"');
       return '<div' + openAttr + '>' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:14px">' + a.name + '</div></div>' +
-        '<div style="font-size:11px;color:var(--gray500)">' + (a.position||'No position') + (a.department?' &middot; '+a.department:'') + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div><div style="font-weight:700;font-size:14px">' + escapeHtml(a.name) + '</div></div>' +
+        '<div style="font-size:11px;color:var(--gray500)">' + escapeHtml(a.position||'No position') + (a.department?' &middot; '+escapeHtml(a.department):'') + '</div>' +
         (a.nextAction ? '<div style="font-size:11px;color:var(--gray600);margin-top:3px;font-weight:500">Next: ' + a.nextAction + '</div>' : '') +
       '</div>';
     }).join('') || '<div class="empty" style="padding:16px 8px"><div class="empty-title" style="font-size:12px">Nobody here right now</div></div>';
@@ -6427,8 +6337,8 @@ function eodRow(a, hint){
   return '<div onclick="openApplicant(' + a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--gray100)">' +
     '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
     '<div style="flex:1;min-width:0">' +
-      '<div style="font-weight:700;font-size:14px">' + a.name + '</div>' +
-      '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + (a.position||'-') + (hint?' &middot; '+hint:'') + '</div>' +
+      '<div style="font-weight:700;font-size:14px">' + escapeHtml(a.name) + '</div>' +
+      '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + escapeHtml(a.position||'-') + (hint?' &middot; '+hint:'') + '</div>' +
     '</div>' +
   '</div>';
 }
@@ -6563,23 +6473,23 @@ function eodRoleCard(role, b){
   var closedLine = closedBits.length ? closedBits.join(' &middot; ') : 'None closed today.';
 
   var blockersHtml = (b.blockers && b.blockers.length)
-    ? '<div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:var(--radius-sm);padding:8px 10px;margin-top:6px"><ul style="margin:0;padding-left:18px;font-size:13px;color:#9a3412">' + b.blockers.map(function(x){ return '<li style="margin-bottom:3px">'+x+'</li>'; }).join('') + '</ul></div>'
+    ? '<div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:var(--radius-sm);padding:8px 10px;margin-top:6px"><ul style="margin:0;padding-left:18px;font-size:13px;color:#9a3412">' + b.blockers.map(function(x){ return '<li style="margin-bottom:3px">'+escapeHtml(x)+'</li>'; }).join('') + '</ul></div>'
     : '<div style="font-size:13px;color:#166534;margin-top:6px">No blockers.</div>';
 
   var nextActionHtml = (b.nextActionSummary && b.nextActionSummary.length)
-    ? b.nextActionSummary.map(function(x){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:#1e40af">'+x.count+'&times; '+x.action+'</span>'; }).join('')
+    ? b.nextActionSummary.map(function(x){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:#1e40af">'+x.count+'&times; '+escapeHtml(x.action)+'</span>'; }).join('')
     : '<div style="font-size:13px;color:var(--gray400)">&mdash;</div>';
 
   var pmNoteDisplay = b.pmNote
-    ? '<div style="font-size:13px;color:var(--gray700);background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-top:10px">&#128221; '+b.pmNote+'</div>'
+    ? '<div style="font-size:13px;color:var(--gray700);background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-top:10px">&#128221; '+escapeHtml(b.pmNote)+'</div>'
     : '';
 
   return '<div class="card" style="margin-bottom:0">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
       '<div>' +
-        '<div style="font-size:16px;font-weight:700;color:var(--gray900)">'+role+'</div>' +
-        '<div style="font-size:13px;color:'+meta.color+';font-weight:700;margin-top:2px">'+meta.emoji+' '+meta.label+(h.reason?' &mdash; '+h.reason:'')+'</div>' +
-        (h.source==='PM override' ? '<div style="font-size:11px;color:var(--gray400);margin-top:1px">Manually set'+(h.setBy?' by '+h.setBy:'')+'</div>' : '') +
+        '<div style="font-size:16px;font-weight:700;color:var(--gray900)">'+escapeHtml(role)+'</div>' +
+        '<div style="font-size:13px;color:'+meta.color+';font-weight:700;margin-top:2px">'+meta.emoji+' '+meta.label+(h.reason?' &mdash; '+escapeHtml(h.reason):'')+'</div>' +
+        (h.source==='PM override' ? '<div style="font-size:11px;color:var(--gray400);margin-top:1px">Manually set'+(h.setBy?' by '+escapeHtml(h.setBy):'')+'</div>' : '') +
       '</div>' +
       '<div style="text-align:right">' +
         '<div style="font-size:22px;font-weight:800;color:var(--gray900)">'+b.activeCandidates+'</div>' +
@@ -6630,8 +6540,8 @@ function toggleEodEditor(role){
           '<option value="yellow"'+(curStatus==='yellow'?' selected':'')+'>\u{1F7E1} Needs Attention</option>' +
           '<option value="red"'+(curStatus==='red'?' selected':'')+'>\u{1F534} At Risk</option>' +
         '</select>' +
-        '<input class="inp" id="eodReason-'+slug+'" type="text" placeholder="Why (shown next to the badge)" value="'+curReason.replace(/"/g,'&quot;')+'">' +
-        '<textarea class="inp" id="eodNote-'+slug+'" placeholder="PM note (optional context, does not affect the health color)">'+curNote+'</textarea>' +
+        '<input class="inp" id="eodReason-'+slug+'" type="text" placeholder="Why (shown next to the badge)" value="'+escapeHtml(curReason)+'">' +
+        '<textarea class="inp" id="eodNote-'+slug+'" placeholder="PM note (optional context, does not affect the health color)">'+escapeHtml(curNote)+'</textarea>' +
         '<select class="inp" id="eodSetBy-'+slug+'">' +
           '<option value="">Who is setting this?</option>' +
           Object.keys(TEAM_DIRECTORY).map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('') +
@@ -6802,7 +6712,7 @@ async function renderExecutiveDashboard(){
   html += '<div class="card">' +
     '<div class="card-title-sm" style="margin-bottom:14px">Roles At Risk</div>' +
     (atRisk.length
-      ? atRisk.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b52a2a">&#128308; '+a.role+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+(a.reason||'No candidates or no movement.')+'</div></div>'; }).join('')
+      ? atRisk.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b52a2a">&#128308; '+escapeHtml(a.role)+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+escapeHtml(a.reason||'No candidates or no movement.')+'</div></div>'; }).join('')
       : '<div style="font-size:13px;color:var(--gray400)">No roles at risk right now.</div>') +
     '</div>';
 
@@ -6813,7 +6723,7 @@ async function renderExecutiveDashboard(){
   html += '<div class="card">' +
     '<div class="card-title-sm" style="margin-bottom:14px">Needs Attention</div>' +
     (needsAttention.length
-      ? needsAttention.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b45309">&#128993; '+a.role+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+(a.reason||'')+'</div></div>'; }).join('')
+      ? needsAttention.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b45309">&#128993; '+escapeHtml(a.role)+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+escapeHtml(a.reason||'')+'</div></div>'; }).join('')
       : '<div style="font-size:13px;color:var(--gray400)">Nothing flagged.</div>') +
     '<div style="font-size:12px;color:var(--gray500);margin-top:10px;padding-top:10px;border-top:1px solid var(--gray100)">'+overdueTotal+' candidate(s) past their expected time in stage &middot; '+followUpTotal+' awaiting follow-up (company-wide)</div>' +
     '</div>';
@@ -7152,10 +7062,10 @@ function renderInterviewCalendar(){
       var timeStr = i.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
       // Confirmed chips show the candidate's phone number right on the
       // calendar itself -- no extra click needed to see it.
-      var phoneLine = (i.status==='confirmed' && i.contact) ? ('<br><span style="font-weight:600;font-size:12px">📞 '+i.contact+'</span>') : '';
+      var phoneLine = (i.status==='confirmed' && i.contact) ? ('<br><span style="font-weight:600;font-size:12px">📞 '+escapeHtml(i.contact)+'</span>') : '';
       return '<div onclick="event.stopPropagation();openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" ' +
         'style="cursor:pointer;background:'+meta.bg+';border:1.5px solid '+meta.border+';color:'+meta.tone+';border-radius:8px;padding:6px 8px;margin-bottom:4px;font-size:14px;font-weight:700;line-height:1.25">' +
-        timeStr + '<br><span style="font-weight:600;font-size:13px">' + i.applicantName + '</span>' + phoneLine +
+        timeStr + '<br><span style="font-weight:600;font-size:13px">' + escapeHtml(i.applicantName) + '</span>' + phoneLine +
       '</div>';
     }).join('');
     var dayBusy = davidBusyThisMonth ? davidBusyThisMonth.filter(function(b){ return b.start.getDate()===dayNum; }) : [];
@@ -7175,7 +7085,7 @@ function renderInterviewCalendar(){
     undated.map(function(i){
       var meta = INTERVIEW_CAL_STATUS_META[i.status];
       return '<div onclick="openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" style="cursor:pointer;display:inline-block;background:'+meta.bg+';border:1.5px solid '+meta.border+';color:'+meta.tone+';border-radius:8px;padding:8px 12px;margin:0 8px 8px 0;font-size:14px;font-weight:700">' +
-        i.applicantName + ': ' + i.slotLabel +
+        escapeHtml(i.applicantName) + ': ' + escapeHtml(i.slotLabel) +
       '</div>';
     }).join('') +
   '</div>') : '';
@@ -7239,16 +7149,16 @@ function renderInterviewCalSidebar(instances){
 
   function pillRow(i, showConfirmedExtras){
     var meta = INTERVIEW_CAL_STATUS_META[i.status];
-    var timeStr = i.date ? i.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : i.slotLabel;
+    var timeStr = i.date ? i.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : escapeHtml(i.slotLabel);
     var extras = '';
     if(showConfirmedExtras){
-      if(i.contact) extras += '<div style="font-size:12px;font-weight:700;margin-top:2px">📞 '+i.contact+'</div>';
+      if(i.contact) extras += '<div style="font-size:12px;font-weight:700;margin-top:2px">📞 '+escapeHtml(i.contact)+'</div>';
       extras += i.smsSentAt
         ? '<div style="font-size:11px;color:#166534;margin-top:2px">✓ HR sent a text <button onclick="event.stopPropagation();unmarkSmsSentFromCal('+i.applicantId+')" class="btn-sm btn-ghost" style="font-size:10px;padding:1px 6px;margin-left:4px">Undo</button></div>'
         : '<div style="margin-top:4px;border-top:1px dashed rgba(255,255,255,.4);padding-top:6px"><button onclick="event.stopPropagation();markSmsSentFromCal('+i.applicantId+')" class="btn-sm" style="font-size:11px;padding:4px 8px;background:var(--gray700);color:#fff">📱 Mark HR Sent Text</button></div>';
     }
     return '<div onclick="openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" style="cursor:pointer;background:'+meta.bg+';border:1.5px solid '+meta.border+';border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
-      '<div style="font-weight:700;font-size:13px;color:'+meta.tone+'">'+i.applicantName+'</div>' +
+      '<div style="font-weight:700;font-size:13px;color:'+meta.tone+'">'+escapeHtml(i.applicantName)+'</div>' +
       '<div style="font-size:12px;color:'+meta.tone+'">'+timeStr+'</div>' + extras +
     '</div>';
   }
@@ -7303,15 +7213,15 @@ function openInterviewCalDetail(applicantId, slotId){
   if(slotDate) ensureDavidBusyLoaded(slotDate.getFullYear(), slotDate.getMonth()); // fire-and-forget; refreshes this overlay in place once (if ever) the data arrives
 
   var body = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">' +
-      '<div><div style="font-size:18px;font-weight:800">'+a.name+'</div><div style="font-size:14px;color:var(--gray400)">'+(a.position||'No position')+'</div></div>' +
+      '<div><div style="font-size:18px;font-weight:800">'+escapeHtml(a.name)+'</div><div style="font-size:14px;color:var(--gray400)">'+escapeHtml(a.position||'No position')+'</div></div>' +
       '<button id="interviewCalCloseBtn" onclick="closeInterviewCalOverlay()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#999;line-height:1" aria-label="Close">&times;</button>' +
     '</div>' +
     '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--gray400);margin-bottom:2px">Proposed Time</div>' +
-    '<div style="font-size:18px;font-weight:700;margin-bottom:10px">'+slot.label+'</div>' +
+    '<div style="font-size:18px;font-weight:700;margin-bottom:10px">'+escapeHtml(slot.label)+'</div>' +
     '<div style="display:inline-block;font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;background:'+meta.bg+';color:'+meta.tone+';margin-bottom:14px">'+meta.label+'</div>';
 
   if(a.candidateContact){
-    body += '<div style="font-size:16px;font-weight:700;margin-bottom:14px">📞 '+a.candidateContact+'</div>';
+    body += '<div style="font-size:16px;font-weight:700;margin-bottom:14px">📞 '+escapeHtml(a.candidateContact)+'</div>';
   } else {
     body += '<div style="font-size:14px;color:var(--gray400);margin-bottom:14px">No phone number on file yet for this candidate.</div>';
   }
@@ -7644,7 +7554,7 @@ function showPreflight(inspection, parsed) {
       s.isInstructions ? '<span style="color:var(--blue);font-weight:600">Action Points</span>' :
       s.hasEntryNo ? (s.remarksFilled===0 ? '<span style="color:var(--red);font-weight:600">Blank</span>' : '<span style="color:var(--gray400)">Not used</span>') :
       '<span style="color:var(--gray300)">&mdash;</span>';
-    return '<tr><td style="font-weight:600">' + s.name + '</td><td style="text-align:center">' + (s.dataRows||'&mdash;') + '</td><td style="text-align:center">' + (s.dataRows?fillPct+'% ('+s.remarksFilled+')':'&mdash;') + '</td><td style="text-align:center">' + (s.dataRows?matchPct+'%':'&mdash;') + '</td><td>' + role + '</td></tr>';
+    return '<tr><td style="font-weight:600">' + escapeHtml(s.name) + '</td><td style="text-align:center">' + (s.dataRows||'&mdash;') + '</td><td style="text-align:center">' + (s.dataRows?fillPct+'% ('+s.remarksFilled+')':'&mdash;') + '</td><td style="text-align:center">' + (s.dataRows?matchPct+'%':'&mdash;') + '</td><td>' + role + '</td></tr>';
   }).join('');
   panel.className = 'preflight card';
   panel.style.maxWidth = '780px';
@@ -7825,8 +7735,10 @@ async function saveOffboardingNotes(id, notes){
 }
 
 function escapeHtml(s){
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+// A string argument for an inline onclick="fn(...)" handler: JSON-quoted, then HTML-escaped.
+function jsArg(s){ return escapeHtml(JSON.stringify(String(s==null?'':s))); }
 
 function renderOffboardingCaseCard(c){
   var checklist = c.checklist || {};
