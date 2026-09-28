@@ -574,32 +574,12 @@ tbody tr:last-child td{border-bottom:none}
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Dashboard</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)">Overview of your hiring pipeline</p>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 14px;background:var(--gray50);border:1px solid var(--gray200);border-radius:var(--radius);margin-bottom:14px">
-    <div>
-      <div style="font-size:12px;font-weight:600;color:var(--gray600)">Who's checking the dashboard?</div>
-      <div style="font-size:11px;color:var(--gray400);margin-top:2px">Pick your role once -- this device will remember it and only show you your own tasks from now on.</div>
-    </div>
-    <select id="dashRoleFilter" class="filter-inp" onchange="setDashboardRole(this.value)" style="font-size:13px;padding:8px 12px;font-weight:600">
-      <option value="">Everyone (show it all)</option>
-      <option value="HR">HR</option>
-      <option value="Operations Manager">Operations Manager</option>
-      <option value="Project Manager">Project Manager</option>
-      <option value="CEO">CEO</option>
-    </select>
-  </div>
-  <div id="dashRoleNote" style="font-size:12px;color:var(--gray400);margin:-8px 0 14px;display:none"></div>
   <div style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--gray900)">Your Tasks<span id="dashTasksCount"></span></div>
   <div id="dashTasksList" style="margin-bottom:var(--space-3)"></div>
   <div class="stats-grid" id="dashStats"></div>
-  <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">What's Pending &mdash; Full Pipeline</div>
-  <div class="pipeline-grid" id="dashPendingGrid" style="margin-bottom:8px"></div>
   <div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:var(--gray600);text-transform:uppercase;letter-spacing:.03em">Outcomes &mdash; Final Decisions</div>
   <div class="pipeline-grid" id="dashStatusGrid"></div>
   <div class="card" id="dashCardDetail" style="display:none;margin-bottom:var(--space-3)"></div>
-  <div class="card" style="max-width:360px">
-    <div class="card-header"><div class="card-title">Quick Actions</div></div>
-    <div id="dashActions"></div>
-  </div>
 </div>
 
 <div id="page-new" class="page">
@@ -628,7 +608,7 @@ tbody tr:last-child td{border-bottom:none}
         </select>
         <input class="inp" id="na-source-other" placeholder="Please specify (e.g. Kalibrr, TikTok, company website...)" style="display:none;margin-top:6px">
       </div>
-      <div><label class="lbl">Entered By</label><select class="inp" id="na-enteredby" onchange="localStorage.setItem('abbss_entered_by_name', this.value)"></select><script>document.getElementById('na-enteredby').value = localStorage.getItem('abbss_entered_by_name') || '';</script></div>
+      <div><label class="lbl">Entered By</label><select class="inp" id="na-enteredby"></select></div>
     </div>
     <div style="margin-bottom:var(--space-2)"><label class="lbl">Resume Notes</label><textarea class="inp" id="na-notes" placeholder="Relevant experience, skills noted from resume..."></textarea></div>
     <div style="margin-bottom:var(--space-2)">
@@ -677,7 +657,7 @@ tbody tr:last-child td{border-bottom:none}
   </div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="qv-bar" id="trackerQuickViews" style="flex-direction:column;align-items:stretch;gap:10px">
-      <input class="filter-inp" id="searchInput" placeholder="Search name, email, position, or notes..." oninput="filterTracker()" style="width:100%;max-width:320px">
+      <input class="filter-inp" id="searchInput" placeholder="Search name, email, phone, position, or any notes..." oninput="filterTracker()" style="width:100%;max-width:320px">
       <div style="display:flex;gap:12px;align-items:center">
         <div class="qv-bar-filters">
           <button class="qv-chip active" data-qv="default" onclick="setTrackerQuickView('default')">Active <span class="qv-count" id="qv-count-default">0</span></button>
@@ -691,7 +671,7 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
     <div class="filters" id="advancedFiltersRow" style="display:none">
-      <select class="filter-inp" id="filterDept" onchange="filterTracker()">
+      <select class="filter-inp" id="filterDept" onchange="setSharedFilter('dept',this.value)">
         <option value="">All Departments</option>
         <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
       </select>
@@ -705,7 +685,7 @@ tbody tr:last-child td{border-bottom:none}
       </select>
       <select class="filter-inp" id="filterCandidateStage" onchange="filterTracker()">
         <option value="">All Candidate Stages</option>
-        <option value="__not_migrated__">⚠ Not migrated yet</option>
+        <option value="__not_migrated__">No stage set</option>
         <option value="New Application">New Application</option>
         <option value="CV Screening">CV Screening</option>
         <option value="HR Preliminary Interview">HR Preliminary Interview</option>
@@ -719,7 +699,7 @@ tbody tr:last-child td{border-bottom:none}
         <option value="Closed - Rejected">Closed - Rejected</option>
         <option value="Closed - Withdrawn">Closed - Withdrawn</option>
       </select>
-      <select class="filter-inp" id="filterRoleCategory" onchange="filterTracker()">
+      <select class="filter-inp" id="filterRoleCategory" onchange="setSharedFilter('role',this.value)">
         <option value="">All Roles</option>
         <option value="__unassigned__">(No role set)</option>
         <option value="AR Specialist">AR Specialist</option>
@@ -733,12 +713,8 @@ tbody tr:last-child td{border-bottom:none}
         <option value="fail">Failing</option>
       </select>
       <select class="filter-inp" id="filterStatus" onchange="filterTracker()">
-        <option value="">All Statuses</option>
-        <option value="In Progress">In Progress</option>
-        <option value="Hired">Hired</option>
-        <option value="Rejected">Rejected</option>
+        <option value="">On hold or left: any</option>
         <option value="Hold">On Hold</option>
-        <option value="NonCompliant">Doesn&#39;t Respond</option>
         <option value="Departed">No Longer With Us</option>
       </select>
       <select class="filter-inp" id="filterGrit" onchange="filterTracker()">
@@ -755,12 +731,6 @@ tbody tr:last-child td{border-bottom:none}
         <option value="NOT RECOMMENDED">Not Recommended</option>
         <option value="Not yet scored">Not Yet Scored</option>
       </select>
-      <select class="filter-inp" id="sortBy" onchange="TRACKER_SORT_COL=null;filterTracker()">
-        <option value="date">Newest First</option>
-        <option value="name">Name A-Z</option>
-        <option value="score">By Score</option>
-        <option value="stage">By Stage</option>
-      </select>
     </div>
     <div id="trackerBulkBar"></div>
     <div id="trackerTable"></div>
@@ -771,16 +741,17 @@ tbody tr:last-child td{border-bottom:none}
   <div style="margin-bottom:var(--space-6);display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
     <div>
       <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Pipeline Board</h1>
-      <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)">Every applicant, grouped by exactly where they are right now. Click a card to open the full profile.</p>
+      <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)">Every applicant, grouped by where they are right now. HR and Operations can click a card to open the profile. The department and role filters are the same ones the Candidates list uses.</p>
       <p style="font-size:12px;color:var(--gray400);margin-top:6px">Click any column heading to collapse or expand it. Closed columns start collapsed, since those keep growing and rarely need reading.</p>
     </div>
     <div class="board-filters">
-      <select class="filter-inp" id="boardDeptFilter" onchange="renderBoard()">
+      <select class="filter-inp" id="boardDeptFilter" onchange="setSharedFilter('dept',this.value)">
         <option value="">All Departments</option>
         <option>Operations</option><option>Sales and Marketing</option><option>Finance</option><option>HR</option><option>IT / Technical Support</option><option>Other</option>
       </select>
-      <select class="filter-inp" id="boardRoleFilter" onchange="renderBoard()">
+      <select class="filter-inp" id="boardRoleFilter" onchange="setSharedFilter('role',this.value)">
         <option value="">All Roles</option>
+        <option value="__unassigned__">(No role set)</option>
         <option value="AR Specialist">AR Specialist</option>
         <option value="AP Specialist">AP Specialist</option>
         <option value="Refunds Specialist">Refunds Specialist</option>
@@ -985,7 +956,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="email-composer">
         <div class="email-toolbar" style="flex-direction:column;align-items:stretch">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-            <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gray500)" title="Replies from the candidate will go to whoever is selected here."><label for="sentByPicker">Sent by</label><select id="sentByPicker" style="padding:3px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" onchange="localStorage.setItem('abbss_sent_by_name', this.value)"></select><script>document.getElementById('sentByPicker').value = localStorage.getItem('abbss_sent_by_name') || '';</script></span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gray500)" title="Replies from the candidate will go to whoever is selected here."><label for="sentByPicker">Sent by</label><select id="sentByPicker" style="padding:3px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px"></select></span>
             <button class="btn btn-ghost btn-sm" onclick="copyEmail()">&#128203; Copy Email</button>
           </div>
           <div class="et-group" style="background:var(--gray50);border:1px solid var(--gray200);border-radius:var(--radius-sm);padding:6px 10px;margin-top:8px">
@@ -1156,6 +1127,11 @@ tbody tr:last-child td{border-bottom:none}
       <button class="modal-close" id="roleSwitchCloseBtn" onclick="closeRoleSwitchModal()" style="display:none" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
+      <div style="margin-bottom:14px">
+        <label class="lbl" for="myNamePicker">You are</label>
+        <select class="inp" id="myNamePicker" onchange="setMyName(this.value)"></select>
+        <div style="font-size:11px;color:var(--gray400);margin-top:4px">Fills in "Sent by", "Entered By" and "Who is setting this?" for you.</div>
+      </div>
       <div class="g2" style="gap:10px">
         <button class="btn btn-ghost" style="flex-direction:column;align-items:flex-start;height:auto;padding:14px" onclick="setAppRole('HR')">
           <div style="font-size:20px;margin-bottom:4px">🗂️</div><div style="font-weight:700">HR</div>
@@ -1972,9 +1948,7 @@ function isNewApplicant(a){
   return !!(a && a.createdAt && isSameLocalDay(a.createdAt, new Date()));
 }
 
-// Click-to-sort table headers. Takes over from the #sortBy dropdown once a
-// header is clicked; picking a new #sortBy option clears this override
-// (see filterTracker) so the two controls never silently disagree.
+// Click-to-sort table headers; newest first until one is clicked.
 var TRACKER_SORT_COL = null;
 var TRACKER_SORT_DIR = 'asc';
 function sortTrackerByColumn(col){
@@ -2031,32 +2005,23 @@ function updateQuickViewCounts(apps){
 }
 
 function filterTracker(){
-  let apps=getApplicants();
+  let apps=sharedScopeApps();
   var opsBanner = document.getElementById('opsQueueBanner');
-  if(typeof getAppRole==='function' && getAppRole()==='Operations'){
-    apps = apps.filter(isEndorsedToOperations);
-    if(opsBanner) opsBanner.style.display='flex';
-  } else if(opsBanner) opsBanner.style.display='none';
+  if(opsBanner) opsBanner.style.display = getAppRole()==='Operations' ? 'flex' : 'none';
   updateQuickViewCounts(apps);
   const search=document.getElementById('searchInput').value.toLowerCase();
-  const deptF=document.getElementById('filterDept')?document.getElementById('filterDept').value:'';
   const posF=document.getElementById('filterPosition')?document.getElementById('filterPosition').value.trim().toLowerCase():'';
   const sourceF=document.getElementById('filterSource')?document.getElementById('filterSource').value:'';
   const stageF=document.getElementById('filterCandidateStage')?document.getElementById('filterCandidateStage').value:'';
-  const roleF=document.getElementById('filterRoleCategory')?document.getElementById('filterRoleCategory').value:'';
   const resultF=document.getElementById('filterResult').value;
   const statusF=document.getElementById('filterStatus')?document.getElementById('filterStatus').value:'';
   const gritF=document.getElementById('filterGrit')?document.getElementById('filterGrit').value:'';
   const valuesF=document.getElementById('filterValues')?document.getElementById('filterValues').value:'';
-  const sortF=document.getElementById('sortBy').value;
-  if(search)apps=apps.filter(a=>a.name.toLowerCase().includes(search)||a.email.toLowerCase().includes(search)||(a.position||'').toLowerCase().includes(search)||(a.resumeNotes||'').toLowerCase().includes(search));
-  if(deptF)apps=apps.filter(a=>a.department===deptF);
+  if(search)apps=apps.filter(a=>applicantSearchText(a).includes(search));
   if(posF)apps=apps.filter(a=>(a.position||'').toLowerCase().includes(posF));
   if(sourceF)apps=apps.filter(a=>(a.source||'')===sourceF);
   if(stageF==='__not_migrated__')apps=apps.filter(a=>!a.candidateStage);
   else if(stageF)apps=apps.filter(a=>a.candidateStage===stageF);
-  if(roleF==='__unassigned__')apps=apps.filter(a=>!a.roleCategory);
-  else if(roleF)apps=apps.filter(a=>a.roleCategory===roleF);
   if(resultF==='pass')apps=apps.filter(a=>a.emm&&a.emm.pass);
   if(resultF==='fail')apps=apps.filter(a=>a.emm&&a.emm.pass===false);
   if(statusF)apps=apps.filter(a=>(a.overallStatus||'In Progress')===statusF);
@@ -2077,12 +2042,11 @@ function filterTracker(){
   } else if(TRACKER_QUICK_VIEW==='nonresponsive'){
     apps=apps.filter(a=>(a.overallStatus||'In Progress')==='NonCompliant');
   }
-  if(sortF==='name')apps.sort((a,b)=>a.name.localeCompare(b.name));
-  else if(sortF==='stage')apps.sort((a,b)=>CANDIDATE_STAGES.indexOf(b.candidateStage||'')-CANDIDATE_STAGES.indexOf(a.candidateStage||''));
-  else apps.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  apps.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   if(TRACKER_SORT_COL){
     var dir = TRACKER_SORT_DIR==='asc'?1:-1;
-    apps.sort((a,b)=>String(a[TRACKER_SORT_COL]||'').toLowerCase().localeCompare(String(b[TRACKER_SORT_COL]||'').toLowerCase())*dir);
+    if(TRACKER_SORT_COL==='stage') apps.sort((a,b)=>(CANDIDATE_STAGES.indexOf(a.candidateStage||'')-CANDIDATE_STAGES.indexOf(b.candidateStage||''))*dir);
+    else apps.sort((a,b)=>String(a[TRACKER_SORT_COL]||'').toLowerCase().localeCompare(String(b[TRACKER_SORT_COL]||'').toLowerCase())*dir);
   }
   TRACKER_LAST_FILTERED = apps;
   renderTrackerTable(apps);
@@ -2495,7 +2459,7 @@ function printEmmReport(id){
     '<h2>Integrity Flags</h2>'+
     (flagsHtml||'<p style="font-size:13px;color:#888">No flags recorded.</p>')
   ):'<p style="font-size:13px;color:#888">Detailed category/flag breakdown is not available for this result (graded before the detailed report feature was added).</p>')+
-  (a.emm.notes?('<h2>HR Notes</h2><p style="font-size:13px;white-space:pre-wrap">'+a.emm.notes+'</p>'):'')+
+  (a.emm.notes?('<h2>HR Notes</h2><p style="font-size:13px;white-space:pre-wrap">'+escapeHtml(a.emm.notes)+'</p>'):'')+
   '<footer>Generated '+new Date().toLocaleString()+' &middot; ABBSS Hiring Pipeline</footer>'+
   '</body></html>';
   const w=window.open('','_blank');
@@ -4175,6 +4139,7 @@ function openComposer(id, key){
   set('et-name', a.name); set('et-position', a.position); set('et-email', a.email);
   set('et-jd', od.jd); set('et-startdate', od.startDate); set('et-signatory', od.signatory); set('et-contracttype', od.contractType); set('et-rate', od.rate);
   currentEmailApplicantId = id;
+  set('sentByPicker', getMyName());
   setEmailTemplate(key || (a.requiresEmm ? 'assessment' : 'assessment_no_emm'));
 }
 
@@ -4293,15 +4258,11 @@ function exportCSV(list){
 }
 
 function exportBoardCsv(){
-  var apps = getApplicants();
-  var deptF = document.getElementById('boardDeptFilter') ? document.getElementById('boardDeptFilter').value : '';
-  var roleF = document.getElementById('boardRoleFilter') ? document.getElementById('boardRoleFilter').value : '';
-  if(deptF) apps = apps.filter(function(a){ return a.department===deptF; });
-  if(roleF) apps = apps.filter(function(a){ return a.roleCategory===roleF; });
+  var apps = sharedScopeApps();
   if(!apps.length){ alert('No records to export.'); return; }
   var headers = ['Name','Position','Department','Role Category','Candidate Stage','Next Action'];
   var rows = apps.map(function(a){
-    return [a.name, a.position||'', a.department||'', a.roleCategory||'', a.candidateStage||'Not migrated', a.nextAction||''];
+    return [a.name, a.position||'', a.department||'', a.roleCategory||'', a.candidateStage||'No stage set', a.nextAction||''];
   });
   downloadCsv('ABBSS_Board_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows);
 }
@@ -4543,6 +4504,55 @@ function teamOptionsHtml(placeholder, useShortNames){
     return '<option value="'+escapeHtml(m.name)+'">'+escapeHtml(useShortNames ? m.short : m.name)+'</option>';
   }).join('');
 }
+
+// Who is using this device, remembered here. It pre-fills every "Sent by",
+// "Entered By" and "Who is setting this?" box; each can still be changed
+// for one send without changing this.
+function getMyName(){
+  try{
+    var n = localStorage.getItem('abbss_my_name');
+    if(n===null) n = localStorage.getItem('abbss_sent_by_name') || localStorage.getItem('abbss_entered_by_name') || '';
+    return TEAM_DIRECTORY[n] ? n : '';
+  }catch(e){ return ''; }
+}
+function setMyName(name){
+  try{ localStorage.setItem('abbss_my_name', TEAM_DIRECTORY[name] ? name : ''); }catch(e){}
+  prefillMyName();
+  renderRoleSwitcherPill();
+}
+function prefillMyName(){
+  var me = getMyName();
+  ['sentByPicker','na-enteredby','bulkSenderSelect'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.value = me;
+  });
+}
+
+// The Board and the Candidates list share one department / role filter,
+// and Operations sees the same candidates on both.
+function setSharedFilter(kind, value){
+  var ids = kind==='dept' ? ['filterDept','boardDeptFilter'] : ['filterRoleCategory','boardRoleFilter'];
+  ids.forEach(function(id){ var el = document.getElementById(id); if(el) el.value = value; });
+  filterTracker();
+  renderBoard();
+}
+function sharedScopeApps(){
+  var apps = getApplicants();
+  if(getAppRole()==='Operations') apps = apps.filter(isEndorsedToOperations);
+  var deptEl = document.getElementById('filterDept'), roleEl = document.getElementById('filterRoleCategory');
+  var dept = deptEl ? deptEl.value : '', role = roleEl ? roleEl.value : '';
+  if(dept) apps = apps.filter(function(a){ return a.department===dept; });
+  if(role==='__unassigned__') apps = apps.filter(function(a){ return !a.roleCategory; });
+  else if(role) apps = apps.filter(function(a){ return a.roleCategory===role; });
+  return apps;
+}
+
+// Everything the Candidates search looks through, notes included.
+function applicantSearchText(a){
+  return [a.name, a.email, a.phone, a.position, a.resumeNotes, a.decisionNotes,
+    a.grit && a.grit.notes, a.values && a.values.notes, a.emm && a.emm.notes, a.interview && a.interview.notes]
+    .filter(Boolean).join(' ').toLowerCase();
+}
 var EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 
 // ============================================================
@@ -4621,19 +4631,12 @@ function getAppRole(){
   var r = localStorage.getItem('abbss_app_role');
   return APP_ROLE_META[r] ? r : null;
 }
-// Maps the app-wide role (this switcher) to the existing "Your Tasks" owner
-// filter on the Dashboard (a separate, older setting -- see setDashboardRole
-// / getDashboardRole -- that filters the task list by who conducts each
-// step, e.g. 'Operations Manager', rather than gating whole pages). Keeping
-// them in sync means picking a role here also filters the Dashboard's task
-// list to match, instead of asking the same question twice in two places.
-var APP_ROLE_TO_DASHBOARD_ROLE = { 'HR':'HR', 'Operations':'Operations Manager', 'PM':'Project Manager', 'CEO':'CEO' };
 function setAppRole(role){
   if(!APP_ROLE_META[role]) return;
   localStorage.setItem('abbss_app_role', role);
-  if(typeof setDashboardRole==='function' && APP_ROLE_TO_DASHBOARD_ROLE[role]){
-    setDashboardRole(APP_ROLE_TO_DASHBOARD_ROLE[role]);
-  }
+  renderDashboard();
+  filterTracker();
+  updateTrackerBadge();
   renderRoleSwitcherPill();
   closeRoleSwitchModal();
   showToast('Viewing as: ' + APP_ROLE_META[role].label);
@@ -4646,12 +4649,15 @@ function renderRoleSwitcherPill(){
   var el = document.getElementById('roleSwitcherLabel');
   if(!el) return;
   var role = getAppRole();
-  el.textContent = role ? ('Viewing as: ' + APP_ROLE_META[role].icon + ' ' + APP_ROLE_META[role].label) : 'Viewing as: ❓ Not set';
+  var me = TEAM_MEMBERS.filter(function(m){ return m.name===getMyName(); })[0];
+  el.textContent = role ? ('Viewing as: ' + APP_ROLE_META[role].icon + ' ' + APP_ROLE_META[role].label + (me ? ' · ' + me.short : '')) : 'Viewing as: ❓ Not set';
 }
 function openRoleSwitchModal(){
   var closeBtn = document.getElementById('roleSwitchCloseBtn');
   var subtitle = document.getElementById('roleSwitchSubtitle');
   var hasRole = !!getAppRole();
+  var mp = document.getElementById('myNamePicker');
+  if(mp){ mp.innerHTML = teamOptionsHtml('Not on the list', false); mp.value = getMyName(); }
   // First-run (no role picked yet) hides the close button so there's a
   // clear choice made before anything else renders -- once a role is set,
   // switching later is always optional and dismissible.
@@ -4679,8 +4685,8 @@ function closeRoleSwitchModal(){
 // Operations works only inside candidates already endorsed to them, PM
 // manages hiring PROJECTS not people, CEO gets the executive rollup only.
 var NAV_VISIBILITY_BY_ROLE = {
-  'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-offboarding','nav-settings'],
-  'Operations': ['nav-dashboard','nav-tracker','nav-interviewcal'],
+  'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-board','nav-interviewcal','nav-grade','nav-email','nav-offboarding','nav-settings'],
+  'Operations': ['nav-dashboard','nav-tracker','nav-board','nav-interviewcal'],
   'PM':         ['nav-eod','nav-board','nav-sources','nav-analytics'],
   'CEO':        ['nav-eod','nav-analytics']
 };
@@ -4736,11 +4742,8 @@ function applyRoleNavVisibility(){
 
 // Single source of truth for "what stage badge does this applicant show" --
 // Tracker rows, Tracker filter, and the Kanban board all call this instead
-// of each re-deriving it their own way. Records that haven't been through
-// the one-time stage migration yet (candidateStage still blank) get a
-// distinct "Not migrated yet" badge rather than silently falling back to
-// the old pl_a/pl_b wording, so it's obvious at a glance which records still
-// need the migration run (Settings -> Run Stage Migration).
+// of each re-deriving it their own way. A record with no stage gets a
+// "No stage set" badge.
 function getCandidateStageBadge(a){
   var stage = a && a.candidateStage;
   var meta = CANDIDATE_STAGE_META[stage];
@@ -4752,7 +4755,7 @@ function getCandidateStageBadge(a){
     var label = (stage==='Initial Interview') ? getInterviewRoundLabel(a && a.department,'initial') : stage;
     return { key:stage, label:label, tone:meta.tone, bg:meta.bg };
   }
-  return { key:'__not_migrated__', label:'Not migrated yet', tone:'#6b7280', bg:'#f1f1f4' };
+  return { key:'__not_migrated__', label:'No stage set', tone:'#6b7280', bg:'#f1f1f4' };
 }
 // Small HTML badge for the Dashboard's card-drilldown list (showCardApplicants)
 // -- built on getCandidateStageBadge so it always reflects the real Candidate
@@ -4807,7 +4810,7 @@ function getStageTask(a){
   if(isClosed(a) || isPaused(a)) return null;
   var stage = a.candidateStage;
   if(!stage){
-    return { key:'__not_migrated__', label:'Not Migrated Yet', color:'#6b7280', hint:'Run the one-time stage migration in Settings before this record can show up correctly.', role:'HR', actionable:true, waiting:false };
+    return { key:'__not_migrated__', label:'No stage set', color:'#6b7280', hint:'No stage set yet. Open the profile and pick one.', role:'HR', actionable:true, waiting:false };
   }
   if(CLOSED_STAGES.indexOf(stage)>=0) return null;
   var next = a.nextAction || DEFAULT_NEXT_ACTION_BY_STAGE[stage] || '';
@@ -5155,52 +5158,22 @@ function showCardApplicants(key){
   panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
-// Remembers which role's queue this browser/device wants to see on the
-// Dashboard (HR / Operations Manager / Project Manager / CEO), so David
-// opens it and it's already showing just his tasks -- no login system yet,
-// but this gets the same day-to-day result: pick your role once, it sticks.
-function getDashboardRole(){
-  try { return localStorage.getItem('abbss_dashboard_role') || ''; } catch(e){ return ''; }
-}
-function setDashboardRole(role){
-  try { localStorage.setItem('abbss_dashboard_role', role); } catch(e){}
-  renderDashboard();
-}
 
 function renderDashboard() {
   var apps = getApplicants();
   var total = apps.length;
-  var role = getDashboardRole();
+  var role = getAppRole();
+  var roleLabel = role ? APP_ROLE_META[role].label : '';
 
-  var roleSelect = document.getElementById('dashRoleFilter');
-  if(roleSelect) roleSelect.value = role;
-  var roleNote = document.getElementById('dashRoleNote');
-  if(roleNote){
-    if(role){
-      roleNote.style.display = 'block';
-      roleNote.textContent = 'Showing only ' + role + ' tasks. Pick "Everyone" above to see the full pipeline.';
-    } else {
-      roleNote.style.display = 'none';
-    }
-  }
-
-  // "Your Tasks" -- a flat list of named people, not pipeline categories.
-  // Answers "what do I need to do right now" directly: who, and one line of
-  // what for. Pure waiting states are left off (nothing to click on those).
-  // Driven by getStageTask() (Candidate Stage / Next Action / Department),
-  // not the old numeric-stage engine -- see DASHBOARD TASK ENGINE above.
+  // Your Tasks: everyone who needs something done now by this role (the
+  // same needsAttention rule as the Tracker chips and the sidebar badge).
   var tasks = apps.map(function(a){
-    var t = getStageTask(a);
-    if(!t || !t.actionable) return null;
-    if(role && t.role !== role) return null;
-    return { a:a, def:t, sortAt: a.createdAt || a.dateReceived || '' };
+    if(!needsAttentionFrom(a, role)) return null;
+    return { a:a, n:needsAttention(a), sortAt: a.createdAt || a.dateReceived || '' };
   }).filter(Boolean);
 
-  // Offboarding: once a case's Last Working Day is today or has passed and
-  // its checklist isn't fully done, surface it here too -- same "flat list
-  // of what to do right now" the rest of Your Tasks already is. HR-owned
-  // (per Andrealiz Uy's request, relayed to Frances & Wen), so it only
-  // shows under "Everyone" or the HR role filter.
+  // Offboarding cases whose last working day has come, checklist not done.
+  // HR-owned, so only HR (or no role picked yet) sees them here.
   if(!role || role === 'HR'){
     (OFFBOARDING_CASES||[]).forEach(function(c){
       if(!isOffboardingDue(c)) return;
@@ -5211,40 +5184,38 @@ function renderDashboard() {
         isOffboarding: true,
         name: c.name,
         sortAt: c.lastWorkingDay,
-        def: { role:'HR', hint: 'Offboarding clearance: ' + doneCount + '/' + items.length + ' complete. Last working day: ' + c.lastWorkingDay + '.' }
+        n: { owner:'HR', reason: 'Offboarding clearance: ' + doneCount + '/' + items.length + ' complete. Last working day: ' + c.lastWorkingDay + '.' }
       });
     });
   }
-  tasks.sort(function(x,y){ return new Date(x.sortAt) - new Date(y.sortAt); });
+  tasks.sort(function(x,y){
+    if(!!(x.n && x.n.overdue) !== !!(y.n && y.n.overdue)) return x.n && x.n.overdue ? -1 : 1;
+    return new Date(x.sortAt) - new Date(y.sortAt);
+  });
 
   var countEl = document.getElementById('dashTasksCount');
   if(countEl) countEl.textContent = tasks.length ? ' (' + tasks.length + ')' : '';
 
+  var ownerTag = function(owner){
+    return role ? '' : ' <span style="font-size:10px;font-weight:700;color:var(--gray500);border:1px solid var(--gray200);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:none;letter-spacing:0">' + escapeHtml(owner) + '</span>';
+  };
   var tasksEl = document.getElementById('dashTasksList');
   if(tasksEl){
     if(!tasks.length){
-      tasksEl.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-icon">&#9989;</div><div class="empty-title">' + (role ? 'Nothing for ' + role + ' to do right now.' : 'Nothing needs action right now.') + '</div></div>';
+      tasksEl.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-icon">&#9989;</div><div class="empty-title">' + (role ? 'Nothing for ' + escapeHtml(roleLabel) + ' to do right now.' : 'Nothing needs action right now.') + '</div></div>';
     } else {
       tasksEl.innerHTML = '<div class="table-wrap" style="border-radius:var(--radius)">' + tasks.map(function(t){
-        if(t.isOffboarding){
-          var avOff = getAvatar(t.name);
-          var roleTagOff = role ? '' : ' <span style="font-size:10px;font-weight:700;color:var(--gray500);border:1px solid var(--gray200);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:none;letter-spacing:0">HR</span>';
-          return '<div onclick="showPage(\'offboarding\',document.getElementById(\'nav-offboarding\'))" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100);border-left:3px solid var(--red)">' +
-            '<div class="avatar avatar-sm" style="background:' + avOff.gradient + '">' + avOff.initials + '</div>' +
-            '<div style="flex:1;min-width:0">' +
-              '<div style="font-weight:700;font-size:14px">' + escapeHtml(t.name) + roleTagOff + ' <span class="badge badge-fail" style="margin-left:6px;font-size:10px">Offboarding</span></div>' +
-              '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + t.def.hint + '</div>' +
-            '</div>' +
-            '<span style="font-weight:800;font-size:16px;color:var(--gray300);flex-shrink:0">&#8250;</span>' +
-          '</div>';
-        }
-        var av = getAvatar(t.a.name);
-        var roleTag = role ? '' : ' <span style="font-size:10px;font-weight:700;color:var(--gray500);border:1px solid var(--gray200);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:none;letter-spacing:0">' + t.def.role + '</span>';
-        return '<div onclick="openApplicant(' + t.a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100);border-left:3px solid var(--blue)">' +
+        var name = t.isOffboarding ? t.name : t.a.name;
+        var av = getAvatar(name);
+        var click = t.isOffboarding ? 'showPage(\'offboarding\',document.getElementById(\'nav-offboarding\'))' : 'openApplicant(' + t.a.id + ')';
+        var edge = (t.isOffboarding || t.n.overdue) ? 'var(--red)' : 'var(--blue)';
+        var badge = t.isOffboarding ? ' <span class="badge badge-fail" style="margin-left:6px;font-size:10px">Offboarding</span>'
+          : t.n.overdue ? ' <span class="badge badge-fail" style="margin-left:6px;font-size:10px">Overdue</span>' : '';
+        return '<div onclick="' + click + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--gray100);border-left:3px solid ' + edge + '">' +
           '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
           '<div style="flex:1;min-width:0">' +
-            '<div style="font-weight:700;font-size:14px">' + escapeHtml(t.a.name) + roleTag + '</div>' +
-            '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + (t.def.hint||'') + '</div>' +
+            '<div style="font-weight:700;font-size:14px">' + escapeHtml(name) + ownerTag(t.n.owner) + badge + '</div>' +
+            '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + escapeHtml(t.n.reason||'') + '</div>' +
           '</div>' +
           '<span style="font-weight:800;font-size:16px;color:var(--gray300);flex-shrink:0">&#8250;</span>' +
         '</div>';
@@ -5255,31 +5226,8 @@ function renderDashboard() {
   document.getElementById('dashStats').innerHTML =
     '<div class="stat-card blue" data-card-key="total" onclick="showCardApplicants(\'total\')"><span class="stat-icon">&#128203;</span><div class="stat-num">' + total + '</div><div class="stat-lbl">Total Applicants</div><div class="stat-change">All time</div></div>';
 
-  // NOTE: the old raw-stage-count grid ("Internal -- Active Pipeline") was removed.
-  // It counted applicants by stage number alone, regardless of outcome, which meant
-  // the exact same label (e.g. "Endorsed to Preliminary Interview") could show a
-  // different number than the equivalent "What's Pending" card just below it --
-  // one counted everyone ever endorsed to that stage (including people later
-  // rejected/held), the other only counts people still actively there. Two
-  // numbers for one label made the whole dashboard look unreliable. The pending
-  // cards below are the single source of truth for "where is everyone right now."
-  // Grouped from getStageTask() per applicant, not a static def list -- the
-  // owning role can differ for the same Candidate Stage (e.g. "Initial
-  // Interview" is the Operations Manager's job for AP/AR/Refunds candidates
-  // but the Project Manager's for Sales & Marketing candidates), so the role
-  // filter has to be applied per-person before grouping, not per-stage-name.
-  var stageTasksForGrid = apps.map(function(a){ return getStageTask(a); }).filter(function(t){ return t && (!role || t.role === role); });
-  var pendingGroups = {};
-  stageTasksForGrid.forEach(function(t){
-    if(!pendingGroups[t.key]) pendingGroups[t.key] = { def:t, count:0 };
-    pendingGroups[t.key].count++;
-  });
-  var pendingCounts = Object.keys(pendingGroups).map(function(k){ return pendingGroups[k]; })
-    .filter(function(x){ return x.count > 0; });
-  document.getElementById('dashPendingGrid').innerHTML = pendingCounts.length ? pendingCounts.map(function(x){
-    return '<div class="pipeline-card" data-card-key="' + x.def.key + '" onclick="showCardApplicants(\'' + x.def.key + '\')"><div class="pipeline-num" style="color:' + x.def.color + '">' + x.count + '</div><div class="pipeline-lbl" style="color:' + x.def.color + '">' + x.def.label + '</div><div class="pipeline-hint">' + (x.def.hint||'') + '</div></div>';
-  }).join('') : '<div class="empty" style="padding:16px"><div class="empty-sub">' + (role ? 'Nothing for '+role+' to do right now.' : 'Nothing pending right now.') + '</div></div>';
-
+  // Where active candidates sit by stage lives on the Board; this grid is
+  // only the final outcomes.
   var statusDefs = [
     { key:'statusHired', label:'Hired', color:'#059669', hint:'Done, nothing to do.', fn: function(a){ return a.overallStatus==='Hired'; } },
     { key:'statusRejected', label:'Rejected', color:'#dc2626', hint:'Done, nothing to do.', fn: function(a){ return a.overallStatus==='Rejected'; } },
@@ -5291,16 +5239,6 @@ function renderDashboard() {
     var count = apps.filter(s.fn).length;
     return '<div class="pipeline-card" data-card-key="' + s.key + '" onclick="showCardApplicants(\'' + s.key + '\')"><div class="pipeline-num" style="font-size:24px;color:' + s.color + '">' + count + '</div><div class="pipeline-lbl" style="color:' + s.color + '">' + s.label + '</div><div class="pipeline-hint">' + s.hint + '</div></div>';
   }).join('');
-
-  document.getElementById('dashActions').innerHTML =
-    '<div style="display:flex;flex-direction:column;gap:8px">' +
-    '<button class="btn btn-primary btn-full" onclick="showPage(\'new\',document.getElementById(\'nav-new\'))">&#10133; Add New Applicant</button>' +
-    '<button class="btn btn-ghost btn-full" onclick="showPage(\'grade\',document.getElementById(\'nav-grade\'))">&#9889; Grade EMM Assessment</button>' +
-    '<button class="btn btn-ghost btn-full" onclick="showPage(\'email\',document.getElementById(\'nav-email\'))">&#9993;&#65039; Generate Email</button>' +
-    (SCRIPT_URL ?
-      '<button class="btn btn-ghost btn-full" onclick="syncFromSheets()">&#11015; Sync from Google Sheets</button>' :
-      '<button class="btn btn-ghost btn-full" onclick="showPage(\'settings\',document.getElementById(\'nav-settings\'))">&#9881;&#65039; Connect Google Sheets</button>') +
-    '</div>';
 }
 
 
@@ -5511,18 +5449,6 @@ function getSlaStatus(a){
 }
 
 
-// Drilldown filters for each active stage (the Dashboard cards), driven by getStageTask().
-['__not_migrated__'].concat(CANDIDATE_STAGES.filter(function(s){ return CLOSED_STAGES.indexOf(s)<0; })).forEach(function(key){
-  CARD_FILTERS[key] = {
-    label: key === '__not_migrated__' ? 'Not Migrated Yet' : key,
-    fn: function(a){
-      var t = getStageTask(a);
-      if(!t || t.key !== key) return false;
-      var r = getDashboardRole();
-      return !r || t.role === r;
-    }
-  };
-});
 
 async function updateFieldImmediate(id, field, value){
   var a = getApplicant(id);
@@ -5581,7 +5507,7 @@ function renderTrackerTable(apps) {
     '<div class="table-wrap" style="border-radius:0;border:none"><table><thead><tr>' +
     '<th style="width:1%"><input type="checkbox" ' + (allVisibleSelected?'checked':'') + ' onchange="toggleTrackerSelectAll(this.checked)" style="width:16px;height:16px;cursor:pointer" title="Select all shown"></th>' +
     sortableTh('Applicant','name') + sortableTh('Department','department') + sortableTh('Position','position') + sortableTh('Entered By','enteredBy') +
-    '<th>EMM</th><th>Current Stage &amp; Status</th><th>Notes</th>' +
+    '<th>EMM</th>' + sortableTh('Current Stage &amp; Status','stage') + '<th>Notes</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
@@ -5593,7 +5519,8 @@ function renderTrackerBulkBar(){
   var stageOptions = CANDIDATE_STAGES.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
   var emailKeys = ['assessment','assessment_no_emm','reminder','interview','regret'];
   var emailOptions = emailKeys.map(function(k){ return '<option value="'+k+'">'+(EMAIL_TEMPLATE_LABELS[k]||k)+'</option>'; }).join('');
-  var senderOptions = TEAM_MEMBERS.map(function(m){ return '<option value="'+escapeHtml(m.name)+'">'+escapeHtml(m.name)+'</option>'; }).join('');
+  var prevSender = document.getElementById('bulkSenderSelect') ? document.getElementById('bulkSenderSelect').value : getMyName();
+  var senderOptions = TEAM_MEMBERS.map(function(m){ return '<option value="'+escapeHtml(m.name)+'"'+(m.name===prevSender?' selected':'')+'>'+escapeHtml(m.name)+'</option>'; }).join('');
   el.innerHTML =
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;background:var(--gray50);border:1px solid var(--gray200);border-radius:var(--radius-lg);margin-bottom:10px">' +
       '<strong style="font-size:13px">'+n+' selected</strong>' +
@@ -5730,9 +5657,8 @@ function getEmmBadge(a){
 // and colors used by the Tracker badge/filter, via CANDIDATE_STAGES /
 // CANDIDATE_STAGE_META / getCandidateStageBadge), so there's exactly one
 // place that defines "what are the stages and what do they look like" for
-// the whole app. A leading "Not migrated yet" column only shows up if any
-// records still haven't been through the one-time stage migration, so
-// there's nowhere for a record to silently disappear to.
+// the whole app. A leading "No stage set" column only shows up if some
+// record has no stage, so there's nowhere for a record to disappear to.
 // Every column always shows, even at zero -- that way the board reads as a
 // map of the whole pipeline, and an empty column is a clear "nothing to
 // check here" signal rather than looking like a missing step.
@@ -5777,7 +5703,7 @@ function setAllBoardColumns(collapsed){
 }
 
 function renderBoard(){
-  var apps = getApplicants();
+  var apps = sharedScopeApps();
   // PM can see this page (it's the pipeline-shape view under Reports) but
   // per the role-ownership model PM never opens an individual candidate
   // record to edit it -- only HR and Operations, who actually own fields on
@@ -5785,15 +5711,15 @@ function renderBoard(){
   // aggregate columns/counts either way.
   var boardRole = getAppRole();
   var boardCanOpenCard = !boardRole || boardRole === 'HR' || boardRole === 'Operations';
-  var deptF = document.getElementById('boardDeptFilter') ? document.getElementById('boardDeptFilter').value : '';
-  var roleF = document.getElementById('boardRoleFilter') ? document.getElementById('boardRoleFilter').value : '';
-  if(deptF) apps = apps.filter(function(a){ return a.department===deptF; });
-  if(roleF) apps = apps.filter(function(a){ return a.roleCategory===roleF; });
+  var bd = document.getElementById('boardDeptFilter'), fd = document.getElementById('filterDept');
+  if(bd && fd) bd.value = fd.value;
+  var br = document.getElementById('boardRoleFilter'), fr = document.getElementById('filterRoleCategory');
+  if(br && fr) br.value = fr.value;
 
   var notMigrated = apps.filter(function(a){ return !a.candidateStage; });
   var stageDefs = CANDIDATE_STAGES.map(function(s){ return { key:s, label:s, color:(CANDIDATE_STAGE_META[s]||{}).tone||'#475569' }; });
   if(notMigrated.length){
-    stageDefs = [{ key:'__not_migrated__', label:'⚠ Not migrated yet', color:'#6b7280' }].concat(stageDefs);
+    stageDefs = [{ key:'__not_migrated__', label:'No stage set', color:'#6b7280' }].concat(stageDefs);
   }
   var cols = stageDefs.map(function(d){
     var colApps = d.key==='__not_migrated__' ? notMigrated : apps.filter(function(a){ return a.candidateStage===d.key; });
@@ -5967,7 +5893,7 @@ function toggleEodEditor(role){
         '<textarea class="inp" id="eodNote-'+slug+'" placeholder="PM note (optional context, does not affect the health color)">'+escapeHtml(curNote)+'</textarea>' +
         '<select class="inp" id="eodSetBy-'+slug+'">' +
           '<option value="">Who is setting this?</option>' +
-          TEAM_MEMBERS.map(function(m){ return '<option value="'+escapeHtml(m.name)+'">'+escapeHtml(m.name)+'</option>'; }).join('') +
+          TEAM_MEMBERS.map(function(m){ return '<option value="'+escapeHtml(m.name)+'"'+(m.name===getMyName()?' selected':'')+'>'+escapeHtml(m.name)+'</option>'; }).join('') +
         '</select>' +
         '<div style="display:flex;gap:8px">' +
           '<button class="btn btn-primary btn-sm" onclick="saveEodOverride(\''+safeRole+'\')">Save</button>' +
@@ -7179,6 +7105,7 @@ async function submitProblemReport(){
 (function(){
   var sb = document.getElementById('sentByPicker'); if(sb) sb.innerHTML = teamOptionsHtml('Select...', true);
   var eb = document.getElementById('na-enteredby'); if(eb) eb.innerHTML = teamOptionsHtml('Select...', false);
+  prefillMyName();
 })();
 renderRoleSwitcherPill();
 if(!getAppRole()) openRoleSwitchModal();
