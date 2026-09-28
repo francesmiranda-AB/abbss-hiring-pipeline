@@ -1477,17 +1477,6 @@ async function loadFromSheets() {
   return false;
 }
 
-async function lookupAssessmentScores(email) {
-  if (!SCRIPT_URL || !email) return null;
-  const [gritRes, valRes] = await Promise.all([
-    apiGet('lookupGrit', {email}),
-    apiGet('lookupValues', {email})
-  ]);
-  return {
-    grit:   gritRes  && gritRes.success  ? gritRes.data  : null,
-    values: valRes   && valRes.success   ? valRes.data   : null
-  };
-}
 
 // ============================================================
 // SYNC FAILURE TRACKING
@@ -1672,7 +1661,8 @@ function valuesOutcome(score,confScore,intScore){
   const it=intScore!==''&&intScore!=null?parseFloat(intScore):null;
   const pct=s/315*100; // VALUES_MAX_SCORE=315 -- keep in sync with Values sheet's scoreValuesRow()
 
-  if((cf!==null&&cf<=2)||(it!==null&&it<=2))
+  // Same rule as the backend: a 0 means those questions weren't answered, not a failing score.
+  if((cf!==null&&cf>0&&cf<=2)||(it!==null&&it>0&&it<=2))
     return{label:'NOT RECOMMENDED',badge:'badge-fail',pass:false,action:'Automatic red flag: Confidentiality or Integrity scored ≤2. Do not advance.',questions:[
       'Describe a real situation where you had access to confidential company or client data. What did you do with it?',
       'A coworker asks you to share information you know is confidential. Walk me through how you\'d handle it.'
@@ -2152,39 +2142,6 @@ function buildApplicantDetail(a){
   <div id="modalTabContent">${buildProfileTab(a)}</div>`;
 }
 
-function renderGritFocusAreas(a){
-  const GRIT_ITEM_TIPS=[
-'Ask how they prioritize when a new idea or task competes with something already in progress. Watch for follow-through once the interview is over.',
-'Ask for a specific example of a setback and how they recovered; gauge resilience under repeated rejection or difficult situations relevant to this role.',
-'Probe how long they typically stay engaged with a project or role before losing interest; ask what has kept them motivated in their longest-held position.',
-'Ask for concrete examples of high-effort work and cross-check consistency with references or work history.',
-'Ask about their goal-completion track record; probe commitment to seeing long-term targets through rather than switching direction.',
-'Ask about the longest project they\'ve completed and what helped them stay focused. Important for roles requiring sustained multi-month effort.',
-'Ask for an example of something they started but didn\'t finish, and why; check for a pattern of incomplete tasks in past roles.',
-'Pose a scenario question: how would they handle a repetitive, frustrating task with no immediate resolution?',
-'Ask directly for their proudest long-term accomplishment and what it took to get there.',
-'Ask them to describe the hardest professional challenge they\'ve faced and how they handled it.'
-  ];
-  const el=document.getElementById('gritFocus_'+a.id);
-  if(!el)return;
-  if(!a||!a.email||!SCRIPT_URL){el.innerHTML='';return;}
-  el.innerHTML='<div style="font-size:11px;color:#888;margin-top:8px">Loading focus areas\u2026</div>';
-  apiGet('lookupGrit',{email:a.email}).then(function(res){
-    const items=res&&res.success&&res.data&&res.data.items;
-    if(!items||!items.length){el.innerHTML='';return;}
-    const low=items.map(function(it,idx){return Object.assign({},it,{idx:idx});}).filter(function(it){return it.score<=2.5;}).sort(function(x,y){return x.score-y.score;});
-    if(!low.length){
-      el.innerHTML='<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534">\u2713 No individual GRIT questions scored low \u2014 no question-level red flags.</div>';
-      return;
-    }
-    el.innerHTML='<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px">\u26A0 Focus Areas for Interview Follow-up</div>'+
-      low.map(function(it){return '<div style="padding:9px 12px;background:#fff1f2;border-left:3px solid #ef476f;border-radius:6px;margin-bottom:6px">'+
-        '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.03em">'+(it.factor==='perseverance'?'Perseverance':'Consistency')+' \u00b7 scored '+it.score+'/5</div>'+
-        '<div style="font-size:12px;color:#555;margin:4px 0;font-style:italic">\u201c'+it.q+'\u201d</div>'+
-        '<div style="font-size:12px;color:#333;margin-top:4px">\u2192 '+(GRIT_ITEM_TIPS[it.idx]||'Ask a follow-up question about this area during the interview.')+'</div>'+
-      '</div>';}).join('')+'</div>';
-  }).catch(function(){el.innerHTML='';});
-}
 function showModalTab(tab,btn,id){
   document.querySelectorAll('#detailModal .dtab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -2197,7 +2154,6 @@ function showModalTab(tab,btn,id){
     decision:buildDecisionTab
   }[tab];
   document.getElementById('modalTabContent').innerHTML=content(a);
-  if(tab==='assessments')renderGritFocusAreas(a);
   refreshModalStageInfo(id);
   var modalEl=document.querySelector('#detailModal .modal');
   if(modalEl) modalEl.scrollTop=0;
@@ -2355,7 +2311,7 @@ function buildAssessmentsTab(a){
     <div class="g2" style="margin-bottom:10px">
       <div>
         <label class="lbl">GRIT Score (avg 1.0–5.0)</label>
-        <input class="inp" type="number" step="0.1" min="1" max="5" value="${a.grit&&a.grit.score||''}" placeholder="e.g. 3.5" onchange="var p=updateNestedField(${a.id},'grit','score',this.value);this.closest('.assess-card').className='assess-card '+(parseFloat(this.value)>=3.0?'passed':'failed');flashSaved(this,p)">
+        <input class="inp" type="number" step="0.1" min="1" max="5" value="${a.grit&&a.grit.score||''}" placeholder="e.g. 3.5" onchange="var p=updateNestedField(${a.id},'grit','score',this.value);this.closest('.assess-card').className='assess-card '+(gritOutcome(this.value).pass?'passed':'failed');flashSaved(this,p)">
       </div>
       <div>
         <label class="lbl">Outcome</label>
@@ -2372,7 +2328,6 @@ function buildAssessmentsTab(a){
     </div>
   </div>
 
-<div id="gritFocus_${a.id}" class="grit-focus-areas"></div>
 
     <!-- VALUES -->
   <div class="assess-card ${vOut.pass===true?'passed':vOut.pass===false?'failed':'pending'}">
@@ -3317,36 +3272,39 @@ async function renderUnmatchedEmmCard(){
 // the applicant dropdown unset (since we don't know who this is) and
 // pre-fills the manual name field with whatever name they typed on the form,
 // so HR can link it to the right person once they've figured out who it is.
-async function loadUnmatchedEmmFile(fileUrl, name){
+function base64ToArrayBuffer(b64){
+  var bin = atob(b64);
+  var bytes = new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+// Loads a submitted EMM file from Drive into the grader. opts.applicantId
+// links it to that candidate; otherwise opts.name pre-fills the standalone name.
+async function loadEmmFileIntoGrader(fileUrl, label, opts){
+  opts = opts || {};
   var fileId = extractDriveFileId(fileUrl);
   if(!fileId){ alert('Could not read the Drive file ID from this link.'); return; }
   var nameEl=document.getElementById('gradeFileName');
   var dz=document.getElementById('gradeDropzone');
   var btn=document.getElementById('gradeBtn');
-  if(nameEl) nameEl.textContent='⏳ Loading file from Drive…';
+  var reset = function(){ if(nameEl) nameEl.textContent='Click or drag .xlsx file here'; if(btn) btn.disabled=false; };
+  if(nameEl) nameEl.textContent='⏳ Loading '+(label ? label+"'s" : 'the')+' file from Drive…';
   if(dz) dz.classList.remove('ready');
   if(btn) btn.disabled=true;
   document.getElementById('gradeResults').style.display='none';
   document.getElementById('gradeError').style.display='none';
   var res=await apiPost('fetchDriveFile',{data:{fileId:fileId}});
   if(!res || !res.success){
-    alert('Could not load the file from Drive: '+(res&&res.error||'unknown error. Check that the Apps Script is redeployed with the fetchDriveFile action.'));
-    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
+    alert('Could not load the file from Drive: '+((res&&res.error)||'no response from the server.'));
+    reset();
     return;
   }
   try{
-    var byteChars=atob(res.base64);
-    var byteNumbers=new Array(byteChars.length);
-    for(var i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
-    var byteArray=new Uint8Array(byteNumbers);
-    gradeFile={name:res.filename||((name||'submission')+'.xlsx'), data:byteArray.buffer};
+    gradeFile={name:res.filename||((label||'submission')+'.xlsx'), data:base64ToArrayBuffer(res.base64)};
   }catch(decodeErr){
-    // Without this, a bad/unexpected res.base64 throws here and the function
-    // just dies -- "Loading..." stays on screen forever with the button still
-    // disabled and no error shown at all, indistinguishable from a hang.
     alert('Could not read that file after loading it from Drive: '+decodeErr.message);
-    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
-    if(btn) btn.disabled=false;
+    reset();
     return;
   }
   if(nameEl) nameEl.textContent=gradeFile.name+' (from Drive)';
@@ -3355,54 +3313,20 @@ async function loadUnmatchedEmmFile(fileUrl, name){
   if(dz) dz.classList.add('ready');
   if(btn) btn.disabled=false;
   var sel=document.getElementById('gradeApplicantSelect');
-  if(sel) sel.value='';
+  if(sel) sel.value = opts.applicantId!=null ? String(opts.applicantId) : '';
   var manual=document.getElementById('gradeNameManual');
-  if(manual) manual.value=name||'';
-  showToast('✓ Loaded file from Drive. Link this to the right applicant above, or grade it standalone.');
+  if(manual && opts.applicantId==null) manual.value=opts.name||'';
+  showToast(opts.applicantId!=null ? ('Loaded '+label+"'s file from Drive. Click Grade & Analyse.") : 'Loaded file from Drive. Link it to the right applicant above, or grade it standalone.');
 }
 
-async function loadEmmFromDrive(applicantId){
-  const a=getApplicant(applicantId);
+function loadUnmatchedEmmFile(fileUrl, name){
+  return loadEmmFileIntoGrader(fileUrl, name, {name:name});
+}
+
+function loadEmmFromDrive(applicantId){
+  var a=getApplicant(applicantId);
   if(!a || !a.emmFileUrl){ alert('No submitted file found for this applicant yet.'); return; }
-  const fileId=extractDriveFileId(a.emmFileUrl);
-  if(!fileId){ alert('Could not read the Drive file ID from the stored link.'); return; }
-  const nameEl=document.getElementById('gradeFileName');
-  const dz=document.getElementById('gradeDropzone');
-  const btn=document.getElementById('gradeBtn');
-  if(nameEl) nameEl.textContent='⏳ Loading '+a.name+"'s submitted file from Drive…";
-  if(dz) dz.classList.remove('ready');
-  if(btn) btn.disabled=true;
-  document.getElementById('gradeResults').style.display='none';
-  document.getElementById('gradeError').style.display='none';
-  const res=await apiPost('fetchDriveFile',{data:{fileId:fileId}});
-  if(!res || !res.success){
-    alert('Could not load the file from Drive: '+(res&&res.error||'unknown error. Check that the Apps Script is redeployed with the fetchDriveFile action.'));
-    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
-    return;
-  }
-  try{
-    var byteChars=atob(res.base64);
-    var byteNumbers=new Array(byteChars.length);
-    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
-    var byteArray=new Uint8Array(byteNumbers);
-    gradeFile={name:res.filename||(a.name+'.xlsx'),data:byteArray.buffer};
-  }catch(decodeErr){
-    // Same guard as loadUnmatchedEmmFile -- otherwise a bad res.base64 throws
-    // here and the function just dies, leaving "Loading..." on screen forever
-    // with no error shown, indistinguishable from a hang.
-    alert('Could not read '+a.name+"'s file after loading it from Drive: "+decodeErr.message);
-    if(nameEl) nameEl.textContent='Click or drag .xlsx file here';
-    if(btn) btn.disabled=false;
-    return;
-  }
-  if(nameEl) nameEl.textContent=gradeFile.name+' (from Drive)';
-  const subEl=document.getElementById('gradeFileSub');
-  if(subEl) subEl.style.display='block';
-  if(dz) dz.classList.add('ready');
-  if(btn) btn.disabled=false;
-  const sel=document.getElementById('gradeApplicantSelect');
-  if(sel) sel.value=String(applicantId);
-  showToast('✓ Loaded '+a.name+"'s file from Drive. Click Grade & Analyse.");
+  return loadEmmFileIntoGrader(a.emmFileUrl, a.name, {applicantId:applicantId});
 }
 
 // ============================================================
@@ -4504,55 +4428,19 @@ async function pushAllToSheets(){
 
 
 // Auto-lookup GRIT/Values when applicant email is known
-async function autoLookupScores(applicantId){
-  const a = getApplicant(applicantId);
-  if(!a||!a.email||!SCRIPT_URL) return;
-  const scores = await lookupAssessmentScores(a.email);
-  if(!scores) return;
-  // Guard against attaching a *stale* form response from a previous, unrelated
-  // application that happened to reuse the same email address — only accept a
-  // response if it was submitted on/after this applicant's invite was sent (or
-  // if we have no invite timestamp to compare against, e.g. legacy records).
-  const invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
-  function isFreshEnough(ts){
-    if(!invitedAt || !ts) return true;
-    const t = new Date(ts).getTime();
-    return isNaN(t) ? true : t >= new Date(invitedAt).getTime();
-  }
-  const apps = getApplicants();
-  const idx = apps.findIndex(x=>x.id===applicantId);
-  if(idx<0) return;
-  let updated = false;
-  if(scores.grit && scores.grit.score!==null && scores.grit.score!==undefined && isFreshEnough(scores.grit.timestamp)){
-    if(!apps[idx].grit) apps[idx].grit={};
-    if(!apps[idx].grit.score){
-      apps[idx].grit.score = String(scores.grit.score);
-      updated = true;
-    }
-    if(!apps[idx].grit.perseverance && scores.grit.perseverance!==null && scores.grit.perseverance!==undefined){
-      apps[idx].grit.perseverance = String(scores.grit.perseverance);
-      updated = true;
-    }
-    if(!apps[idx].grit.consistency && scores.grit.consistency!==null && scores.grit.consistency!==undefined){
-      apps[idx].grit.consistency = String(scores.grit.consistency);
-      updated = true;
-    }
-  }
-  if(scores.values && scores.values.total && isFreshEnough(scores.values.timestamp)){
-    if(!apps[idx].values) apps[idx].values={};
-    if(!apps[idx].values.score){
-      apps[idx].values.score = String(scores.values.total);
-      apps[idx].values.confScore = String(scores.values.confScore||'');
-      apps[idx].values.intScore  = String(scores.values.intScore||'');
-      updated = true;
-    }
-  }
-  if(updated){
-    saveApplicants(apps);
-    // Sync back to sheets
-    syncApplicantToSheets(apps[idx]);
-  }
-  return updated;
+// Ask the backend to attach whatever has arrived for this candidate (the
+// same code its compliance job runs), then take the updated fields.
+async function refreshAssessmentsFor(id){
+  if(!SCRIPT_URL) return false;
+  var res = await apiPost('refreshAssessments', {data:{id:id}});
+  if(!(res && res.success && res.record && res.attached)) return false;
+  var apps = getRawApplicants();
+  var a = apps.find(function(x){ return x.id===id; });
+  if(!a) return false;
+  ['grit','values','emmReceivedAt','emmFileUrl'].forEach(function(f){ a[f] = res.record[f]; if(a._dirty) delete a._dirty[f]; });
+  saveApplicants(apps);
+  autoAdvanceIfSubmitted(id);
+  return true;
 }
 
 // ============================================================
@@ -6931,8 +6819,8 @@ function openApplicant(id) {
   var hdr=document.querySelector('#detailModal .modal-header');
   var tabs=document.getElementById('modalDtabs');
   if(hdr && tabs) tabs.style.top = hdr.offsetHeight + 'px';
-  if (SCRIPT_URL && ((!a.grit||!a.grit.score)||(!a.values||!a.values.score))) {
-    autoLookupScores(id).then(function(updated) {
+  if (SCRIPT_URL && !assessmentsSubmitted(a)) {
+    refreshAssessmentsFor(id).then(function(updated) {
       if (updated) {
         var fresh = getApplicant(id);
         document.getElementById('modalContent').innerHTML = buildApplicantDetail(fresh);

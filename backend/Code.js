@@ -181,15 +181,6 @@ function scoreGrit(row){
   return Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100;
 }
 
-function scoreValues(row){
-  const rev=[7,11,20];let total=0,conf=0,int_=0;
-  for(let i=0;i<30;i++){
-    const r=parseFloat(row[3+i]);if(isNaN(r)||r===''||r===null)continue;
-    const s=rev.includes(i)?6-r:r;total+=s;
-    if(i===3||i===4)conf+=s;if(i===7||i===8)int_+=s;
-  }
-  return{total:Math.round(total*2),confScore:Math.round(conf/2*10)/10,intScore:Math.round(int_/2*10)/10};
-}
 
 function setupSheet(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
@@ -217,42 +208,47 @@ function scoreGritSub(row, idxs, reverse){
   if(!scores.length)return null;
   return Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100;
 }
+// One way to read a form's responses: the latest row whose email column(s)
+// match wins; mapRow turns it into a result (or null).
+function lookupFormResponse_(sheet, emailCols, email, mapRow){
+  var norm = String(email||'').trim().toLowerCase();
+  if(!sheet || !norm) return null;
+  var data = sheet.getDataRange().getValues();
+  for(var i=data.length-1; i>=1; i--){
+    var row = data[i];
+    for(var c=0; c<emailCols.length; c++){
+      if(String(row[emailCols[c]]||'').trim().toLowerCase()===norm) return mapRow(row);
+    }
+  }
+  return null;
+}
+function emmSubmissionFromRow_(row){
+  var fileCell = String(row[4]||'').trim();
+  if(!fileCell) return null;
+  // the form caps uploads at one file, but be defensive
+  return {name:row[2]||'', email:row[3]||row[1]||'', fileUrl:fileCell.split(',')[0].trim(), timestamp:String(row[0]||'')};
+}
 function lookupGrit(email){
   try{
-    const data=SpreadsheetApp.openById(GRIT_SHEET_ID).getSheets()[0].getDataRange().getValues();
-    const matches=data.filter((r,i)=>i>0&&String(r[1]).trim().toLowerCase()===email.trim().toLowerCase());
-    if(!matches.length)return null;
-    const row=matches[matches.length-1];
-    return{score:scoreGrit(row),perseverance:scoreGritSub(row,[1,3,6,7,8,9],false),consistency:scoreGritSub(row,[0,2,4,5],true),name:row[2],timestamp:String(row[0])};
-  }catch(e){return{error:e.message};}
+    return lookupFormResponse_(SpreadsheetApp.openById(GRIT_SHEET_ID).getSheets()[0], [1], email, function(row){
+      return {score:scoreGrit(row), perseverance:scoreGritSub(row,[1,3,6,7,8,9],false), consistency:scoreGritSub(row,[0,2,4,5],true), name:row[2], timestamp:String(row[0])};
+    });
+  }catch(e){ return {error:e.message}; }
 }
 
 function lookupValues(email){
-    try{
-          const sheet=SpreadsheetApp.openById(VALUES_SHEET_ID).getSheetByName('Auto Scores');
-                if(!sheet)return{error:'Auto Scores sheet not found'};
-                      const data=sheet.getDataRange().getValues();
-                            const matches=data.filter((r,i)=>i>0&&String(r[1]).trim().toLowerCase()===email.trim().toLowerCase());
-                                  if(!matches.length)return null;
-                                        const row=matches[matches.length-1];
-                                              return{total:row[4],confScore:row[14],intScore:row[16],name:row[2],timestamp:String(row[0])};
-                                                  }catch(e){return{error:e.message};}
-                                                    }
+  try{
+    var sheet = SpreadsheetApp.openById(VALUES_SHEET_ID).getSheetByName('Auto Scores');
+    if(!sheet) return {error:'Auto Scores sheet not found'};
+    return lookupFormResponse_(sheet, [1], email, function(row){
+      return {total:row[4], confScore:row[14], intScore:row[16], name:row[2], timestamp:String(row[0])};
+    });
+  }catch(e){ return {error:e.message}; }
+}
 
 function lookupEmmSubmission(email){
   try{
-    const sheet=SpreadsheetApp.openById(EMM_FORM_SHEET_ID).getSheets()[0];
-    const data=sheet.getDataRange().getValues();
-    const norm=String(email).trim().toLowerCase();
-    const matches=data.filter((r,i)=>i>0 && (
-      String(r[1]).trim().toLowerCase()===norm || String(r[3]).trim().toLowerCase()===norm
-    ));
-    if(!matches.length) return null;
-    const row=matches[matches.length-1]; // latest submission if they resubmitted
-    const fileCell=String(row[4]||'').trim();
-    if(!fileCell) return null;
-    const fileUrl=fileCell.split(',')[0].trim(); // form caps uploads at 1 file, but be defensive
-    return{name:row[2]||'',email:row[3]||row[1]||'',fileUrl:fileUrl,timestamp:String(row[0])};
+    return lookupFormResponse_(SpreadsheetApp.openById(EMM_FORM_SHEET_ID).getSheets()[0], [1,3], email, emmSubmissionFromRow_);
   }catch(e){ return {error:e.message}; }
 }
 
@@ -282,19 +278,12 @@ function getUnmatchedEmmSubmissions(){
     const unmatched=[];
     for(let i=1;i<formData.length;i++){
       const row=formData[i];
-      const fileCell=String(row[4]||'').trim();
-      if(!fileCell) continue; // no file attached to this response -- nothing to grade or match
+      const sub=emmSubmissionFromRow_(row);
+      if(!sub) continue; // no file attached to this response -- nothing to grade or match
       const email1=String(row[1]||'').trim().toLowerCase();
       const email3=String(row[3]||'').trim().toLowerCase();
       const isMatched=(email1&&knownEmails[email1])||(email3&&knownEmails[email3]);
-      if(!isMatched){
-        unmatched.push({
-          name:row[2]||'',
-          email:row[3]||row[1]||'',
-          timestamp:String(row[0]||''),
-          fileUrl:fileCell.split(',')[0].trim()
-        });
-      }
+      if(!isMatched) unmatched.push(sub);
     }
     return {success:true, unmatched:unmatched};
   }catch(e){
@@ -459,10 +448,14 @@ function getAllApplicants(){
   const data=t.getDataRange().getValues();if(data.length<=1)return[];
   return data.slice(1)
     .filter(r=>String(r[0]).trim()!==''&&String(r[1]).trim()!=='')
-    .map(r=>{
+    .map(applicantFromRow_);
+}
+
+// One Sheet row -> the record shape the app uses.
+function applicantFromRow_(r){
     let interview={recommendation:r[24]||''};
     if(r[28]){ try{ interview=JSON.parse(r[28]); }catch(e){} }
-    let emm={graded:!!r[19],overallPct:r[19]||null,catPct:r[20]||null,actPct:r[21]||null,
+    let emm={graded:!!r[23]||(r[19]!==''&&r[19]!==null&&r[19]!==undefined),overallPct:(r[19]===''||r[19]===null||r[19]===undefined)?null:r[19],catPct:r[20]||null,actPct:r[21]||null,
       pass:r[22]==='PASS'?true:r[22]==='FAIL'?false:null,gradedAt:r[23]||''};
     // Columns 19-23 are the authoritative grade fields -- they're what
     // checkAssessmentCompliance()/restoreCompliantApplicants() read too. Only pull
@@ -514,7 +507,6 @@ function getAllApplicants(){
       candidateStage:canonicalStage_(r[53]),nextAction:r[54]||'',roleCategory:r[55]||'',closedReason:r[56]||'',
       candidateStageDates:candidateStageDates,calendarEventId:r[58]||''
     };
-  });
 }
 
 // ============================================================
@@ -1322,6 +1314,7 @@ function doPost(e){
     const p=JSON.parse(e.postData.contents);let out={};
     if(p.action==='saveApplicant')out=saveApplicant(p.data);
     else if(p.action==='applyNormalize')out=applyNormalize();
+    else if(p.action==='refreshAssessments')out=refreshAssessments(p.data);
     else if(p.action==='uploadCV')out=uploadCV(p.data);
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
     else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
@@ -2032,6 +2025,92 @@ function mergeEmailsSent_(t, i, patch){
   }) === true;
 }
 
+// Everything the candidate owes has arrived: GRIT and Values scores, plus the
+// EMM file (received or already graded) when the role needs it. The app's
+// assessmentsSubmitted() mirrors this exactly; a test checks they agree.
+function assessmentsSubmitted_(hasGrit, hasValues, requiresEmm, emmReceived, emmGraded){
+  return !!(hasGrit && hasValues && (!requiresEmm || emmReceived || emmGraded));
+}
+
+// The one place form results get attached to a candidate row: GRIT/Values
+// scores submitted after the invite, the EMM file from the form, and the
+// "received" flag for an EMM graded through another path. Used by the
+// compliance job for every row and by refreshAssessments for one.
+function attachAssessmentsForRow_(t, i, r, now){
+  var out = {attached:0, emmDetected:0};
+  var emailsSent = {};
+  try{ emailsSent = r[30] ? JSON.parse(r[30]) : {}; }catch(e){ emailsSent = {}; }
+  var inviteSentAt = emailsSent.assessment || emailsSent.assessment_no_emm;
+  var inviteTime = inviteSentAt ? new Date(inviteSentAt).getTime() : null;
+  out.hasGrit = !isBlankCell_(r[13]);
+  out.hasValues = !isBlankCell_(r[15]);
+  out.requiresEmm = r[7]==='Yes';
+  out.emmReceived = !!r[38];
+  out.emmGraded = !!r[23];
+  if(out.requiresEmm && out.emmGraded && !out.emmReceived){
+    t.getRange(i+1,39).setValue(r[23]);
+    out.emmReceived = true;
+  }
+  var email = r[2];
+  if(email && inviteSentAt && !out.hasGrit){
+    try{
+      var g = lookupGrit(email);
+      if(g && !g.error && g.score!==null && g.score!==undefined){
+        var gTime = new Date(g.timestamp).getTime();
+        if(isNaN(gTime) || gTime>=inviteTime){
+          t.getRange(i+1,14).setValue(g.score);
+          t.getRange(i+1,15).setValue(getGritLabel(parseFloat(g.score)));
+          if(g.perseverance!==null && g.perseverance!==undefined) t.getRange(i+1,36).setValue(g.perseverance);
+          if(g.consistency!==null && g.consistency!==undefined) t.getRange(i+1,37).setValue(g.consistency);
+          out.hasGrit = true; out.attached++;
+        }
+      }
+    }catch(e){ Logger.log('GRIT lookup failed for row '+(i+1)+': '+e.message); }
+  }
+  if(email && inviteSentAt && !out.hasValues){
+    try{
+      var v = lookupValues(email);
+      if(v && !v.error && v.total!==null && v.total!==undefined && v.total!==''){
+        var vTime = new Date(v.timestamp).getTime();
+        if(isNaN(vTime) || vTime>=inviteTime){
+          t.getRange(i+1,16).setValue(v.total);
+          t.getRange(i+1,17).setValue(v.confScore||'');
+          t.getRange(i+1,18).setValue(v.intScore||'');
+          t.getRange(i+1,19).setValue(getValuesLabel(parseFloat(v.total),parseFloat(v.confScore||0),parseFloat(v.intScore||0)));
+          out.hasValues = true; out.attached++;
+        }
+      }
+    }catch(e){ Logger.log('Values lookup failed for row '+(i+1)+': '+e.message); }
+  }
+  if(email && out.requiresEmm && !out.emmReceived){
+    try{
+      var sub = lookupEmmSubmission(email);
+      if(sub && !sub.error && sub.fileUrl){
+        var subTime = new Date(sub.timestamp).getTime();
+        if(!inviteTime || isNaN(subTime) || subTime>=inviteTime){
+          t.getRange(i+1,39).setValue(sub.timestamp||now.toISOString());
+          t.getRange(i+1,41).setValue(sub.fileUrl);
+          out.emmReceived = true; out.emmDetected++;
+        }
+      }
+    }catch(e){ Logger.log('EMM submission lookup failed for row '+(i+1)+': '+e.message); }
+  }
+  out.submitted = assessmentsSubmitted_(out.hasGrit, out.hasValues, out.requiresEmm, out.emmReceived, out.emmGraded);
+  return out;
+}
+
+// "Check now" from the app: attach whatever has arrived for one candidate
+// and return their updated record.
+function refreshAssessments(data){
+  try{
+    if(!data || !data.id) return {success:false, error:'Missing applicant id.'};
+    var f = findApplicantRow(data.id);
+    if(f.error) return {success:false, error:f.error};
+    var res = attachAssessmentsForRow_(f.t, f.idx, f.row, new Date());
+    return {success:true, attached:res.attached + res.emmDetected, record:applicantFromRow_(readRow_(f.t, f.idx))};
+  }catch(e){ return {success:false, error:e.message}; }
+}
+
 function checkAssessmentCompliance(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');
@@ -2060,87 +2139,9 @@ function checkAssessmentCompliance(){
     let emailsSent={};
     try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
     const inviteSentAt=emailsSent.assessment||emailsSent.assessment_no_emm;
-
-    let hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
-    let hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-    const requiresEmm=r[7]==='Yes';
-    let emmReceived=!!r[38];
-    const emmGradedAt=r[23];
-    const emmGraded=!!emmGradedAt;
-    // Backfill: some applicants were graded through a path that never set the
-    // "EMM Received At" flag (e.g. an older email-reply submission graded before
-    // this column existed, or a Drive-form submission whose email didn't match
-    // cleanly so lookupEmmSubmission() below never found it, but staff located
-    // the file in the shared Drive folder and graded it anyway). Being graded is
-    // strictly stronger evidence of completion than "received" -- if it happened
-    // without Received ever being set, that was a data gap, not a compliance
-    // problem, and this row should stop being treated as if nothing arrived.
-    if(requiresEmm && emmGraded && !emmReceived){
-      t.getRange(i+1,39).setValue(emmGradedAt);
-      emmReceived=true;
-    }
-
-    // Proactively pull in any GRIT/Values scores that have arrived since the
-    // last check. Previously this ONLY happened when a staff member happened to
-    // open that specific applicant's record in the app -- so a candidate who
-    // genuinely answered could sit with a blank score indefinitely (and get
-    // auto-archived, or stay archived) if nobody opened their page. Now every
-    // scheduled run checks for a matching, sufficiently-recent form response itself.
-    const email=r[2];
-    const inviteTime=inviteSentAt?new Date(inviteSentAt).getTime():null;
-    if(email && inviteSentAt && (!hasGrit||!hasValues)){
-      if(!hasGrit){
-        try{
-          const g=lookupGrit(email);
-          if(g && !g.error && g.score!==null && g.score!==undefined){
-            const gTime=new Date(g.timestamp).getTime();
-            if(isNaN(gTime) || gTime>=inviteTime){
-              t.getRange(i+1,14).setValue(g.score);
-              t.getRange(i+1,15).setValue(getGritLabel(parseFloat(g.score)));
-              if(g.perseverance!==null && g.perseverance!==undefined) t.getRange(i+1,36).setValue(g.perseverance);
-              if(g.consistency!==null && g.consistency!==undefined) t.getRange(i+1,37).setValue(g.consistency);
-              hasGrit=true; attached++;
-            }
-          }
-        }catch(e){ Logger.log('GRIT lookup failed for row '+(i+1)+': '+e.message); }
-      }
-      if(!hasValues){
-        try{
-          const v=lookupValues(email);
-          if(v && !v.error && v.total!==null && v.total!==undefined){
-            const vTime=new Date(v.timestamp).getTime();
-            if(isNaN(vTime) || vTime>=inviteTime){
-              t.getRange(i+1,16).setValue(v.total);
-              t.getRange(i+1,17).setValue(v.confScore||'');
-              t.getRange(i+1,18).setValue(v.intScore||'');
-              t.getRange(i+1,19).setValue(getValuesLabel(parseFloat(v.total),parseFloat(v.confScore||0),parseFloat(v.intScore||0)));
-              hasValues=true; attached++;
-            }
-          }
-        }catch(e){ Logger.log('Values lookup failed for row '+(i+1)+': '+e.message); }
-      }
-    }
-
-    // Proactively detect a completed EMM file submitted through the shared-Drive
-    // Google Form (replaces the old "reply to this email with the file" flow --
-    // that left files scattered across whoever's inbox got the reply, and nothing
-    // ever checked for them automatically). Every run checks the form's response
-    // sheet for a matching, sufficiently-recent submission and records both the
-    // receipt time and a link to the file in the shared Drive folder.
-    if(email && requiresEmm && !emmReceived){
-      try{
-        const sub=lookupEmmSubmission(email);
-        if(sub && !sub.error && sub.fileUrl){
-          const subTime=new Date(sub.timestamp).getTime();
-          if(!inviteTime || isNaN(subTime) || subTime>=inviteTime){
-            t.getRange(i+1,39).setValue(sub.timestamp||now.toISOString());
-            t.getRange(i+1,41).setValue(sub.fileUrl);
-            emmReceived=true;
-            emmDetected++;
-          }
-        }
-      }catch(e){ Logger.log('EMM submission lookup failed for row '+(i+1)+': '+e.message); }
-    }
+    const found=attachAssessmentsForRow_(t, i, r, now);
+    attached+=found.attached; emmDetected+=found.emmDetected;
+    const hasGrit=found.hasGrit, hasValues=found.hasValues, requiresEmm=found.requiresEmm;
 
     // Self-heal: someone may have been archived as Non Compliant, then their
     // GRIT/Values score arrived shortly after (they did respond, just close to
@@ -2172,7 +2173,7 @@ function checkAssessmentCompliance(){
     }
 
     if(!inviteSentAt || !inAssessmentWindow) continue;
-    const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?(emmReceived||emmGraded):true);
+    const assessmentsComplete=found.submitted;
     if(assessmentsComplete) continue;
     const hoursElapsed=(now.getTime()-new Date(inviteSentAt).getTime())/3600000;
     if(hoursElapsed>=ARCHIVE_HOURS){
