@@ -549,7 +549,7 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard',this)"><span class="nav-icon">&#128202;</span> Dashboard</button>
   <button class="nav-item" id="nav-new" onclick="showPage('new',this)"><span class="nav-icon">&#10133;</span> New Applicant</button>
   <div class="sidebar-section" id="navsec-pipeline">Pipeline</div>
-  <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">Candidates</span><span id="trackerActionBadge" class="nav-badge" style="display:none;flex-shrink:0" title="New + Awaiting Response + Recently Responded">0</span><span id="trackerBadge" class="nav-badge-blue" style="display:none;flex-shrink:0">0</span></button>
+  <button class="nav-item" id="nav-tracker" onclick="showPage('tracker',this)"><span class="nav-icon">&#128101;</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">Candidates</span><span id="trackerActionBadge" class="nav-badge" style="display:none;flex-shrink:0" title="Candidates that need action from you">0</span><span id="trackerBadge" class="nav-badge-blue" style="display:none;flex-shrink:0">0</span></button>
   <button class="nav-item" id="nav-interviewcal" onclick="showPage('interviewcal',this)"><span class="nav-icon">&#128197;</span> Interview Calendar</button>
   <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> Assessments &amp; EMM</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
@@ -557,8 +557,6 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> Hiring Projects</button>
   <div class="sidebar-section" id="navsec-offboarding">Offboarding</div>
   <button class="nav-item" id="nav-offboarding" onclick="showPage('offboarding',this)"><span class="nav-icon">&#128682;</span> Offboarding</button>
-  <div class="sidebar-section" id="navsec-executive">Executive</div>
-  <button class="nav-item" id="nav-execdash" onclick="showPage('execdash',this)"><span class="nav-icon">&#128202;</span> Executive Dashboard</button>
   <div class="sidebar-section" id="navsec-reports">Reports</div>
   <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
   <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
@@ -682,8 +680,8 @@ tbody tr:last-child td{border-bottom:none}
         <div class="qv-bar-filters">
           <button class="qv-chip active" data-qv="default" onclick="setTrackerQuickView('default')">Active <span class="qv-count" id="qv-count-default">0</span></button>
           <button class="qv-chip" data-qv="new" onclick="setTrackerQuickView('new')">🆕 New <span class="qv-count" id="qv-count-new">0</span></button>
-          <button class="qv-chip" data-qv="awaiting" onclick="setTrackerQuickView('awaiting')">⏳ Awaiting Response <span class="qv-count" id="qv-count-awaiting">0</span></button>
-          <button class="qv-chip" data-qv="responded" onclick="setTrackerQuickView('responded')">🔔 Recently Responded <span class="qv-count" id="qv-count-responded">0</span></button>
+          <button class="qv-chip" data-qv="attention" onclick="setTrackerQuickView('attention')">👉 Needs action <span class="qv-count" id="qv-count-attention">0</span></button>
+          <button class="qv-chip" data-qv="overdue" onclick="setTrackerQuickView('overdue')">⏰ Overdue <span class="qv-count" id="qv-count-overdue">0</span></button>
           <button class="qv-chip" data-qv="nonresponsive" onclick="setTrackerQuickView('nonresponsive')">🔕 Doesn&#39;t Respond <span class="qv-count" id="qv-count-nonresponsive">0</span></button>
           <button class="qv-chip" data-qv="all" onclick="setTrackerQuickView('all')">Everyone <span class="qv-count" id="qv-count-all">0</span></button>
         </div>
@@ -800,21 +798,13 @@ tbody tr:last-child td{border-bottom:none}
   <div style="margin-bottom:var(--space-6);display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
     <div>
       <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Hiring Projects</h1>
-      <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)" id="eodDateLine">One card per hiring role: health, pipeline, progress, and where things are stuck.</p>
+      <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)" id="eodDateLine"></p>
     </div>
     <div>
       <button class="btn btn-success btn-sm" onclick="copyEodSummary()">&#128203; Copy Summary</button>
     </div>
   </div>
   <div id="eodContent"></div>
-</div>
-
-<div id="page-execdash" class="page">
-  <div style="margin-bottom:var(--space-6)">
-    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Executive Dashboard</h1>
-    <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)" id="execDateLine">Recruitment, at a glance.</p>
-  </div>
-  <div id="execDashContent"></div>
 </div>
 
 <div id="page-sources" class="page">
@@ -1964,7 +1954,10 @@ var TRACKER_QUICK_VIEW_KEY = 'abbss_tracker_quickview';
 // (BOARD_COLLAPSE_KEY) -- otherwise it silently resets to Active every time
 // she leaves and comes back to Candidates.
 var TRACKER_QUICK_VIEW = (function(){
-  try{ return localStorage.getItem(TRACKER_QUICK_VIEW_KEY) || 'default'; }catch(e){ return 'default'; }
+  try{
+    var v = localStorage.getItem(TRACKER_QUICK_VIEW_KEY) || 'default';
+    return ['default','new','attention','overdue','nonresponsive','all'].indexOf(v)>=0 ? v : 'default';
+  }catch(e){ return 'default'; }
 })();
 
 function isSameLocalDay(isoString, ref){
@@ -2020,12 +2013,13 @@ function toggleAdvancedFilters(){
 }
 
 function updateQuickViewCounts(apps){
+  var role = getAppRole();
   var counts = {
-    default: apps.filter(a=>(a.overallStatus||'In Progress')!=='NonCompliant').length,
+    default: apps.filter(function(a){ return !isClosed(a); }).length,
     new: apps.filter(isNewApplicant).length,
-    awaiting: apps.filter(a=>!!getSlaStatus(a)).length,
-    responded: apps.filter(a=>a.emailsSent && a.emailsSent.lateResponseNotify).length,
-    nonresponsive: apps.filter(a=>(a.overallStatus||'In Progress')==='NonCompliant').length,
+    attention: apps.filter(function(a){ return needsAttentionFrom(a, role); }).length,
+    overdue: apps.filter(function(a){ var n = needsAttention(a); return !!(n && n.overdue); }).length,
+    nonresponsive: apps.filter(function(a){ return a.overallStatus==='NonCompliant'; }).length,
     all: apps.length
   };
   Object.keys(counts).forEach(function(k){
@@ -2071,13 +2065,13 @@ function filterTracker(){
   // explicitly asked to see a specific status -- if Status is deliberately
   // set to "Doesn't Respond" (or anything else), her explicit choice wins.
   if(TRACKER_QUICK_VIEW==='default'){
-    if(!statusF) apps=apps.filter(a=>(a.overallStatus||'In Progress')!=='NonCompliant');
+    if(!statusF && !stageF) apps=apps.filter(a=>!isClosed(a));
   } else if(TRACKER_QUICK_VIEW==='new'){
     apps=apps.filter(isNewApplicant);
-  } else if(TRACKER_QUICK_VIEW==='awaiting'){
-    apps=apps.filter(a=>!!getSlaStatus(a));
-  } else if(TRACKER_QUICK_VIEW==='responded'){
-    apps=apps.filter(a=>a.emailsSent && a.emailsSent.lateResponseNotify);
+  } else if(TRACKER_QUICK_VIEW==='attention'){
+    apps=apps.filter(a=>needsAttentionFrom(a, getAppRole()));
+  } else if(TRACKER_QUICK_VIEW==='overdue'){
+    apps=apps.filter(a=>{ var n=needsAttention(a); return !!(n && n.overdue); });
   } else if(TRACKER_QUICK_VIEW==='nonresponsive'){
     apps=apps.filter(a=>(a.overallStatus||'In Progress')==='NonCompliant');
   }
@@ -4531,7 +4525,6 @@ function showPage(id, btn) {
   if (id === 'tracker') renderTracker();
   if (id === 'board') renderBoard();
   if (id === 'eod') renderEodReport();
-  if (id === 'execdash') renderExecutiveDashboard();
   if (id === 'sources') renderSourcesReport();
   if (id === 'interviewcal') renderInterviewCalendar();
   if (id === 'grade') { populateApplicantSelect(); renderPendingGradingQueue(); renderUnmatchedEmmCard(); }
@@ -4723,7 +4716,7 @@ var NAV_VISIBILITY_BY_ROLE = {
   'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-offboarding','nav-settings'],
   'Operations': ['nav-dashboard','nav-tracker','nav-interviewcal'],
   'PM':         ['nav-eod','nav-board','nav-sources','nav-analytics'],
-  'CEO':        ['nav-execdash','nav-analytics']
+  'CEO':        ['nav-eod','nav-analytics']
 };
 // Pages a role can land on via an intentional drill-through link even
 // though the page has no button of its own in that role's sidebar --
@@ -4731,9 +4724,7 @@ var NAV_VISIBILITY_BY_ROLE = {
 // Executive Dashboard. showPage()'s route guard checks this (merged with
 // NAV_VISIBILITY_BY_ROLE); the sidebar itself only ever reflects
 // NAV_VISIBILITY_BY_ROLE, so this doesn't add a permanent nav button.
-var NAV_ROUTE_ALLOW_BY_ROLE = {
-  'CEO': ['nav-eod']
-};
+var NAV_ROUTE_ALLOW_BY_ROLE = {};
 function getAllowedRoutesForRole(role){
   var base = NAV_VISIBILITY_BY_ROLE[role] || [];
   var extra = NAV_ROUTE_ALLOW_BY_ROLE[role] || [];
@@ -4746,7 +4737,7 @@ var NAV_SECTIONS = {
   'navsec-main':      ['nav-dashboard','nav-new'],
   'navsec-pipeline':  ['nav-tracker','nav-interviewcal','nav-grade','nav-email'],
   'navsec-projects':  ['nav-eod'],
-  'navsec-executive': ['nav-execdash'],
+  'navsec-offboarding': ['nav-offboarding'],
   'navsec-reports':   ['nav-board','nav-sources','nav-analytics'],
   'navsec-system':    ['nav-settings']
 };
@@ -4879,6 +4870,163 @@ function getStageTask(a){
     waiting: waiting,
     nextAction: next
   };
+}
+
+// How long a candidate should typically sit in each active stage before it
+// counts as overdue (days). One copy, used by "needs attention" and the
+// Hiring Projects summary.
+var STAGE_SLA_DAYS = {
+  'New Application':2,'CV Screening':2,'HR Preliminary Interview':3,'Assessment Sent':1,
+  'Assessment Review':2,'Initial Interview':3,'Operations Decision':2,'Endorsed to Client':5,'Offer':3
+};
+var FOLLOW_UP_ACTIONS = ['Follow up Candidate','Follow up Client'];
+// Plain-English names for "entered this stage today", in pipeline order.
+var TODAYS_PROGRESS_STAGE_LABELS = {
+  'New Application':'New Applications', 'CV Screening':'CVs Screened',
+  'HR Preliminary Interview':'HR Preliminary Interviews', 'Assessment Sent':'Assessments Sent',
+  'Assessment Review':'Assessments Completed', 'Initial Interview':'Initial Interviews',
+  'Operations Decision':'Operations Decisions', 'Endorsed to Client':'Endorsed to Client',
+  'Offer':'Offers'
+};
+
+function daysInStage(a){
+  var at = a && a.candidateStage && (a.candidateStageDates||{})[a.candidateStage];
+  return at ? Math.round(((Date.now()-new Date(at).getTime())/86400000)*10)/10 : null;
+}
+function isStageOverdue(a){
+  var d = daysInStage(a), sla = STAGE_SLA_DAYS[a.candidateStage];
+  return d!==null && sla!==undefined && d>sla;
+}
+
+// ============================================================
+// NEEDS ATTENTION -- the one answer to "does someone need to do something
+// with this candidate now, and who?" Your Tasks, the Tracker's "Needs
+// action" and "Overdue" chips, and the sidebar badge all use it. Closed and
+// paused candidates never need attention. A waiting stage (assessments out,
+// with the client) only needs attention once it runs past its expected time.
+// ============================================================
+function needsAttention(a){
+  if(!a || isClosed(a) || isPaused(a)) return null;
+  var task = getStageTask(a);
+  if(!task) return null;
+  var sla = getSlaStatus(a);
+  var overdue = isStageOverdue(a) || !!(sla && sla.tone==='#b52a2a');
+  if(task.actionable) return {owner:task.role, reason:task.hint, overdue:overdue};
+  if(overdue) return {owner:task.role, reason:'Past the expected time in '+a.candidateStage+'. Follow up.', overdue:true};
+  return null;
+}
+// Task owners are interview conductors; this maps them to the app's roles.
+var ATTENTION_OWNER_TO_APP_ROLE = {'HR':'HR','Operations Manager':'Operations','Project Manager':'PM','Client':'PM','CEO':'CEO'};
+function needsAttentionFrom(a, appRole){
+  var n = needsAttention(a);
+  if(!n) return false;
+  return !appRole || ATTENTION_OWNER_TO_APP_ROLE[n.owner]===appRole;
+}
+
+// ============================================================
+// ROLE SUMMARY for Hiring Projects, computed from the records the app
+// already has (it used to be a separate backend report that added things up
+// its own way). roleHealth: the PM overrides that come with getAll.
+// ============================================================
+function buildRoleSummary(apps, roleHealth){
+  var byRole = {};
+  var ensure = function(role){
+    return byRole[role] || (byRole[role] = {role:role, activeCandidates:0, stageCounts:{}, needingFollowUp:[], overdueReminders:[],
+      todaysProgress:{}, closedToday:{Rejected:0,Withdrawn:0,Hired:0}, _daysSum:{}, _daysCount:{}, _tally:{}});
+  };
+  apps.forEach(function(a){
+    var b = ensure(a.roleCategory || '(Unassigned)');
+    var stage = a.candidateStage || '(Not set)';
+    var closed = isClosed(a), paused = isPaused(a);
+    if(!closed) b.activeCandidates++;
+    b.stageCounts[stage] = (b.stageCounts[stage]||0)+1;
+    var days = daysInStage(a);
+    if(!closed && !paused && days!==null){
+      b._daysSum[stage] = (b._daysSum[stage]||0)+days;
+      b._daysCount[stage] = (b._daysCount[stage]||0)+1;
+    }
+    var summary = {id:a.id, stage:stage, nextAction:a.nextAction||'', daysInStage:days};
+    if(!closed){
+      if(FOLLOW_UP_ACTIONS.indexOf(a.nextAction)>=0) b.needingFollowUp.push(summary);
+      if(!paused && isStageOverdue(a)) b.overdueReminders.push(summary);
+      if(a.nextAction) b._tally[a.nextAction] = (b._tally[a.nextAction]||0)+1;
+    }
+    var dates = a.candidateStageDates || {};
+    var today = new Date();
+    Object.keys(dates).forEach(function(st){
+      if(!isSameLocalDay(dates[st], today)) return;
+      var label = TODAYS_PROGRESS_STAGE_LABELS[st];
+      if(label) b.todaysProgress[label] = (b.todaysProgress[label]||0)+1;
+      if(st==='Closed - Rejected') b.closedToday.Rejected++;
+      if(st==='Closed - Withdrawn') b.closedToday.Withdrawn++;
+      if(st==='Hired') b.closedToday.Hired++;
+    });
+  });
+  Object.keys(byRole).forEach(function(role){
+    var b = byRole[role];
+    b.avgDaysInStage = {};
+    Object.keys(b._daysSum).forEach(function(st){ b.avgDaysInStage[st] = Math.round((b._daysSum[st]/b._daysCount[st])*10)/10; });
+    b.nextActionSummary = Object.keys(b._tally).map(function(x){ return {action:x, count:b._tally[x]}; })
+      .sort(function(x,y){ return y.count-x.count; }).slice(0,3);
+    var byStage = {};
+    b.overdueReminders.forEach(function(c){
+      if(!byStage[c.stage]) byStage[c.stage] = {count:0, daysSum:0};
+      byStage[c.stage].count++; byStage[c.stage].daysSum += (c.daysInStage||0);
+    });
+    b.blockers = Object.keys(byStage).map(function(st){
+      var o = byStage[st];
+      return o.count+' candidate(s) stuck at '+st+' (avg '+(Math.round((o.daysSum/o.count)*10)/10)+' days)';
+    });
+    delete b._daysSum; delete b._daysCount; delete b._tally;
+    var auto = b.activeCandidates===0 ? {status:'red', reason:'No active candidates in the pipeline.'}
+      : b.activeCandidates===1 ? {status:'yellow', reason:'Only one active candidate in the pipeline.'}
+      : b.overdueReminders.length ? {status:'yellow', reason:b.overdueReminders.length+' candidate(s) past the expected time in their current stage.'}
+      : {status:'green', reason:'Healthy pipeline.'};
+    var ov = (roleHealth||{})[role];
+    b.health = (ov && ov.status) ? {status:ov.status, reason:ov.reason, source:'PM override', setBy:ov.setBy, setAt:ov.setAt} : Object.assign({source:'auto'}, auto);
+    b.pmNote = (ov && ov.pmNote) || '';
+  });
+  return byRole;
+}
+
+// The overview at the top of Hiring Projects (the CEO's whole view).
+function rolesOverviewHtml(summary, roles){
+  var active = 0, progress = {}, closed = {Hired:0,Rejected:0,Withdrawn:0}, atRisk = [], attention = [], onTrack = 0, overdue = 0, followUp = 0;
+  roles.forEach(function(r){
+    var b = summary[r];
+    active += b.activeCandidates;
+    overdue += b.overdueReminders.length;
+    followUp += b.needingFollowUp.length;
+    Object.keys(b.todaysProgress).forEach(function(k){ progress[k] = (progress[k]||0)+b.todaysProgress[k]; });
+    closed.Hired += b.closedToday.Hired; closed.Rejected += b.closedToday.Rejected; closed.Withdrawn += b.closedToday.Withdrawn;
+    if(b.health.status==='red') atRisk.push(r); else if(b.health.status==='yellow') attention.push(r); else onTrack++;
+  });
+  var stats = [
+    {v:active, l:'Active Candidates'},
+    {v:progress['New Applications']||0, l:'Applications Today'},
+    {v:(progress['HR Preliminary Interviews']||0)+(progress['Initial Interviews']||0), l:'Interviews Today'},
+    {v:progress['Assessments Completed']||0, l:'Assessments Completed'},
+    {v:progress['Endorsed to Client']||0, l:'Client Endorsements'},
+    {v:progress['Offers']||0, l:'Offers'},
+    {v:closed.Hired, l:'Hires Today'}
+  ];
+  var roleList = function(list, tone){
+    return list.length ? list.map(function(r){
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:'+tone+'">'+escapeHtml(r)+'</div>' +
+        '<div style="font-size:12px;color:var(--gray500);margin-top:2px">'+escapeHtml(summary[r].health.reason||'')+'</div></div>';
+    }).join('') : '<div style="font-size:13px;color:var(--gray400)">None right now.</div>';
+  };
+  return '<div class="card" style="margin-bottom:var(--space-2)">' +
+      '<div class="card-title-sm" style="margin-bottom:14px">Today</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px">' + stats.map(function(o){ return eodBigStat(o.v, o.l, 'var(--gray900)'); }).join('') + '</div>' +
+      '<div style="font-size:12px;color:var(--gray500);margin-top:12px">'+overdue+' candidate(s) past their expected time in stage &middot; '+followUp+' waiting on a follow-up &middot; closed today: '+closed.Rejected+' rejected, '+closed.Withdrawn+' withdrawn</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:var(--space-2)">' +
+      '<div class="card"><div class="card-title-sm" style="margin-bottom:14px">Hiring Health</div><div style="display:flex;gap:22px">' +
+        eodBigStat(onTrack, 'On Track', '#166534') + eodBigStat(attention.length, 'Needs Attention', '#b45309', true) + eodBigStat(atRisk.length, 'At Risk', '#b52a2a', true) + '</div></div>' +
+      '<div class="card"><div class="card-title-sm" style="margin-bottom:8px">At Risk</div>' + roleList(atRisk, '#b52a2a') + '</div>' +
+      '<div class="card"><div class="card-title-sm" style="margin-bottom:8px">Needs Attention</div>' + roleList(attention, '#b45309') + '</div>' +
+    '</div>';
 }
 
 // The one panel HR actually touches day to day: Candidate Stage + Next
@@ -5729,14 +5877,10 @@ function renderBoard(){
 
 
 // ============================================================
-// EXECUTIVE DASHBOARD (replaces the old activity-log EOD page) -- answers
-// four questions at a glance, per role: how many active candidates, what
-// moved today, where candidates are stuck, and which roles need attention.
-// Built entirely from getRoleDashboardData() on the backend -- the same
-// source of truth used by the (upcoming) Dashboard page -- so nothing here
-// is calculated twice. Health status/reason can be overridden per role, and
-// a PM Note can be left independently of that (see setRoleHealthOverride in
-// Code.gs); both round-trip through the RoleHealth sheet tab.
+// HIRING PROJECTS -- per role: active candidates, what moved today, where
+// candidates are stuck, and health. Computed in the app by buildRoleSummary.
+// A PM can override a role's health and leave a note (setRoleHealthOverride
+// on the backend; stored in the RoleHealth sheet tab, sent with getAll).
 // ============================================================
 var LAST_ROLE_DASHBOARD = null;
 
@@ -5754,70 +5898,6 @@ function eodBigStat(value, label, color, big){
     '<div class="card-title-sm" style="margin-top:2px">'+label+'</div></div>';
 }
 
-function eodSummaryBar(rolesData, roleNames){
-  var totalActive = 0, green = 0, yellow = 0, red = 0, attention = [];
-  var combinedProgress = {}, combinedClosed = {Rejected:0, Withdrawn:0, Hired:0};
-  roleNames.forEach(function(r){
-    var b = rolesData[r];
-    totalActive += b.activeCandidates;
-    var s = b.health && b.health.status;
-    if(s==='green') green++;
-    else if(s==='yellow'){ yellow++; attention.push(r); }
-    else if(s==='red'){ red++; attention.push(r); }
-    // Roll every role's Today's Progress into one pipeline-wide total, in
-    // the same stage order as CANDIDATE_STAGES, so there's a single at-a-
-    // glance line above the per-role cards -- closest to the flat mockup
-    // Frances originally sketched, just aggregated instead of hand-counted.
-    Object.keys(b.todaysProgress||{}).forEach(function(k){
-      combinedProgress[k]=(combinedProgress[k]||0)+b.todaysProgress[k];
-    });
-    if(b.closedToday){
-      combinedClosed.Rejected+=b.closedToday.Rejected||0;
-      combinedClosed.Withdrawn+=b.closedToday.Withdrawn||0;
-      combinedClosed.Hired+=b.closedToday.Hired||0;
-    }
-  });
-
-  // Same plain-English labels the backend's TODAYS_PROGRESS_STAGE_LABELS
-  // produces (New Application->New Applications, etc.), in pipeline order --
-  // that backend map lives inside the Apps Script mirror string, not in
-  // frontend scope, so it's repeated here rather than referenced directly.
-  var progressOrder = ['New Applications','CVs Screened','HR Preliminary Interviews','Assessments Sent','Assessments Completed','Initial Interviews','Operations Decisions','Endorsed to Client','Offers'];
-  var progressKeys = progressOrder.filter(function(k){ return combinedProgress[k]>0; });
-  var closedBits = [];
-  if(combinedClosed.Hired) closedBits.push(combinedClosed.Hired+' Hired');
-  if(combinedClosed.Rejected) closedBits.push(combinedClosed.Rejected+' Rejected');
-  if(combinedClosed.Withdrawn) closedBits.push(combinedClosed.Withdrawn+' Withdrawn');
-
-  var progressLine;
-  if(!progressKeys.length && !closedBits.length){
-    progressLine = '<div style="font-size:13px;color:var(--gray400)">Nothing moved today yet.</div>';
-  } else {
-    progressLine = progressKeys.map(function(k){
-      return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--gray100);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--gray700);margin:3px 6px 0 0">'+combinedProgress[k]+' '+k+'</span>';
-    }).join('');
-    if(closedBits.length) progressLine += '<span style="font-size:12px;color:var(--gray500);margin-left:4px">Closed today: '+closedBits.join(' &middot; ')+'</span>';
-  }
-
-  return '<div class="card" style="margin-bottom:var(--space-2)">' +
-    '<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start">' +
-      '<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:center">' +
-        eodBigStat(totalActive, 'Active Candidates', 'var(--gray900)') +
-        eodBigStat(roleNames.length, 'Hiring Roles', 'var(--gray900)') +
-        eodBigStat(green, 'On Track', '#166534') +
-        eodBigStat(yellow, 'Needs Attention', '#b45309', true) +
-        eodBigStat(red, 'At Risk', '#b52a2a', true) +
-      '</div>' +
-      (attention.length
-        ? '<div class="alert alert-warn" style="flex:1;min-width:220px;margin-bottom:0"><span class="alert-icon">⚠️</span><div><strong>Needs a look:</strong> '+attention.join(', ')+'</div></div>'
-        : '<div style="flex:1;min-width:220px;font-size:13px;color:#166534;font-weight:600">Everything on track.</div>') +
-    '</div>' +
-    '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--gray100)">' +
-      '<div class="card-title-sm" style="margin-bottom:6px">Today\'s Progress &mdash; all roles combined</div>' +
-      progressLine +
-    '</div>' +
-  '</div>';
-}
 
 function eodRoleCard(role, b){
   var h = b.health || {status:'', reason:''};
@@ -5952,209 +6032,69 @@ async function saveEodOverride(role){
     pmNote: noteEl.value.trim()
   }});
   if(res && res.success){
-    showToast('✓ Saved for ' + role);
+    var st = statusEl.value, note = noteEl.value.trim();
+    if(st || note) ROLE_HEALTH[role] = {status:st, reason:reasonEl.value.trim(), setBy:setBy, setAt:new Date().toISOString(), pmNote:note};
+    else delete ROLE_HEALTH[role];
+    showToast('Saved for ' + role);
     renderEodReport();
   } else {
     showToast('Could not save. Try again.', 'error');
   }
 }
 
-async function renderEodReport(){
+function renderEodReport(){
   var dateLine = document.getElementById('eodDateLine');
-  var today = new Date();
-  if(dateLine) dateLine.textContent = today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ', active candidates, today\'s progress, and where things are stuck, at a glance.';
-
+  if(dateLine) dateLine.textContent = new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ': health, today\'s progress, and where things are stuck.';
   var el = document.getElementById('eodContent');
   if(!el) return;
-  if(!SCRIPT_URL){
-    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Connect Google Sheets in Settings to see the Executive Dashboard.</div>';
-    return;
-  }
-  el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Loading&hellip;</div>';
-
-  var res = await apiGet('getRoleDashboard');
-  if(!res || !res.success){
-    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:#b52a2a">Could not load dashboard data'+(res && res.error ? ': '+res.error : '')+'.</div>';
-    return;
-  }
-  LAST_ROLE_DASHBOARD = res.roles;
-
-  // Surface the roles that actually need attention first -- health rank
-  // (red/yellow/green) beats alphabetical, so an at-risk role never gets
-  // buried below a page of unrelated green ones.
-  var healthRank = {red:0, yellow:1, green:2};
-  var roles = Object.keys(res.roles).sort(function(a,b){
+  var summary = buildRoleSummary(getApplicants(), ROLE_HEALTH);
+  LAST_ROLE_DASHBOARD = summary;
+  var roles = Object.keys(summary).sort(function(a,b){
     if(a==='(Unassigned)') return 1;
     if(b==='(Unassigned)') return -1;
-    var ra = healthRank[res.roles[a].health && res.roles[a].health.status];
-    var rb = healthRank[res.roles[b].health && res.roles[b].health.status];
-    if(ra===undefined) ra = 3;
-    if(rb===undefined) rb = 3;
-    if(ra!==rb) return ra-rb;
-    return a.localeCompare(b);
+    var rank = {red:0, yellow:1, green:2};
+    var d = rank[summary[a].health.status] - rank[summary[b].health.status];
+    return d || a.localeCompare(b);
   });
   if(!roles.length){
-    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">No candidates with a Role assigned yet. Set a Role on each candidate\'s profile (in the Candidate Stage panel) to see them here.</div>';
+    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">No candidates yet.</div>';
     return;
   }
-
-  var html = eodSummaryBar(res.roles, roles);
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">';
-  html += roles.map(function(r){ return eodRoleCard(r, res.roles[r]); }).join('');
-  html += '</div>';
+  // Everyone sees the overview; the per-role cards (with the health
+  // override) are the PM's detail view. The CEO view has no candidate names.
+  var html = rolesOverviewHtml(summary, roles);
+  if(getAppRole()!=='CEO'){
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">';
+    html += roles.map(function(r){ return eodRoleCard(r, summary[r]); }).join('');
+    html += '</div>';
+  }
   el.innerHTML = html;
 }
 
-// ============================================================
-// EXECUTIVE DASHBOARD (CEO) -- the 30-second view. Built entirely from the
-// same getRoleDashboardData() every other view uses (single source of
-// truth), rolled up to company-wide totals instead of per-role detail.
-// Deliberately shows NO candidate names or per-candidate detail anywhere on
-// this page -- per the architecture doc, the CEO should not see
-// candidate-level detail unless they click into a hiring project (which
-// jumps to Hiring Projects, a role-level view, still never a candidate one).
-// ============================================================
-function jumpToHiringProjects(){ showPage('eod', document.getElementById('nav-eod')); }
 
-async function renderExecutiveDashboard(){
-  var dateLine = document.getElementById('execDateLine');
-  var today = new Date();
-  if(dateLine) dateLine.textContent = today.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  var el = document.getElementById('execDashContent');
-  if(!el) return;
-  if(!SCRIPT_URL){
-    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Connect Google Sheets in Settings to see the Executive Dashboard.</div>';
-    return;
-  }
-  el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">Loading&hellip;</div>';
-
-  var res = await apiGet('getRoleDashboard');
-  if(!res || !res.success){
-    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:#b52a2a">Could not load dashboard data'+(res && res.error ? ': '+res.error : '')+'.</div>';
-    return;
-  }
-  var rolesData = res.roles;
-  var roles = Object.keys(rolesData).filter(function(r){ return r!=='(Unassigned)'; });
-  if(!roles.length){
-    el.innerHTML = '<div class="empty" style="padding:24px;font-size:13px;color:var(--gray400)">No candidates with a Role assigned yet.</div>';
-    return;
-  }
-
-  var totalActive=0, progress={}, closedToday={Hired:0,Rejected:0,Withdrawn:0};
-  var atRisk=[], needsAttention=[], onTrack=0, overdueTotal=0, followUpTotal=0;
-  roles.forEach(function(r){
-    var b = rolesData[r];
-    totalActive += b.activeCandidates;
-    overdueTotal += (b.overdueReminders||[]).length;
-    followUpTotal += (b.needingFollowUp||[]).length;
-    Object.keys(b.todaysProgress||{}).forEach(function(k){ progress[k]=(progress[k]||0)+b.todaysProgress[k]; });
-    if(b.closedToday){
-      closedToday.Hired += b.closedToday.Hired||0;
-      closedToday.Rejected += b.closedToday.Rejected||0;
-      closedToday.Withdrawn += b.closedToday.Withdrawn||0;
-    }
-    var status = b.health && b.health.status;
-    if(status==='red') atRisk.push({role:r, reason:(b.health&&b.health.reason)||''});
-    else if(status==='yellow') needsAttention.push({role:r, reason:(b.health&&b.health.reason)||''});
-    else onTrack++;
-  });
-
-  var overview = [
-    {v:totalActive, l:'Total Active Candidates'},
-    {v:progress['New Applications']||0, l:'Applications Today'},
-    {v:(progress['HR Preliminary Interviews']||0)+(progress['Initial Interviews']||0), l:'Interviews Today'},
-    {v:progress['Assessments Completed']||0, l:'Assessments Completed'},
-    {v:progress['Initial Interviews']||0, l:'Operations Interviews'},
-    {v:progress['Endorsed to Client']||0, l:'Client Endorsements'},
-    {v:progress['Offers']||0, l:'Offers'},
-    {v:closedToday.Hired, l:'Hires'}
-  ];
-
-  var html = '<div class="card" style="margin-bottom:var(--space-2)">' +
-    '<div class="card-title-sm" style="margin-bottom:14px">Recruitment Overview &mdash; Today</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px">' +
-    overview.map(function(o){ return eodBigStat(o.v, o.l, 'var(--gray900)'); }).join('') +
-    '</div></div>';
-
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:var(--space-2)">';
-
-  html += '<div class="card">' +
-    '<div class="card-title-sm" style="margin-bottom:14px">Hiring Health</div>' +
-    '<div style="display:flex;gap:22px">' +
-      eodBigStat(onTrack, 'On Track', '#166534') +
-      eodBigStat(needsAttention.length, 'Needs Attention', '#b45309', true) +
-      eodBigStat(atRisk.length, 'At Risk', '#b52a2a', true) +
-    '</div></div>';
-
-  html += '<div class="card">' +
-    '<div class="card-title-sm" style="margin-bottom:14px">Roles At Risk</div>' +
-    (atRisk.length
-      ? atRisk.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b52a2a">&#128308; '+escapeHtml(a.role)+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+escapeHtml(a.reason||'No candidates or no movement.')+'</div></div>'; }).join('')
-      : '<div style="font-size:13px;color:var(--gray400)">No roles at risk right now.</div>') +
-    '</div>';
-
-  html += '</div>';
-
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:var(--space-2)">';
-
-  html += '<div class="card">' +
-    '<div class="card-title-sm" style="margin-bottom:14px">Needs Attention</div>' +
-    (needsAttention.length
-      ? needsAttention.map(function(a){ return '<div onclick="jumpToHiringProjects()" style="cursor:pointer;padding:8px 0;border-bottom:1px solid var(--gray100)"><div style="font-weight:700;font-size:13px;color:#b45309">&#128993; '+escapeHtml(a.role)+'</div><div style="font-size:12px;color:var(--gray500);margin-top:2px">'+escapeHtml(a.reason||'')+'</div></div>'; }).join('')
-      : '<div style="font-size:13px;color:var(--gray400)">Nothing flagged.</div>') +
-    '<div style="font-size:12px;color:var(--gray500);margin-top:10px;padding-top:10px;border-top:1px solid var(--gray100)">'+overdueTotal+' candidate(s) past their expected time in stage &middot; '+followUpTotal+' awaiting follow-up (company-wide)</div>' +
-    '</div>';
-
-  html += '<div class="card">' +
-    '<div class="card-title-sm" style="margin-bottom:14px">Upcoming Deadlines</div>' +
-    '<div style="font-size:13px;color:var(--gray400);line-height:1.6">Not tracked yet &mdash; there\'s no per-role hiring deadline field in the system today. Ask if you\'d like this added (it would live on the Hiring Projects card, same place health status is set).</div>' +
-    '</div>';
-
-  html += '</div>';
-
-  html += '<div style="text-align:center"><button class="btn btn-ghost btn-sm" onclick="jumpToHiringProjects()">View full Hiring Projects breakdown &rarr;</button></div>';
-
-  el.innerHTML = html;
-}
-
-async function copyEodSummary(){
-  var data = LAST_ROLE_DASHBOARD;
-  if(!data){
-    var res = await apiGet('getRoleDashboard');
-    if(res && res.success) data = res.roles;
-  }
-  if(!data){ showToast('Nothing to copy yet. Open the EOD tab first.'); return; }
-
+function copyEodSummary(){
+  var data = LAST_ROLE_DASHBOARD || buildRoleSummary(getApplicants(), ROLE_HEALTH);
   var roles = Object.keys(data).sort(function(a,b){
     if(a==='(Unassigned)') return 1;
     if(b==='(Unassigned)') return -1;
     return a.localeCompare(b);
   });
-
-  var lines = [];
-  lines.push('EXECUTIVE HIRING DASHBOARD: ' + new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}));
-  lines.push('');
+  var lines = ['HIRING PROJECTS: ' + new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'}), ''];
   roles.forEach(function(role){
     var b = data[role];
     var h = b.health || {};
-    var emoji = h.status==='green' ? '\u{1F7E2}' : h.status==='yellow' ? '\u{1F7E1}' : h.status==='red' ? '\u{1F534}' : '⚪';
-    lines.push(emoji + ' ' + role + ': ' + b.activeCandidates + ' active' + (h.reason ? ' (' + h.reason + ')' : ''));
-    var stageBits = CANDIDATE_STAGES.filter(function(s){ return (b.stageCounts[s]||0)>0; }).map(function(s){ return b.stageCounts[s]+' '+s; });
+    lines.push(eodHealthMeta(h.status).emoji + ' ' + role + ': ' + b.activeCandidates + ' active' + (h.reason ? ' (' + h.reason + ')' : ''));
+    var stageBits = CANDIDATE_STAGES.filter(function(st){ return (b.stageCounts[st]||0)>0; }).map(function(st){ return b.stageCounts[st]+' '+st; });
     if(stageBits.length) lines.push('   Stages: ' + stageBits.join(', '));
     var progKeys = Object.keys(b.todaysProgress||{});
     if(progKeys.length) lines.push('   Today: ' + progKeys.map(function(k){ return b.todaysProgress[k]+' '+k; }).join(', '));
-    if(b.blockers && b.blockers.length) lines.push('   Blockers: ' + b.blockers.join('; '));
+    if(b.blockers.length) lines.push('   Blockers: ' + b.blockers.join('; '));
     if(b.pmNote) lines.push('   Note: ' + b.pmNote);
     lines.push('');
   });
-
   var text = lines.join('\n');
-  navigator.clipboard.writeText(text).then(function(){
-    showToast('✓ Executive summary copied. Paste it into email/chat');
-  }).catch(function(){
-    alert(text);
-  });
+  navigator.clipboard.writeText(text).then(function(){ showToast('Summary copied. Paste it into email or chat'); }).catch(function(){ alert(text); });
 }
 
 // ============================================================
@@ -6787,26 +6727,6 @@ function unconfirmInterviewCalSlot(applicantId){
 function openApplicant(id) {
   var a = getApplicant(id);
   if (!a) return;
-  if(a.emailsSent && a.emailsSent.lateResponseNotify){
-    // Opening the profile is the one thing that's supposed to acknowledge a
-    // "quietly came back" notice -- clear it locally right away so the
-    // Recently Responded chip count updates immediately, and fire the
-    // authoritative backend clear (a plain re-save here isn't enough to make
-    // this stick, see saveApplicant()'s sticky-preserve logic on the backend).
-    // getRawApplicants() re-parses localStorage on every call, so getApplicant()
-    // and getApplicants() return independent object copies -- mutate and save
-    // the SAME array instance (same pattern as toggleEmmReceived()), or the
-    // save is a silent no-op.
-    var appsForClear = getApplicants();
-    var target = appsForClear.find(function(x){ return x.id === id; });
-    if(target && target.emailsSent){
-      delete target.emailsSent.lateResponseNotify;
-      saveApplicants(appsForClear);
-    }
-    delete a.emailsSent.lateResponseNotify;
-    if(typeof filterTracker==='function') filterTracker();
-    if(SCRIPT_URL) apiPost('clearLateResponseNotify', {data:{id:id}});
-  }
   var av = getAvatar(a.name);
   document.getElementById('modalAvatar').style.background = av.gradient;
   document.getElementById('modalAvatar').textContent = av.initials;
@@ -6955,15 +6875,12 @@ function showSettingsMsg(msg, color) {
 // ============================================================
 function updateTrackerBadge() {
   var apps = getApplicants();
-  var n = apps.length;
   var b = document.getElementById('trackerBadge');
-  if (b) { if (n > 0) { b.textContent = n; b.style.display = 'inline'; } else b.style.display = 'none'; }
-  // Actionable count, visible from anywhere in the app, not just after
-  // opening Candidates -- same three checks the Quick View chips use, so
-  // the two numbers always agree.
-  var actionable = apps.filter(function(a){
-    return isNewApplicant(a) || !!getSlaStatus(a) || (a.emailsSent && a.emailsSent.lateResponseNotify);
-  }).length;
+  if (b) { if (apps.length > 0) { b.textContent = apps.length; b.style.display = 'inline'; } else b.style.display = 'none'; }
+  // Same rule as the Tracker's "Needs action" chip and the Dashboard's
+  // Your Tasks, for the role this device is viewing as.
+  var role = getAppRole();
+  var actionable = apps.filter(function(a){ return needsAttentionFrom(a, role); }).length;
   var ab = document.getElementById('trackerActionBadge');
   if (ab) { if (actionable > 0) { ab.textContent = actionable; ab.style.display = 'inline'; } else ab.style.display = 'none'; }
 }
