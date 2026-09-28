@@ -1295,7 +1295,7 @@ function doGet(e){
     const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
     else if(a==='previewNormalize')out=previewNormalize();
-    else if(a==='getAll')out={success:true,data:getAllApplicants(),config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS},minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
+    else if(a==='getAll')out={success:true,data:getAllApplicants(),config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS,reminderTemplate:REMINDER_TEMPLATE},minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
     else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
@@ -2181,7 +2181,7 @@ function checkAssessmentCompliance(){
     }
     if(hoursElapsed>=REMINDER_HOURS && !emailsSent.autoReminder && !emailsSent.reminder){
       try{
-        sendComplianceReminderEmail(r[2],r[1],r[4],r[37],r[0]);
+        sendComplianceReminderEmail(r[2],r[1],r[4],r[37],r[0],requiresEmm);
         mergeEmailsSent_(t, i, {autoReminder: now.toISOString()});
         reminders++;
       }catch(e){ Logger.log('Reminder send failed for row '+(i+1)+': '+e.message); }
@@ -2224,32 +2224,46 @@ function restoreCompliantApplicants(){
   return 'Restored '+restored+' applicant(s): '+names.join(', ');
 }
 
-function sendComplianceReminderEmail(email,name,position,enteredBy,id){
+// The one assessment reminder text. The compliance job sends it on its own;
+// getAll hands the same template to the app so a reminder sent by hand from
+// the email page says exactly the same thing. Placeholders are filled by
+// fillReminderTemplate_ here and by the app's template fill.
+const REMINDER_TEMPLATE = {
+  subject: '[ABBSS] Reminder: please complete your assessments for {position}',
+  body: 'Dear {name},\n\n'
+    + 'This is a friendly reminder that we have not yet received your completed assessments for the {position} role.\n\n'
+    + 'Important: please use this same email address ({email}) when filling out each form. That\'s how we match your results back to your application.\n\n'
+    + 'Please submit:\n'
+    + '\u2022 GRIT form: {gritlink}\n'
+    + '\u2022 Value-Integrity form: {valueslink}\n'
+    + '{emmline}'
+    + '\nThe deadline is {deadlinehours} hours from the original invitation. If we do not receive everything within that window, your application will be marked as Non-Compliant. If you have already submitted, please disregard this message, and if you need help, let us know right away.\n\n'
+    + 'Warm regards,\nHR Team\nABBSS'
+};
+function fillReminderTemplate_(tpl, a){
+  // Tracked links (a click also counts as an assessment view) when there is
+  // an applicant and a deployed URL; plain form links otherwise, so the
+  // reminder can never go out broken.
+  var scriptUrl = a.id ? PUBLIC_WEBAPP_URL : '';
+  var gritLink = scriptUrl ? assessmentLinkFor(scriptUrl, a.id, 'grit') : GRIT_FORM_LINK;
+  var valuesLink = scriptUrl ? assessmentLinkFor(scriptUrl, a.id, 'values') : VALUES_FORM_LINK;
+  var emmLink = scriptUrl ? assessmentLinkFor(scriptUrl, a.id, 'emm') : EMM_RESPONDER_LINK;
+  var emmLine = a.requiresEmm ? ('\u2022 Completed EMM Excel assessment, submit here: ' + emmLink + '\n') : '';
+  var fill = function(s){
+    return s.replace(/{name}/g, a.name||'Applicant').replace(/{position}/g, a.position||'your application')
+      .replace(/{email}/g, a.email||'').replace(/{gritlink}/g, gritLink).replace(/{valueslink}/g, valuesLink)
+      .replace(/{emmline}/g, emmLine).replace(/{deadlinehours}/g, String(ASSESSMENT_DEADLINE_HOURS));
+  };
+  return {subject: fill(tpl.subject), body: fill(tpl.body)};
+}
+
+function sendComplianceReminderEmail(email,name,position,enteredBy,id,requiresEmm){
   if(!email) return;
-  const subject='[ABBSS] Reminder: Assessment Deadline Approaching \u2014 '+(position||'Your Application');
-  // Route each link through the tracking redirect (same one the manual
-  // invite emails use) so a reminder click also counts as an assessment
-  // view -- but only when we actually have an applicant id and a deployed
-  // script URL to build the link from; otherwise fall back to the plain
-  // form links so the reminder can never go out broken.
-  var scriptUrl = id ? PUBLIC_WEBAPP_URL : '';
-  var gritLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'grit') : GRIT_FORM_LINK;
-  var valuesLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'values') : VALUES_FORM_LINK;
-  var emmLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'emm') : EMM_RESPONDER_LINK;
-  const body='Dear '+(name||'Applicant')+',\n\n'
-    +'This is a reminder that we have not yet received your completed assessments for the '+(position||'')+' role.\n\n'
-    +'Please complete and submit the following within 24 hours of your original invitation:\n'
-    +'1. GRIT Assessment: '+gritLink+'\n'
-    +'2. Value-Integrity Assessment: '+valuesLink+'\n'
-    +'3. AR EMM Cognitive Assessment: complete the attached Excel file, then submit it here: '+emmLink+'\n\n'
-    +'If we do not receive all of the above within the 24-hour window, your application will be marked as Non-Compliant and archived.\n\n'
-    +'If you have already submitted these, please disregard this message.\n\n'
-    +'Warm regards,\nHR Team\nABBSS';
-  // This is a fully automated, system-triggered reminder (no one clicked send) --
-  // attribute it to whoever entered this applicant's record so the reply reaches
-  // the actual person responsible for that candidate, not just whoever authorized the script.
+  var msg = fillReminderTemplate_(REMINDER_TEMPLATE, {id:id, name:name, position:position, email:email, requiresEmm:requiresEmm});
+  // Fully automated (no one clicked send): replies go to whoever entered
+  // this applicant, not just whoever authorized the script.
   const replyTo = TEAM_DIRECTORY[enteredBy] || DEFAULT_REPLY_TO;
-  sendMail_(email,subject,body,{replyTo: replyTo, name: enteredBy || 'ABBSS HR Team'});
+  sendMail_(email, msg.subject, msg.body, {replyTo: replyTo, name: enteredBy || 'ABBSS HR Team'});
 }
 
 function installComplianceTrigger(){

@@ -628,7 +628,7 @@ tbody tr:last-child td{border-bottom:none}
         </select>
         <input class="inp" id="na-source-other" placeholder="Please specify (e.g. Kalibrr, TikTok, company website...)" style="display:none;margin-top:6px">
       </div>
-      <div><label class="lbl">Entered By</label><select class="inp" id="na-enteredby" onchange="localStorage.setItem('abbss_entered_by_name', this.value)"><option value="">Select...</option><option value="Frances Miranda">Frances Miranda</option><option value="Wennielyn Pungasi">Wennielyn Pungasi</option><option value="David Latimer">David Latimer</option></select><script>document.getElementById('na-enteredby').value = localStorage.getItem('abbss_entered_by_name') || '';</script></div>
+      <div><label class="lbl">Entered By</label><select class="inp" id="na-enteredby" onchange="localStorage.setItem('abbss_entered_by_name', this.value)"></select><script>document.getElementById('na-enteredby').value = localStorage.getItem('abbss_entered_by_name') || '';</script></div>
     </div>
     <div style="margin-bottom:var(--space-2)"><label class="lbl">Resume Notes</label><textarea class="inp" id="na-notes" placeholder="Relevant experience, skills noted from resume..."></textarea></div>
     <div style="margin-bottom:var(--space-2)">
@@ -966,7 +966,6 @@ tbody tr:last-child td{border-bottom:none}
         <div style="margin-bottom:12px"><label class="lbl">Applicant Name</label><input class="inp" id="et-name" placeholder="Juan dela Cruz" oninput="updateEmail()"></div>
         <div style="margin-bottom:12px"><label class="lbl">Applicant Email</label><input class="inp" id="et-email" type="email" placeholder="juan@email.com"></div>
         <div style="margin-bottom:12px"><label class="lbl">Position</label><input class="inp" id="et-position" placeholder="AR Specialist" oninput="updateEmail()"></div>
-        <div><label class="lbl">Assessment Deadline</label><input class="inp" id="et-deadline" placeholder="e.g. July 15, 2026" oninput="updateEmail()"></div>
       </div>
       <div class="card" id="et-offer-fields" style="display:none">
         <div class="card-header"><div class="card-title">Job Offer / Contract Details</div></div>
@@ -994,7 +993,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="email-composer">
         <div class="email-toolbar" style="flex-direction:column;align-items:stretch">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-            <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gray500)" title="Replies from the candidate will go to whoever is selected here."><label for="sentByPicker">Sent by</label><select id="sentByPicker" style="padding:3px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" onchange="localStorage.setItem('abbss_sent_by_name', this.value)"><option value="">Select...</option><option value="Frances Miranda">Frances</option><option value="Wennielyn Pungasi">Wen</option><option value="David Latimer">David</option></select><script>document.getElementById('sentByPicker').value = localStorage.getItem('abbss_sent_by_name') || '';</script></span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gray500)" title="Replies from the candidate will go to whoever is selected here."><label for="sentByPicker">Sent by</label><select id="sentByPicker" style="padding:3px 6px;border:1px solid var(--gray300);border-radius:4px;font-size:11px" onchange="localStorage.setItem('abbss_sent_by_name', this.value)"></select><script>document.getElementById('sentByPicker').value = localStorage.getItem('abbss_sent_by_name') || '';</script></span>
             <button class="btn btn-ghost btn-sm" onclick="copyEmail()">&#128203; Copy Email</button>
           </div>
           <div class="et-group" style="background:var(--gray50);border:1px solid var(--gray200);border-radius:var(--radius-sm);padding:6px 10px;margin-top:8px">
@@ -1010,7 +1009,7 @@ tbody tr:last-child td{border-bottom:none}
             <div class="et-group" style="border-left:1.5px solid var(--gray200);padding-left:10px">
               <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600">&#10003; Copied!</span>
               <span id="emailAddrCopyMsg" style="display:none;font-size:12px;color:#1a73e8;font-weight:600">&#10003; Email address copied. Paste into To field</span>
-              <button class="btn btn-sm btn-green" onclick="markEmailSent()">&#10003; Mark as Sent</button>
+              <button class="btn btn-sm btn-green" onclick="markComposerEmailSent()">&#10003; Mark as Sent</button>
             </div>
           </div>
         </div>
@@ -2264,11 +2263,11 @@ function buildProfileTab(a){
     <div id="cvUploadStatus_${a.id}" style="font-size:11px;color:var(--gray400);margin-top:4px"></div>
   </div>
   ${buildStageHistory(a)}
-  ${(()=>{const info=getLastEmailSentInfo(a);return info?`<div style="margin-bottom:12px;font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px 12px;border-radius:8px">✓ Last email sent: <strong>${info.label}</strong> on ${new Date(info.date).toLocaleString()} <button class="btn-sm btn-ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" onclick="unmarkEmailSentFor(${a.id},'${info.key}')">Undo</button></div>`:`<div style="margin-bottom:12px;font-size:12px;color:var(--gray400)">No emails marked as sent yet.</div>`;})()}
+  ${(()=>{const info=getLastEmailSentInfo(a);return info?`<div style="margin-bottom:12px;font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px 12px;border-radius:8px">✓ Last email sent: <strong>${info.label}</strong> on ${new Date(info.date).toLocaleString()} <button class="btn-sm btn-ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" onclick="if(unrecordEmailSent(${a.id},'${info.key}')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(getApplicant(${a.id}))">Undo</button></div>`:`<div style="margin-bottom:12px;font-size:12px;color:var(--gray400)">No emails marked as sent yet.</div>`;})()}
   ${buildEmailActivitySummary(a)}
   ${buildAssessmentViewSummary(a)}
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-sm btn-blue" onclick="setEmailAndSwitch(${jsArg(a.name)},${jsArg(a.position)},${a.requiresEmm||false},${jsArg(a.email)},${a.id})">📧 Generate Assessment Email</button>
+    <button class="btn btn-sm btn-blue" onclick="openComposer(${a.id})">📧 Generate Assessment Email</button>
     <button class="btn btn-sm btn-red" onclick="deleteApplicant(${a.id})">🗑 Delete Record</button>
   </div>`;
 }
@@ -2821,9 +2820,9 @@ function buildDecisionTab(a){
         <div><label class="lbl">Signatory</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','signatory',this.value)" value="${escapeHtml(od.signatory)}" placeholder="e.g. Frances Miranda"></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-amber" onclick="goToOfferEmail(${a.id},'offer')">&#128203; Send Next Steps Email</button>
-        <button class="btn btn-sm btn-green" onclick="goToOfferEmail(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
-        <button class="btn btn-sm btn-blue" onclick="goToOfferEmail(${a.id},'contract')">&#128196; Send Contract</button>
+        <button class="btn btn-sm btn-amber" onclick="openComposer(${a.id},'offer')">&#128203; Send Next Steps Email</button>
+        <button class="btn btn-sm btn-green" onclick="openComposer(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
+        <button class="btn btn-sm btn-blue" onclick="openComposer(${a.id},'contract')">&#128196; Send Contract</button>
       </div>
       <div style="font-size:11px;color:var(--gray400);margin-top:6px">Send the Next Steps email first -- it includes the pre-onboarding requirements (device/internet/typing/security checks) as an attached PDF. The formal Job Offer/Contract emails follow once that's done.</div>
     </div>`;
@@ -2996,23 +2995,13 @@ function setInterviewResult(id,result){
 }
 
 
-var PRELIM_INTERVIEW_NOTIFY_RECIPIENTS = [
-  'frances.miranda@ab-businesssupport.com',
-  'operations@ab-businesssupport.com',
-  'wennielyn.pungasi@ab-businesssupport.com'
-];
 
 async function notifyPreliminaryInterviewEndorsement(a){
   if(!SCRIPT_URL || !a) return;
-  var subject = '[ABBSS] ' + a.name + ' endorsed to Interview with Ops';
-  var body = 'Hi team,\n\n' + a.name + ' (' + (a.position||'No position') + (a.department ? ' \u2014 ' + a.department : '') + ') has completed assessments and been endorsed to the Interview (Ops Manager) stage.\n\n' +
-    'GRIT: ' + (a.grit && a.grit.score ? a.grit.score + '/5' : 'N/A') + '\n' +
-    'Values: ' + (a.values && a.values.score ? a.values.score + '/315' : 'N/A') + '\n' +
-    (a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? emmStatusLabel(a) + ' (' + a.emm.overallPct + '%)' : (a.emmReceivedAt ? 'Submitted, pending grading' : 'Not yet submitted')) + '\n') : '') +
-    '\nPlease coordinate scheduling the interview.\n\nABBSS Hiring Pipeline';
-  try{
-    await apiPost('sendEmail', {data:{to: PRELIM_INTERVIEW_NOTIFY_RECIPIENTS.join(','), subject: subject, body: body}});
-  }catch(e){ console.warn('Interview endorsement notification failed:', e); }
+  var msg = fillTemplate('ops_endorsement', a);
+  var to = TEAM_MEMBERS.filter(function(m){ return m.notifyOnOpsInterview; }).map(function(m){ return m.email; }).join(',');
+  try{ await apiPost('sendEmail', {data:{to: to, subject: msg.subject, body: msg.body}}); }
+  catch(e){ console.warn('Interview endorsement notification failed:', e); }
 }
 
 
@@ -3943,13 +3932,27 @@ Score: ${gradeResult.rubric.total}/100 (${emmStatusLabel(a)})` + (gradeResult.hi
 // EMAIL TEMPLATES
 // ============================================================
 const EMAIL_TEMPLATES={
+  // Internal: tells the team a candidate is ready for the Ops interview.
+  ops_endorsement:{
+    subject:'[ABBSS] {name} endorsed to Interview with Ops',
+    body:`Hi team,
+
+{name} ({position}{department}) has completed assessments and been endorsed to the Interview (Ops Manager) stage.
+
+GRIT: {grit}
+Values: {valuesscore}
+{emmsummary}
+Please coordinate scheduling the interview.
+
+ABBSS Hiring Pipeline`
+  },
   assessment:{
     subject:'[ABBSS] Assessment Invitation: {position}',
     body:`Dear {name},
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 48 hours of this invitation:
+Please complete all of the following assessments and submit them within {deadlinehours} hours of this invitation:
 
 Important: please use this same email address ({email}) when filling out each form below. That's how we match your results back to your application.
 
@@ -3966,28 +3969,9 @@ Important: please use this same email address ({email}) when filling out each fo
    Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
    Format: Save your completed file as AR_Assessment_{name}.xlsx.
    Submit here (do not reply to this email with the file): {emmlink}
-   Deadline: Please submit the completed file within 48 hours of this invitation, or as soon as possible.
+   Deadline: Please submit the completed file within {deadlinehours} hours of this invitation, or as soon as possible.
 
 We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
-
-Warm regards,
-HR Team
-ABBSS`
-  },
-  reminder:{
-    subject:'[ABBSS] Friendly Reminder: Assessment Submission',
-    body:`Dear {name},
-
-This is a friendly reminder that we have not yet received your completed assessments for the {position} role.
-
-Important: please use this same email address ({email}) when filling out each form. That's how we match your results back to your application.
-
-As a reminder, please submit:
-• GRIT form: {gritlink}
-• Value-Integrity form: {valueslink}
-• Completed AR EMM Excel assessment, submit here: {emmlink}
-
-The deadline is 48 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
 
 Warm regards,
 HR Team
@@ -4031,7 +4015,7 @@ ABBSS`
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 48 hours of this invitation:
+Please complete all of the following assessments and submit them within {deadlinehours} hours of this invitation:
 
 Important: please use this same email address ({email}) when filling out each form below. That's how we match your results back to your application.
 
@@ -4043,7 +4027,7 @@ Important: please use this same email address ({email}) when filling out each fo
    Link: {valueslink}
    → Your results will be recorded automatically.
 
-Please complete both forms within 48 hours of this invitation. Your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
+Please complete both forms within {deadlinehours} hours of this invitation. Your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
 
 We look forward to reviewing your results.
 
@@ -4125,23 +4109,6 @@ Warm regards,
 {signatory}
 ABBSS`
   },
-  interview_availability:{
-    subject:'[ABBSS] Please Share Your Interview Availability: {position}',
-    body:`Dear {name},
-
-Congratulations on passing the required assessments for the {position} role at ABBSS! The next step is to schedule your interview.
-
-Please use the link below to let us know which of the available times work best for you:
-{schedulinglink}
-
-Once you've submitted your availability, our team will confirm one final time by email.
-
-If none of the times work for you, please reply to this email and let us know.
-
-Warm regards,
-HR Team
-ABBSS`
-  }
 };
 
 let currentTemplate='assessment';
@@ -4154,8 +4121,7 @@ const EMAIL_TEMPLATE_LABELS={
   regret:'Regret Letter',
   offer:'Next Steps / Offer',
   job_offer:'Job Offer',
-  contract:'Contract',
-  interview_availability:'Interview Availability Request'
+  contract:'Contract'
 };
 function setEmailTemplate(key){
   currentTemplate=key;
@@ -4201,78 +4167,23 @@ function getLastEmailSentInfo(a){
   return{label:EMAIL_TEMPLATE_LABELS[latestKey]||latestKey,date:a.emailsSent[latestKey],key:latestKey};
 }
 
-function unmarkEmailSentFor(applicantId, templateKey){
-  if(!confirm('Undo "marked as sent"? This only clears the tracking flag, it does not un-send an email already delivered.')) return;
-  const apps=getApplicants();
-  const a=apps.find(x=>x.id===applicantId);
-  if(!a||!a.emailsSent) return;
-  delete a.emailsSent[templateKey];
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
-  document.getElementById('modalTabContent').innerHTML=buildProfileTab(getApplicant(applicantId));
-  showToast('Undone');
-}
 
 async function sendEmailAutomatically(){
-  if(!currentEmailApplicantId){
-    alert("This email isn't linked to a specific applicant. Open it from that applicant's Profile tab (Generate Assessment Email) so it can be sent and tracked correctly.");
-    return;
-  }
+  if(currentEmailApplicantId==null){ alert("Open this email from a candidate (the Email button on their profile) so it can be sent and tracked."); return; }
+  if(!SCRIPT_URL){ alert('Not connected to the shared sheet, so automatic sending is unavailable right now. Use "Open in Gmail" instead.'); return; }
   var to=document.getElementById('et-email').value.trim();
   if(!to){ alert("Enter the applicant's email address first."); return; }
-  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script, so automatic sending is unavailable right now. Use "Open in Gmail" instead.'); return; }
-  var subject=document.getElementById('emailSubject').value || '';
-  var body=document.getElementById('emailBody').innerText || document.getElementById('emailBody').textContent || '';
   var sentByName=(document.getElementById('sentByPicker') && document.getElementById('sentByPicker').value) || '';
-  if(!sentByName){ alert('Please select who is sending this email (Frances, Wen, or David) so replies go to the right inbox.'); return; }
-  var replyTo=TEAM_DIRECTORY[sentByName] || '';
-  // applicantId + templateKey let the backend attach a best-effort open-tracking
-  // pixel -- only meaningful for "Send Automatically", not "Open in Gmail".
-  var payload={to:to, subject:subject, body:body, replyTo:replyTo, senderName:sentByName, applicantId:currentEmailApplicantId, templateKey:currentTemplate};
-  if(currentTemplate==='assessment'){
-    // This template's wording already says "the assessment file attached to this email" --
-    // actually attach the blank EMM template so that's true, instead of leaving the
-    // candidate to figure out where the file is.
-    payload.attachmentBase64=EMM_TEMPLATE_B64;
-    payload.attachmentName=EMM_TEMPLATE_FILENAME;
-    payload.attachmentMimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  } else if(currentTemplate==='offer'){
-    // Pre-onboarding requirements (device/internet/typing/security checklist)
-    // now ride along with the Next Steps/Offer email -- this is the stage
-    // that happens BEFORE the formal Job Offer, not after -- instead of
-    // their own separate send. Same attachment pattern as the EMM template above.
-    payload.attachmentBase64=JOB_OFFER_PDF_B64;
-    payload.attachmentName=JOB_OFFER_PDF_FILENAME;
-    payload.attachmentMimeType='application/pdf';
-  }
+  if(!sentByName){ alert('Please select who is sending this email so replies go to the right inbox.'); return; }
   var btn=document.getElementById('sendAutoBtn');
   if(btn){ btn.disabled=true; btn.textContent='Sending...'; }
-  var res=await apiPost('sendEmail', {data:payload});
+  var id = currentEmailApplicantId, key = currentTemplate;
+  var res = await sendTemplatedEmail(id, key, {to:to, subject:document.getElementById('emailSubject').value || '', body:composerBodyText(), sentByName:sentByName});
   if(btn){ btn.disabled=false; btn.innerHTML='&#9993; Send Automatically'; }
-  if(res && res.success){
-    markEmailSent();
-    showToast('✓ Email sent automatically to '+to);
-  } else {
-    alert('Could not send automatically (' + (res && res.error || 'unknown error') + '). Use "Open in Gmail" instead.');
-  }
+  if(res.ok){ updateEmailSentStatus(); autoAdvance(id, emailEventFor(key), 'Email sent to '+to); }
+  else alert('Could not send automatically (' + (res.error || 'unknown error') + '). Use "Open in Gmail" instead.');
 }
 
-function markEmailSent(){
-  if(!currentEmailApplicantId){
-    alert("This email isn't linked to a specific applicant. Open it from that applicant's Profile tab (Generate Assessment Email) so the send status can be tracked on their record.");
-    return;
-  }
-  const apps=getApplicants();
-  const a=apps.find(x=>x.id===currentEmailApplicantId);
-  if(!a){alert('Applicant record not found. It may have been deleted.');return;}
-  if(!a.emailsSent) a.emailsSent={};
-  a.emailsSent[currentTemplate]=new Date().toISOString();
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
-  updateEmailSentStatus();
-  showToast('Marked as sent for '+a.name);
-  autoAdvance(a.id, emailEventFor(currentTemplate));
-}
 
 function updateEmailSentStatus(){
   const el=document.getElementById('emailSentStatus');
@@ -4291,7 +4202,7 @@ function updateEmailSentStatus(){
     undoBtn.className='btn-sm btn-ghost';
     undoBtn.style.cssText='margin-left:8px;padding:2px 8px;font-size:11px';
     undoBtn.textContent='Undo';
-    undoBtn.onclick=unmarkEmailSent;
+    undoBtn.onclick=function(){ if(unrecordEmailSent(currentEmailApplicantId, currentTemplate)) updateEmailSentStatus(); };
     el.appendChild(undoBtn);
     el.style.color='#166534';
   } else {
@@ -4301,71 +4212,129 @@ function updateEmailSentStatus(){
   el.style.display='block';
 }
 
-function unmarkEmailSent(){
-  if(!currentEmailApplicantId) return;
-  if(!confirm('Undo "marked as sent"? This only clears the tracking flag, it does not un-send an email already delivered.')) return;
-  const apps=getApplicants();
-  const a=apps.find(x=>x.id===currentEmailApplicantId);
-  if(!a||!a.emailsSent) return;
-  delete a.emailsSent[currentTemplate];
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
-  updateEmailSentStatus();
-  showToast('Undone');
+
+// ============================================================
+// ONE WAY TO FILL AND SEND AN EMAIL. Every template (composer, bulk send,
+// the Ops notification) is filled from a candidate record by fillTemplate,
+// and every automatic send goes through sendTemplatedEmail, which also
+// records it on the candidate. The reminder text comes from the backend,
+// the same one its compliance job sends.
+// ============================================================
+function getTemplate(key){
+  if(key==='reminder') return SERVER_CONFIG.reminderTemplate || {subject:'', body:'(The reminder text loads from the shared sheet. Reconnect and try again.)'};
+  return EMAIL_TEMPLATES[key];
 }
 
+// Routed through the backend so a click counts as "opened the assessment";
+// plain form links when there is no candidate or no connection, so a
+// preview or copy-paste never breaks.
+function trackedAssessmentLink(id, which){
+  var plain = {grit:'https://forms.gle/JwGGt8UWnR6NgFga8', values:'https://forms.gle/RH5HGDDvPL9H5YvRA',
+    emm:'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform'}[which];
+  return (SCRIPT_URL && id!=null) ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(id) + '&which=' + which) : plain;
+}
+
+// a: a candidate record (or the composer's fields shaped like one).
+function fillTemplate(key, a){
+  var t = getTemplate(key);
+  if(!t) return {subject:'', body:''};
+  var od = a.offerDetails || {};
+  var emmLink = trackedAssessmentLink(a.id, 'emm');
+  var values = {
+    name: a.name || '{name}', position: a.position || '{position}', email: a.email || '[EMAIL ADDRESS]',
+    jd: od.jd || '[JOB DESCRIPTION]', startdate: od.startDate || '[START DATE]', signatory: od.signatory || '[SIGNATORY]',
+    contracttype: od.contractType || '[CONTRACT TYPE]', rate: od.rate || '[RATE]',
+    gritlink: trackedAssessmentLink(a.id, 'grit'), valueslink: trackedAssessmentLink(a.id, 'values'), emmlink: emmLink,
+    emmline: a.requiresEmm ? ('• Completed EMM Excel assessment, submit here: ' + emmLink + '\n') : '',
+    deadlinehours: String(SERVER_CONFIG.deadlineHours),
+    department: a.department ? ' — ' + a.department : '',
+    grit: a.grit && a.grit.score ? a.grit.score + '/5' : 'N/A',
+    valuesscore: a.values && a.values.score ? a.values.score + '/315' : 'N/A',
+    emmsummary: a.requiresEmm ? ('EMM: ' + (a.emm && a.emm.graded ? emmStatusLabel(a) + ' (' + a.emm.overallPct + '%)' : (a.emmReceivedAt ? 'Submitted, pending grading' : 'Not yet submitted')) + '\n') : ''
+  };
+  var fill = function(str){ return String(str||'').replace(/\{([a-z]+)\}/g, function(m, k){ return values[k]!==undefined ? values[k] : m; }); };
+  return {subject: fill(t.subject), body: fill(t.body)};
+}
+
+// The composer's fields, shaped like a candidate record, so the composer
+// fills templates the same way everything else does.
+function composerRecord(){
+  var a = currentEmailApplicantId!=null ? getApplicant(currentEmailApplicantId) : null;
+  var v = function(id){ var el=document.getElementById(id); return el ? el.value : ''; };
+  return {
+    id: a ? a.id : null, requiresEmm: a ? a.requiresEmm : true, department: a ? a.department : '',
+    grit: a && a.grit, values: a && a.values, emm: a && a.emm, emmReceivedAt: a && a.emmReceivedAt,
+    name: v('et-name'), position: v('et-position'), email: v('et-email'),
+    offerDetails: {jd:v('et-jd'), startDate:v('et-startdate'), signatory:v('et-signatory'), contractType:v('et-contracttype'), rate:v('et-rate')}
+  };
+}
 function updateEmail(){
-  const name=document.getElementById('et-name').value||'{name}';
-  const pos=document.getElementById('et-position').value||'{position}';
-  const deadlineEl=document.getElementById('et-deadline');
-  const deadline=(deadlineEl&&deadlineEl.value)||'[DEADLINE]';
-  const jdEl=document.getElementById('et-jd');
-  const jd=(jdEl&&jdEl.value)||'[JOB DESCRIPTION]';
-  const startdateEl=document.getElementById('et-startdate');
-  const startdate=(startdateEl&&startdateEl.value)||'[START DATE]';
-  const signatoryEl=document.getElementById('et-signatory');
-  const signatory=(signatoryEl&&signatoryEl.value)||'[SIGNATORY]';
-  const contracttypeEl=document.getElementById('et-contracttype');
-  const contracttype=(contracttypeEl&&contracttypeEl.value)||'[CONTRACT TYPE]';
-  const rateEl=document.getElementById('et-rate');
-  const rate=(rateEl&&rateEl.value)||'[RATE]';
-  const emailEl=document.getElementById('et-email');
-  const email=(emailEl&&emailEl.value)||'[EMAIL ADDRESS]';
-  const t=EMAIL_TEMPLATES[currentTemplate];
-  const schedulingLink=currentSchedulingLink||'[SCHEDULING LINK]';
-  // Personalized assessment links: routed through the Apps Script tracking
-  // redirect (same pattern as the email-open pixel) so we can tell whether
-  // the candidate actually opened the GRIT/Values/EMM form, not just the
-  // email. Only possible once this is tied to a real applicant and Sheets
-  // is connected -- otherwise fall back to the plain, untracked links so
-  // previewing or copy-pasting the email never breaks.
-  const gritLink = (SCRIPT_URL && currentEmailApplicantId!=null)
-    ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=grit')
-    : 'https://forms.gle/JwGGt8UWnR6NgFga8';
-  const valuesLink = (SCRIPT_URL && currentEmailApplicantId!=null)
-    ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=values')
-    : 'https://forms.gle/RH5HGDDvPL9H5YvRA';
-  const emmLink = (SCRIPT_URL && currentEmailApplicantId!=null)
-    ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=emm')
-    : 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
-  const fill=(s)=>s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
-    .replace(/{jd}/g,jd).replace(/{startdate}/g,startdate).replace(/{signatory}/g,signatory)
-    .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate).replace(/{schedulinglink}/g,schedulingLink)
-    .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink)
-    .replace(/{email}/g,email);
-  document.getElementById('emailSubject').value=fill(t.subject);
-  document.getElementById('emailBody').textContent=fill(t.body);
+  var filled = fillTemplate(currentTemplate, composerRecord());
+  document.getElementById('emailSubject').value = filled.subject;
+  document.getElementById('emailBody').textContent = filled.body;
+}
+// innerText keeps line breaks typed into the editable body (textContent drops them).
+function composerBodyText(){
+  var el = document.getElementById('emailBody');
+  return el.innerText || el.textContent || '';
 }
 
-function openOutlook(){
-  const subj=encodeURIComponent(document.getElementById('emailSubject').value);
-  const body=encodeURIComponent(document.getElementById('emailBody').textContent);
-  window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${subj}&body=${body}`,'_blank');
+// The one way into the email page: always for a candidate, every field reset
+// from their record so nothing carries over from the last person.
+function openComposer(id, key){
+  var a = getApplicant(id);
+  if(!a) return;
+  closeModal();
+  showPage('email', document.getElementById('nav-email'));
+  var od = a.offerDetails || {};
+  var set = function(elId, val){ var el=document.getElementById(elId); if(el) el.value = val||''; };
+  set('et-name', a.name); set('et-position', a.position); set('et-email', a.email);
+  set('et-jd', od.jd); set('et-startdate', od.startDate); set('et-signatory', od.signatory); set('et-contracttype', od.contractType); set('et-rate', od.rate);
+  currentEmailApplicantId = id;
+  setEmailTemplate(key || (a.requiresEmm ? 'assessment' : 'assessment_no_emm'));
 }
+
+var EMAIL_ATTACHMENTS = {
+  // The invite's wording says the EMM file is attached, so it actually is.
+  assessment: function(){ return {attachmentBase64:EMM_TEMPLATE_B64, attachmentName:EMM_TEMPLATE_FILENAME, attachmentMimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}; },
+  // The pre-onboarding requirements ride along with the Next Steps email.
+  offer: function(){ return {attachmentBase64:JOB_OFFER_PDF_B64, attachmentName:JOB_OFFER_PDF_FILENAME, attachmentMimeType:'application/pdf'}; }
+};
+
+// msg: {to, subject, body, sentByName}. Sends, then records it on the candidate.
+async function sendTemplatedEmail(id, key, msg){
+  var payload = {to:msg.to, subject:msg.subject, body:msg.body, replyTo:TEAM_DIRECTORY[msg.sentByName]||'', senderName:msg.sentByName, applicantId:id, templateKey:key};
+  if(EMAIL_ATTACHMENTS[key]) Object.assign(payload, EMAIL_ATTACHMENTS[key]());
+  var res = await apiPost('sendEmail', {data:payload});
+  if(!(res && res.success)) return {ok:false, error:(res && res.error) || 'no response'};
+  recordEmailSent(id, key);
+  return {ok:true};
+}
+
+function recordEmailSent(id, key){
+  return mutateApplicant(id, function(x){ if(!x.emailsSent) x.emailsSent={}; x.emailsSent[key]=new Date().toISOString(); }, {sync:'now'});
+}
+function unrecordEmailSent(id, key){
+  if(!confirm('Undo "marked as sent"? This only clears the tracking flag, it does not un-send an email already delivered.')) return false;
+  mutateApplicant(id, function(x){ if(x.emailsSent) delete x.emailsSent[key]; }, {sync:'now'});
+  showToast('Undone');
+  return true;
+}
+
+// Composer "Mark as Sent" (for an email sent some other way, e.g. from Gmail).
+function markComposerEmailSent(){
+  if(currentEmailApplicantId==null){ alert("Open this email from a candidate (the Email button on their profile) so it can be tracked."); return; }
+  var a = getApplicant(currentEmailApplicantId);
+  if(!a){ alert('That candidate record no longer exists.'); return; }
+  recordEmailSent(a.id, currentTemplate);
+  updateEmailSentStatus();
+  autoAdvance(a.id, emailEventFor(currentTemplate), 'Marked as sent for '+a.name);
+}
+
 
 function copyEmail(){
   const subj=document.getElementById('emailSubject').value;
-  const body=document.getElementById('emailBody').textContent;
+  const body=composerBodyText();
   navigator.clipboard.writeText('Subject: '+subj+'\n\n'+body).then(()=>{
     document.getElementById('emailCopyMsg').style.display='block';
     setTimeout(()=>document.getElementById('emailCopyMsg').style.display='none',3000);
@@ -4383,7 +4352,7 @@ function validateGmailWorkEmail(el){
 
 function openGmail(){
   var subj = encodeURIComponent(document.getElementById('emailSubject').value || '');
-  var body = encodeURIComponent(document.getElementById('emailBody').textContent || '');
+  var body = encodeURIComponent(composerBodyText());
   var applicantEmail = document.getElementById('et-email') ? document.getElementById('et-email').value.trim() : '';
 
   // Auto-copy applicant email to clipboard so HR can paste into To field
@@ -4404,75 +4373,10 @@ function openGmail(){
   window.open(gmailUrl, '_blank');
 }
 
-function openMailto(){
-  openGmail();
-}
 
-function setEmailAndSwitch(name,position,requiresEmm,email,applicantId){
-  closeModal();
-  showPage('email',document.getElementById('nav-email'));
-  document.getElementById('et-name').value=name||'';
-  document.getElementById('et-position').value=position||'';
-  var emailEl=document.getElementById('et-email');
-  if(emailEl) emailEl.value=email||'';
-  var deadlineEl=document.getElementById('et-deadline');
-  if(deadlineEl) deadlineEl.value='';
-  currentEmailApplicantId = applicantId!=null ? applicantId : null;
-  setEmailTemplate(requiresEmm?'assessment':'assessment_no_emm');
-}
 
-// Jumps straight from the applicant's Decision tab to a pre-filled Job Offer
-// or Contract email -- carries over whatever offer details (JD, start date,
-// signatory, contract type, rate) HR already entered there, so nothing has
-// to be retyped on this page.
-function goToOfferEmail(id, templateKey){
-  var a=getApplicant(id);
-  if(!a) return;
-  closeModal();
-  showPage('email',document.getElementById('nav-email'));
-  document.getElementById('et-name').value=a.name||'';
-  document.getElementById('et-position').value=a.position||'';
-  var emailEl=document.getElementById('et-email');
-  if(emailEl) emailEl.value=a.email||'';
-  var deadlineEl=document.getElementById('et-deadline');
-  if(deadlineEl) deadlineEl.value='';
-  var od=a.offerDetails||{};
-  var jdEl=document.getElementById('et-jd'); if(jdEl) jdEl.value=od.jd||'';
-  var sdEl=document.getElementById('et-startdate'); if(sdEl) sdEl.value=od.startDate||'';
-  var sigEl=document.getElementById('et-signatory'); if(sigEl) sigEl.value=od.signatory||'';
-  var ctEl=document.getElementById('et-contracttype'); if(ctEl) ctEl.value=od.contractType||'';
-  var rateEl=document.getElementById('et-rate'); if(rateEl) rateEl.value=od.rate||'';
-  currentEmailApplicantId=id;
-  setEmailTemplate(templateKey);
-}
 
-// Holds the candidate-facing scheduling link for whichever applicant is
-// currently being emailed, so updateEmail() can drop it into {schedulinglink}.
-let currentSchedulingLink=null;
 
-// Jumps from the Interview tab's scheduling card to a pre-filled "Please
-// share your availability" email, carrying over the personal scheduling
-// link that was just generated for this applicant.
-function goToSchedulingEmail(id){
-  var a=getApplicant(id);
-  if(!a) return;
-  if(!a.schedulingToken || !a.interviewSlots || !a.interviewSlots.length){
-    alert('Add and save at least one interview time slot for this applicant first.');
-    return;
-  }
-  if(!SCRIPT_URL){ alert('Not connected to Google Sheets/Apps Script -- the scheduling link needs that connection to work.'); return; }
-  currentSchedulingLink = SCRIPT_URL + '?action=pickSlot&id=' + encodeURIComponent(a.id) + '&token=' + encodeURIComponent(a.schedulingToken);
-  closeModal();
-  showPage('email',document.getElementById('nav-email'));
-  document.getElementById('et-name').value=a.name||'';
-  document.getElementById('et-position').value=a.position||'';
-  var emailEl=document.getElementById('et-email');
-  if(emailEl) emailEl.value=a.email||'';
-  var deadlineEl=document.getElementById('et-deadline');
-  if(deadlineEl) deadlineEl.value='';
-  currentEmailApplicantId=id;
-  setEmailTemplate('interview_availability');
-}
 
 // ============================================================
 // EXPORT CSV
@@ -4777,11 +4681,21 @@ function showPage(id, btn) {
 function isTrackB(a){
   return (a && a.department) === 'Sales and Marketing';
 }
-var TEAM_DIRECTORY = {
-  'Frances Miranda': 'frances.miranda@ab-businesssupport.com',
-  'Wennielyn Pungasi': 'wennielyn.pungasi@ab-businesssupport.com',
-  'David Latimer': 'operations@ab-businesssupport.com'
-};
+// The team, once. Every picker (Sent by, Entered By, bulk send, Hiring
+// Projects) and the Ops notification list come from here. The backend keeps
+// its own copy for emails it sends with no one in the app.
+var TEAM_MEMBERS = [
+  {name:'Frances Miranda', short:'Frances', email:'frances.miranda@ab-businesssupport.com', notifyOnOpsInterview:true},
+  {name:'Wennielyn Pungasi', short:'Wen', email:'wennielyn.pungasi@ab-businesssupport.com', notifyOnOpsInterview:true},
+  {name:'David Latimer', short:'David', email:'operations@ab-businesssupport.com', notifyOnOpsInterview:true}
+];
+var TEAM_DIRECTORY = {};
+TEAM_MEMBERS.forEach(function(m){ TEAM_DIRECTORY[m.name] = m.email; });
+function teamOptionsHtml(placeholder, useShortNames){
+  return '<option value="">'+escapeHtml(placeholder)+'</option>' + TEAM_MEMBERS.map(function(m){
+    return '<option value="'+escapeHtml(m.name)+'">'+escapeHtml(useShortNames ? m.short : m.name)+'</option>';
+  }).join('');
+}
 var EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
 
 // ============================================================
@@ -5678,7 +5592,7 @@ function renderTrackerBulkBar(){
   var stageOptions = CANDIDATE_STAGES.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
   var emailKeys = ['assessment','assessment_no_emm','reminder','interview','regret'];
   var emailOptions = emailKeys.map(function(k){ return '<option value="'+k+'">'+(EMAIL_TEMPLATE_LABELS[k]||k)+'</option>'; }).join('');
-  var senderOptions = Object.keys(TEAM_DIRECTORY).map(function(n2){ return '<option value="'+n2+'">'+n2+'</option>'; }).join('');
+  var senderOptions = TEAM_MEMBERS.map(function(m){ return '<option value="'+escapeHtml(m.name)+'">'+escapeHtml(m.name)+'</option>'; }).join('');
   el.innerHTML =
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;background:var(--gray50);border:1px solid var(--gray200);border-radius:var(--radius-lg);margin-bottom:10px">' +
       '<strong style="font-size:13px">'+n+' selected</strong>' +
@@ -5753,27 +5667,6 @@ function bulkDeleteSelected(){
   clearTrackerSelection();
 }
 
-// Pure per-applicant template fill, mirroring updateEmail()'s fill() logic
-// but without any DOM/global-state coupling -- needed so a bulk send can
-// build a distinct subject/body per selected candidate without bouncing
-// the visible page over to the Email Templates composer on every record.
-function buildEmailForApplicant(a, templateKey){
-  var t = EMAIL_TEMPLATES[templateKey];
-  var name = a.name || '{name}';
-  var pos = a.position || '{position}';
-  var email = a.email || '[EMAIL ADDRESS]';
-  var gritLink = SCRIPT_URL ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(a.id) + '&which=grit') : 'https://forms.gle/JwGGt8UWnR6NgFga8';
-  var valuesLink = SCRIPT_URL ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(a.id) + '&which=values') : 'https://forms.gle/RH5HGDDvPL9H5YvRA';
-  var emmLink = SCRIPT_URL ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(a.id) + '&which=emm') : 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
-  var fill = function(s){
-    return s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,'[DEADLINE]')
-      .replace(/{jd}/g,'[JOB DESCRIPTION]').replace(/{startdate}/g,'[START DATE]').replace(/{signatory}/g,'[SIGNATORY]')
-      .replace(/{contracttype}/g,'[CONTRACT TYPE]').replace(/{rate}/g,'[RATE]').replace(/{schedulinglink}/g,'[SCHEDULING LINK]')
-      .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink)
-      .replace(/{email}/g,email);
-  };
-  return { subject: fill(t.subject), body: fill(t.body) };
-}
 
 async function bulkSendEmail(){
   var sel = document.getElementById('bulkEmailSelect');
@@ -5783,7 +5676,6 @@ async function bulkSendEmail(){
   var senderSel = document.getElementById('bulkSenderSelect');
   var sentByName = senderSel ? senderSel.value : '';
   if(!sentByName){ alert('Please select who is sending these emails so replies go to the right inbox.'); return; }
-  var replyTo = TEAM_DIRECTORY[sentByName] || '';
   var apps = getApplicants().filter(function(a){ return TRACKER_SELECTED.has(a.id); });
   var withEmail = apps.filter(function(a){ return a.email; });
   var skipped = apps.length - withEmail.length;
@@ -5793,19 +5685,10 @@ async function bulkSendEmail(){
   for(var i=0;i<withEmail.length;i++){
     var a = withEmail[i];
     showToast('Sending '+(i+1)+'/'+withEmail.length+'...');
-    var filled = buildEmailForApplicant(a, templateKey);
-    var payload = {to:a.email, subject:filled.subject, body:filled.body, replyTo:replyTo, senderName:sentByName, applicantId:a.id, templateKey:templateKey};
-    if(templateKey==='assessment'){
-      payload.attachmentBase64=EMM_TEMPLATE_B64;
-      payload.attachmentName=EMM_TEMPLATE_FILENAME;
-      payload.attachmentMimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    }
-    var res = await apiPost('sendEmail', {data:payload});
-    if(res && res.success){
-      okCount++;
-      mutateApplicant(a.id, function(fa){ if(!fa.emailsSent) fa.emailsSent={}; fa.emailsSent[templateKey]=new Date().toISOString(); }, {sync:'now'});
-      sentIds.push(a.id);
-    } else {
+    var filled = fillTemplate(templateKey, a);
+    var res = await sendTemplatedEmail(a.id, templateKey, {to:a.email, subject:filled.subject, body:filled.body, sentByName:sentByName});
+    if(res.ok){ okCount++; sentIds.push(a.id); }
+    else {
       failed.push(a.name);
     }
   }
@@ -6151,7 +6034,7 @@ function toggleEodEditor(role){
         '<textarea class="inp" id="eodNote-'+slug+'" placeholder="PM note (optional context, does not affect the health color)">'+escapeHtml(curNote)+'</textarea>' +
         '<select class="inp" id="eodSetBy-'+slug+'">' +
           '<option value="">Who is setting this?</option>' +
-          Object.keys(TEAM_DIRECTORY).map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('') +
+          TEAM_MEMBERS.map(function(m){ return '<option value="'+escapeHtml(m.name)+'">'+escapeHtml(m.name)+'</option>'; }).join('') +
         '</select>' +
         '<div style="display:flex;gap:8px">' +
           '<button class="btn btn-primary btn-sm" onclick="saveEodOverride(\''+safeRole+'\')">Save</button>' +
@@ -7523,6 +7406,10 @@ async function submitProblemReport(){
 // ============================================================
 // INIT
 // ============================================================
+(function(){
+  var sb = document.getElementById('sentByPicker'); if(sb) sb.innerHTML = teamOptionsHtml('Select...', true);
+  var eb = document.getElementById('na-enteredby'); if(eb) eb.innerHTML = teamOptionsHtml('Select...', false);
+})();
 renderRoleSwitcherPill();
 if(!getAppRole()) openRoleSwitchModal();
 else if(typeof applyRoleNavVisibility==='function') applyRoleNavVisibility();
