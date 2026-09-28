@@ -1845,20 +1845,14 @@ async function createApplicant(){
   resetNaCvDropzone();
   showToast('✓ Applicant record created: ' + name);
   // Sync new applicant to Google Sheets
-  const newApp = getApplicants().find(a=>a.name===name&&a.email===email);
+  const newApp = getApplicant(id);
   if(newApp) syncApplicantToSheets(newApp);
   renderDashboard();
   if(cvFileToUpload){
     const res = await uploadCvFile(id, cvFileToUpload);
     if(res && res.success){
-      const apps2=getApplicants();
-      const a2=apps2.find(x=>x.id===id);
-      if(a2){
-        a2.cvUrl=res.url; a2.cvFileId=res.fileId; a2.cvFileName=cvFileToUpload.name; a2.cvUploadedAt=new Date().toISOString();
-        saveApplicants(apps2);
-        syncApplicantToSheets(a2);
-        showToast('✓ CV attached for '+name);
-      }
+      mutateApplicant(id, function(a2){ a2.cvUrl=res.url; a2.cvFileId=res.fileId; a2.cvFileName=cvFileToUpload.name; a2.cvUploadedAt=new Date().toISOString(); }, {sync:'now'});
+      showToast('CV attached for '+name);
     } else {
       showToast('⚠ Applicant created, but the CV upload failed. Attach it from their Profile tab instead.','error');
     }
@@ -3095,16 +3089,10 @@ async function handleCvUpload(id,input){
   if(statusEl) statusEl.textContent='Uploading…';
   const res=await uploadCvFile(id,file);
   if(res&&res.success){
-    const apps=getApplicants();
-    const a=apps.find(x=>x.id===id);
+    const a=getApplicant(id);
     if(a){
-      a.cvUrl=res.url;
-      a.cvFileId=res.fileId;
-      a.cvFileName=file.name;
-      a.cvUploadedAt=new Date().toISOString();
-      saveApplicants(apps);
-      syncApplicantToSheets(a);
-      showToast('✓ CV uploaded for '+a.name);
+      mutateApplicant(id, function(x){ x.cvUrl=res.url; x.cvFileId=res.fileId; x.cvFileName=file.name; x.cvUploadedAt=new Date().toISOString(); }, {sync:'now'});
+      showToast('CV uploaded for '+a.name);
       const fresh=getApplicant(id);
       if(document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(fresh);
     }
@@ -3221,14 +3209,9 @@ function setDecision(id,decision){
 }
 
 function deleteApplicant(id){
-  const apps=getRawApplicants();
-  const a=apps.find(a=>a.id===id);
+  const a=getApplicant(id);
   if(!confirm('Delete '+(a?a.name:'this applicant')+"'s record permanently?"))return;
-  if(a){
-    a.overallStatus='Deleted';
-    saveApplicants(apps);
-    syncApplicantToSheets(a);
-  }
+  if(a) mutateApplicant(id, function(x){ x.overallStatus='Deleted'; }, {sync:'now'});
   closeModal();
   renderDashboard();
   updateTrackerBadge();
@@ -3914,17 +3897,15 @@ function saveGradeToRecord(){
   if(!gradeResult){alert('No graded result to save.');return;}
   const selId=document.getElementById('gradeApplicantSelect').value;
   if(!selId){alert('Please select an applicant from the dropdown to link this result.');return;}
-  const apps=getApplicants();
-  const a=apps.find(a=>a.id===parseInt(selId));
+  let a=getApplicant(parseInt(selId));
   if(!a){alert('Applicant not found.');return;}
   // overallPct now IS the client-style rubric total (/100) -- pass/fail is
   // decided by that same number (gradeResult.pass === gradeResult.rubric.pass),
   // so the score shown everywhere (Tracker, PDF, CSV, this record) and the
   // reason it passed or failed always agree. The old "final answers only"
   // blend is kept as legacyOverallPct purely for reference/debugging.
-  a.emm={graded:true,overallPct:gradeResult.rubric.total,legacyOverallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)};
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
+  mutateApplicant(a.id, function(a){ a.emm={graded:true,overallPct:gradeResult.rubric.total,legacyOverallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)}; }, {sync:'now'});
+  a=getApplicant(a.id);
   updateTrackerBadge();
   autoAdvanceIfNeeded(a.id);
   renderPendingGradingQueue();
@@ -6177,15 +6158,9 @@ function bulkDeleteSelected(){
   var ids = Array.from(TRACKER_SELECTED);
   if(!ids.length) return;
   if(!confirm('Delete '+ids.length+' selected applicant record(s) permanently?')) return;
-  var apps = getRawApplicants();
-  var changed = [];
-  ids.forEach(function(id){
-    var a = apps.find(function(x){ return x.id===id; });
-    if(a){ a.overallStatus='Deleted'; changed.push(a); }
-  });
-  saveApplicants(apps);
-  changed.forEach(function(a){ syncApplicantToSheets(a); });
-  showToast('✓ Deleted '+changed.length+' record(s)');
+  var changed = ids.filter(function(id){ return !!getApplicant(id); });
+  changed.forEach(function(id){ mutateApplicant(id, function(x){ x.overallStatus='Deleted'; }, {sync:'now'}); });
+  showToast('Deleted '+changed.length+' record(s)');
   updateTrackerBadge();
   renderDashboard();
   clearTrackerSelection();
@@ -7430,13 +7405,10 @@ async function confirmInterviewCalSlot(id, slotId){
 // HR's one-click "I already texted them" confirmation -- this app can't send
 // SMS itself, so this is just a record so nothing gets missed or double-sent.
 async function markSmsSentFromCal(id){
-  var apps = getApplicants();
-  var a = apps.find(function(x){ return x.id===id; });
-  if(!a) return;
-  a.smsSentAt = new Date().toISOString();
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
-  showToast('✓ Marked as texted');
+  if(!getApplicant(id)) return;
+  mutateApplicant(id, function(x){ x.smsSentAt = new Date().toISOString(); }, {sync:'now'});
+  var a = getApplicant(id);
+  showToast('Marked as texted');
   renderInterviewCalendar();
   if(document.getElementById('interviewCalOverlay').style.display==='flex' && a.confirmedSlot){
     openInterviewCalDetail(id, a.confirmedSlot.id);
@@ -7444,12 +7416,9 @@ async function markSmsSentFromCal(id){
 }
 
 function unmarkSmsSentFromCal(id){
-  var apps = getApplicants();
-  var a = apps.find(function(x){ return x.id===id; });
-  if(!a) return;
-  a.smsSentAt = '';
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
+  if(!getApplicant(id)) return;
+  mutateApplicant(id, function(x){ x.smsSentAt = ''; }, {sync:'now'});
+  var a = getApplicant(id);
   showToast('Undone');
   renderInterviewCalendar();
   if(document.getElementById('interviewCalOverlay').style.display==='flex' && a.confirmedSlot){
@@ -7569,12 +7538,9 @@ function toggleApplicantEmm(id) {
 }
 
 function toggleEmmReceived(id) {
-  var apps = getApplicants();
-  var a = apps.find(function(x) { return x.id === id; });
-  if (!a) return;
-  a.emmReceivedAt = a.emmReceivedAt ? '' : new Date().toISOString();
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
+  if (!getApplicant(id)) return;
+  mutateApplicant(id, function(x){ x.emmReceivedAt = x.emmReceivedAt ? '' : new Date().toISOString(); }, {sync:'now'});
+  var a = getApplicant(id);
   autoAdvanceIfNeeded(id);
   var fresh = getApplicant(id);
   if (document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML = buildEmmTab(fresh);
