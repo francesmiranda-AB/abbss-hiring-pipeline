@@ -497,7 +497,9 @@ tbody tr:last-child td{border-bottom:none}
 .spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-overlay{position:absolute;inset:0;background:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;border-radius:inherit;backdrop-filter:blur(2px)}
-'''
+.email-menu-list{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:230px;background:#fff;border:1px solid var(--gray200);border-radius:var(--radius-sm);box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px}
+.email-menu-item{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 10px;font-size:13px;font-weight:600;color:var(--gray800);border-radius:6px;cursor:pointer}
+.email-menu-item:hover,.email-menu-item:focus{background:var(--gray100)}
 </style>
 </head>
 <body>
@@ -2095,14 +2097,45 @@ function closeModal(){document.getElementById('detailModal').classList.remove('o
 
 // The candidate's stage, next action and role, shown above every profile tab.
 function buildCandidateStageHeader(a){
-  var badge = getCandidateStageBadge(a);
-  var pill = '<span style="background:'+badge.bg+';color:'+badge.tone+';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">'+badge.label+'</span>';
-  var nextActionText = a.nextAction ? '<span style="font-size:13px;color:var(--gray600);font-weight:500;margin-left:10px">Next: '+escapeHtml(a.nextAction)+'</span>' : '';
-  var roleText = a.roleCategory ? '<span style="font-size:12px;color:var(--gray500);margin-left:10px">'+escapeHtml(a.roleCategory)+'</span>' : '';
-  var hint = badge.key==='__not_migrated__'
-    ? '<div style="font-size:11px;color:#b45309;margin-top:8px">This record hasn\'t been through the stage migration yet. Set Candidate Stage below, or run the migration in Settings.</div>'
-    : '<div style="font-size:11px;color:var(--gray400);margin-top:8px">Change stage, next action, or role in the Candidate Stage panel below.</div>';
-  return '<div style="margin-bottom:var(--space-4)">' + pill + nextActionText + roleText + hint + '</div>';
+  return '<div style="display:flex;gap:10px;align-items:flex-start">' +
+    '<div style="flex:1;min-width:0">' + buildCandidateStagePanel(a) + '</div>' +
+    buildEmailMenu(a) +
+  '</div>';
+}
+
+// Which email a candidate most likely needs next, by stage.
+function suggestedTemplateFor(a){
+  var st = a.candidateStage;
+  if(REASON_STAGES.indexOf(st)>=0) return 'regret';
+  if(st==='Assessment Sent') return 'reminder';
+  if(st==='Assessment Review' || st==='Initial Interview') return 'interview';
+  if(st==='Operations Decision' || st==='Endorsed to Client') return 'offer';
+  if(st==='Offer') return 'job_offer';
+  if(st==='Hired') return 'contract';
+  return a.requiresEmm ? 'assessment' : 'assessment_no_emm';
+}
+
+// The one way to email a candidate: every template, the likely one first.
+function buildEmailMenu(a){
+  var first = suggestedTemplateFor(a);
+  var keys = Object.keys(EMAIL_TEMPLATE_LABELS);
+  keys.sort(function(x,y){ return (x===first?-1:0) - (y===first?-1:0); });
+  var items = keys.map(function(k){
+    return '<button class="email-menu-item" role="menuitem" onclick="openComposer('+a.id+','+jsArg(k)+')">'+
+      escapeHtml(EMAIL_TEMPLATE_LABELS[k])+(k===first?' <span style="color:var(--gray400);font-weight:500">· suggested</span>':'')+'</button>';
+  }).join('');
+  return '<div class="email-menu" style="position:relative;flex-shrink:0">' +
+    '<button class="btn btn-sm btn-blue" aria-haspopup="menu" onclick="toggleEmailMenu(this)">✉️ Email ▾</button>' +
+    '<div class="email-menu-list" role="menu" style="display:none">' + items + '</div>' +
+  '</div>';
+}
+function toggleEmailMenu(btn){
+  var list = btn.nextElementSibling;
+  var open = list.style.display==='none';
+  list.style.display = open ? 'block' : 'none';
+  if(open) setTimeout(function(){
+    document.addEventListener('click', function close(e){ if(!list.contains(e.target) && e.target!==btn){ list.style.display='none'; document.removeEventListener('click', close); } });
+  }, 0);
 }
 
 
@@ -2131,7 +2164,7 @@ function buildApplicantDetail(a){
     <button class="dtab" id="dtab-assessments" onclick="showModalTab('assessments',this,${a.id})">Assessments</button>
     <button class="dtab" id="dtab-emm" onclick="showModalTab('emm',this,${a.id})">EMM</button>
     <button class="dtab" id="dtab-interview" onclick="showModalTab('interview',this,${a.id})">Interview</button>
-    <button class="dtab" id="dtab-decision" onclick="showModalTab('decision',this,${a.id})">Decision</button>
+    <button class="dtab" id="dtab-decision" onclick="showModalTab('decision',this,${a.id})">Outcome</button>
   </div>
   <div id="modalTabContent">${buildProfileTab(a)}</div>`;
 }
@@ -2170,10 +2203,7 @@ function buildStageHistory(a){
 function buildProfileTab(a){
   return`
   <div class="g2" style="margin-bottom:12px">
-    <div><label class="lbl">Full Name</label><div style="font-size:14px;font-weight:600">${escapeHtml(a.name)}</div></div>
-    <div><label class="lbl">Email</label><div style="font-size:14px">${escapeHtml(a.email)}</div></div>
     <div><label class="lbl">Phone</label><div style="font-size:14px">${escapeHtml(a.phone||'-')}</div></div>
-    <div><label class="lbl">Position</label><div style="font-size:14px">${escapeHtml(a.position||'-')}</div></div>
     <div>
       <label class="lbl">Source</label>
       ${(function(){
@@ -2191,14 +2221,9 @@ function buildProfileTab(a){
     </div>
     <div><label class="lbl">Date Received</label><div style="font-size:14px">${a.dateReceived||'-'}</div></div>
   </div>
-  ${buildCandidateStagePanel(a)}
   <div style="margin-bottom:var(--space-4)">
     <label class="lbl">Resume Notes</label>
     <textarea class="inp" id="resumeNotesInput_${a.id}" onchange="var p=updateField(${a.id},'resumeNotes',this.value);flashSaved(this,p)">${escapeHtml(a.resumeNotes)}</textarea>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
-      <button class="btn btn-sm btn-primary" onclick="saveResumeNotesNow(${a.id})">💾 Save Notes Now</button>
-      <span id="resumeNotesSavedMsg_${a.id}" style="font-size:12px;color:#166534;display:none">✓ Saved</span>
-    </div>
   </div>
   <div style="margin-bottom:12px">
     <label class="lbl">Resume / CV File</label>
@@ -2213,11 +2238,8 @@ function buildProfileTab(a){
     <div id="cvUploadStatus_${a.id}" style="font-size:11px;color:var(--gray400);margin-top:4px"></div>
   </div>
   ${buildStageHistory(a)}
-  ${(()=>{const info=getLastEmailSentInfo(a);return info?`<div style="margin-bottom:12px;font-size:12px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px 12px;border-radius:8px">✓ Last email sent: <strong>${info.label}</strong> on ${new Date(info.date).toLocaleString()} <button class="btn-sm btn-ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" onclick="if(unrecordEmailSent(${a.id},'${info.key}')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(getApplicant(${a.id}))">Undo</button></div>`:`<div style="margin-bottom:12px;font-size:12px;color:var(--gray400)">No emails marked as sent yet.</div>`;})()}
-  ${buildEmailActivitySummary(a)}
-  ${buildAssessmentViewSummary(a)}
+  ${buildEmailActivity(a)}
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-sm btn-blue" onclick="openComposer(${a.id})">📧 Generate Assessment Email</button>
     <button class="btn btn-sm btn-red" onclick="deleteApplicant(${a.id})">🗑 Delete Record</button>
   </div>`;
 }
@@ -2227,70 +2249,40 @@ function buildProfileTab(a){
 // pixel) -- a best-effort "Opened" status. Manually-sent ("Open in Gmail")
 // emails have no way to be tracked, so they're shown as sent with no open info
 // rather than incorrectly implied as "not opened."
-function buildEmailActivitySummary(a){
-  const sent = a.emailsSent || {};
-  const keys = Object.keys(sent);
-  if(!keys.length) return '';
-  const opened = a.emailsOpened || {};
+// One email history: every email marked sent, whether it was opened, and
+// (for the assessment emails) whether the candidate opened each form.
+function buildEmailActivity(a){
+  var sent = a.emailsSent || {};
+  var keys = Object.keys(sent).filter(function(k){ return sent[k] && EMAIL_TEMPLATE_LABELS[k]!==undefined || k==='autoReminder'; });
+  if(!keys.length) return '<div style="margin-bottom:12px;font-size:12px;color:var(--gray400)">No emails sent yet.</div>';
   keys.sort(function(x,y){ return new Date(sent[x]) - new Date(sent[y]); });
-  const rows = keys.map(function(k){
-    const label = EMAIL_TEMPLATE_LABELS[k] || k;
-    const sentAt = sent[k] ? new Date(sent[k]).toLocaleString() : '';
-    const openedAt = opened[k];
-    const status = openedAt
-      ? `<span style="color:#166534;font-weight:600">✓ Opened</span> <span style="color:var(--gray400)">${new Date(openedAt).toLocaleString()}</span>`
-      : `<span style="color:var(--gray400)">Not yet detected as opened</span>`;
-    return `<tr><td style="font-size:12px">${label}</td><td style="font-size:12px;color:var(--gray400)">${sentAt}</td><td style="font-size:12px">${status}</td></tr>`;
+  var opened = a.emailsOpened || {}, views = a.assessmentViews || {};
+  var formsLine = function(){
+    var forms = [['grit','GRIT'], ['values','Values']];
+    if(a.requiresEmm) forms.push(['emm','EMM']);
+    return forms.map(function(f){
+      var done = f[0]==='grit' ? !!(a.grit && a.grit.score) : f[0]==='values' ? !!(a.values && a.values.score) : !!(a.emmReceivedAt || (a.emm && a.emm.graded));
+      var mark = done ? '✓ done' : views[f[0]] ? '✓ opened' : '–';
+      return f[1]+' '+mark;
+    }).join(' · ');
+  };
+  var rows = keys.map(function(k){
+    var label = k==='autoReminder' ? 'Automatic reminder' : EMAIL_TEMPLATE_LABELS[k];
+    var openedAt = opened[k];
+    var isAssessment = k==='assessment' || k==='assessment_no_emm' || k==='reminder' || k==='autoReminder';
+    var undo = k==='autoReminder' ? '' : '<button class="btn-sm btn-ghost" style="padding:2px 8px;font-size:11px" onclick="if(unrecordEmailSent('+a.id+','+jsArg(k)+')) document.getElementById(\'modalTabContent\').innerHTML=buildProfileTab(getApplicant('+a.id+'))">Undo</button>';
+    return '<tr><td style="font-size:12px">'+escapeHtml(label)+(isAssessment ? '<div style="font-size:11px;color:var(--gray400)">Forms: '+formsLine()+'</div>' : '')+'</td>' +
+      '<td style="font-size:12px;color:var(--gray500)">'+new Date(sent[k]).toLocaleString()+'</td>' +
+      '<td style="font-size:12px">'+(openedAt ? '<span style="color:#166534;font-weight:600">✓ '+new Date(openedAt).toLocaleString()+'</span>' : '<span style="color:var(--gray400)">–</span>')+'</td>' +
+      '<td style="text-align:right">'+undo+'</td></tr>';
   }).join('');
-  return `<div style="margin-bottom:14px;background:var(--gray50);border-radius:var(--radius-sm);padding:12px 14px">
-    <div class="card-title-sm" style="margin-bottom:6px">✉️ Email Activity</div>
-    <div class="table-wrap"><table style="width:100%"><thead><tr><th style="font-size:11px">Template</th><th style="font-size:11px">Sent</th><th style="font-size:11px">Open Status</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div style="font-size:11px;color:var(--gray400);margin-top:6px">Open status is best-effort and only available for emails sent via "Send Automatically." Gmail and some other mail apps block the tracking image, so "not yet detected" doesn't always mean unread.</div>
-  </div>`;
+  return '<div style="margin-bottom:14px;background:var(--gray50);border-radius:var(--radius-sm);padding:12px 14px">' +
+    '<div class="card-title-sm" style="margin-bottom:6px">✉️ Email Activity</div>' +
+    '<div class="table-wrap"><table style="width:100%"><thead><tr><th style="font-size:11px">Email</th><th style="font-size:11px">Sent</th><th style="font-size:11px">Opened</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>' +
+    '<div style="font-size:11px;color:var(--gray400);margin-top:6px">"Opened" only works for emails sent with Send Automatically, and some mail apps hide it. "Forms" shows whether the candidate opened or finished each assessment.</div>' +
+  '</div>';
 }
 
-// Separate question from "did they open the email" above: "did they
-// actually click through to the GRIT/Values/EMM form itself." Every
-// assessment link in an invite or reminder email now routes through a
-// tracking redirect first, so this lights up the moment the candidate
-// clicks -- shown once at least one assessment-related email has gone out,
-// so a brand-new applicant that hasn't been invited yet doesn't show three
-// "Not yet opened" rows with nothing to compare them to.
-function buildAssessmentViewSummary(a){
-  const sent = a.emailsSent || {};
-  const anyAssessmentEmailSent = sent.assessment || sent.assessment_no_emm || sent.reminder || sent.autoReminder;
-  if(!anyAssessmentEmailSent) return '';
-  const views = a.assessmentViews || {};
-  const rows = [['grit','GRIT Assessment'], ['values','Value-Integrity Assessment']];
-  if(a.requiresEmm) rows.push(['emm','AR EMM Cognitive Assessment']);
-  // Tracking only exists for links sent AFTER this feature shipped -- someone
-  // already in the pipeline before that (invited on the old, untracked
-  // links) will never get a click timestamp, even though they may have
-  // completed everything. Rather than show a flatly wrong "Not yet opened"
-  // for someone who clearly did open it, fall back to "Completed" whenever
-  // we already have a real score/submission for that assessment.
-  const rowsHtml = rows.map(function(r){
-    const key = r[0], label = r[1];
-    const viewedAt = views[key];
-    var completedFallback = false;
-    if(!viewedAt){
-      if(key==='grit') completedFallback = !!(a.grit && a.grit.score);
-      else if(key==='values') completedFallback = !!(a.values && a.values.score);
-      else if(key==='emm') completedFallback = !!(a.emm && a.emm.graded);
-    }
-    const status = viewedAt
-      ? `<span style="color:#166534;font-weight:600">✓ Opened</span> <span style="color:var(--gray400)">${new Date(viewedAt).toLocaleString()}</span>`
-      : completedFallback
-        ? `<span style="color:#166534;font-weight:600">✓ Completed</span> <span style="color:var(--gray400)">(sent before this tracking existed)</span>`
-        : `<span style="color:var(--gray400)">Not yet opened</span>`;
-    return `<tr><td style="font-size:12px">${label}</td><td style="font-size:12px">${status}</td></tr>`;
-  }).join('');
-  return `<div style="margin-bottom:14px;background:var(--gray50);border-radius:var(--radius-sm);padding:12px 14px">
-    <div class="card-title-sm" style="margin-bottom:6px">🔗 Assessment Link Status</div>
-    <div class="table-wrap"><table style="width:100%"><thead><tr><th style="font-size:11px">Assessment</th><th style="font-size:11px">Opened?</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-    <div style="font-size:11px;color:var(--gray400);margin-top:6px">This is separate from the email open status above. It only lights up once the candidate actually clicks through to the form itself, not just the email. "Completed" means we don't have a click timestamp (their invite predates this feature) but their submitted score proves they got there.</div>
-  </div>`;
-}
 
 function buildAssessmentsTab(a){
   const gOut=gritOutcome(a.grit&&a.grit.score);
@@ -2709,58 +2701,58 @@ function buildInterviewTab(a){
     </div>`;
 }
 
+// The Outcome tab: where the assessments stand, the outcome (shown once),
+// one button per thing that can be done next, offer details, and notes.
 function buildDecisionTab(a){
   const gOut=gritOutcome(a.grit&&a.grit.score);
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
   const iv=a.interview||{};
   const ivResult=iv.result||null;
-
   const checks=[
     ['GRIT',gOut.pass===true?'pass':gOut.pass===false?'fail':'pending',gOut.label],
     ['Value-Integrity',vOut.pass===true?'pass':vOut.pass===false?'fail':'pending',vOut.label],
-    ...(a.requiresEmm?[['EMM Cognitive',a.emm&&a.emm.pass===true?'pass':a.emm&&a.emm.pass===false?'fail':'pending',a.emm&&a.emm.graded?a.emm.overallPct+'%':(a.emmReceivedAt?'Submitted, pending grading':'Not yet submitted')]]:[['EMM Cognitive','skipped','Not required for this role']]),
+    ...(a.requiresEmm?[['EMM Cognitive',a.emm&&a.emm.pass===true?'pass':a.emm&&a.emm.pass===false?'fail':'pending',a.emm&&a.emm.graded?a.emm.overallPct+'%':(a.emmReceivedAt?'Submitted, pending grading':'Not yet submitted')]]:[]),
     ['Live Interview',ivResult==='pass'?'pass':ivResult==='fail'?'fail':'pending',ivResult==='pass'?'Passed':ivResult==='fail'?'Failed':'Not yet done'],
   ];
-
-  const coreChecks = checks.filter(c=>c[1]!=='skipped');
-  const allPass=coreChecks.every(c=>c[1]==='pass');
+  const allPass=checks.every(c=>c[1]==='pass');
   const anyFail=checks.some(c=>c[1]==='fail');
-
-  // Map each row to the tab it's scored on, so a Pending/Fail row can be clicked
-  // straight there instead of leaving David (or whoever) stuck on this tab with no
-  // visible way to act on it.
   const rowTabMap={'EMM Cognitive':'emm','Live Interview':'interview'};
   const checkRows=checks.map(([label,status,detail])=>{
     const targetTab=(status==='pending'||status==='fail')?rowTabMap[label]:null;
-    const clickAttr=targetTab?` style="cursor:pointer" onclick="jumpToModalTab('${targetTab}',${a.id})" title="Click to go score this"`:'';
-    return `<tr${clickAttr}>
-    <td><strong>${label}</strong></td>
-    <td>${status==='pass'?'<span class="badge badge-pass">✓ Pass</span>':status==='fail'?'<span class="badge badge-fail">✗ Fail</span>':status==='skipped'?'<span class="badge badge-gray">N/A</span>':'<span class="badge badge-gray">Pending</span>'}</td>
-    <td style="font-size:13px;color:var(--gray500)">${detail}${targetTab?' &nbsp;→ click to score':''}</td>
-  </tr>`;
+    const clickAttr=targetTab?` style="cursor:pointer" onclick="jumpToModalTab('${targetTab}',${a.id})" title="Go to this tab"`:'';
+    const badge=status==='pass'?'<span class="badge badge-pass">✓ Pass</span>':status==='fail'?'<span class="badge badge-fail">✗ Fail</span>':'<span class="badge badge-gray">Pending</span>';
+    return `<tr${clickAttr}><td><strong>${label}</strong></td><td>${badge}</td><td style="font-size:13px;color:var(--gray500)">${escapeHtml(detail)}</td></tr>`;
   }).join('');
+  const verdict = anyFail ? {bg:'#fee2e2',bd:'#fca5a5',fg:'#991b1b',t:'✗ One or more assessments did not meet the threshold.'}
+    : allPass ? {bg:'#dcfce7',bd:'#bbf7d0',fg:'#166534',t:'✓ Everything passed.'}
+    : {bg:'var(--gray100)',bd:'var(--gray200)',fg:'var(--gray600)',t:'⏳ Still waiting on some results.'};
 
-  return`
-    <div class="table-wrap"><table style="margin-bottom:var(--space-2)"><thead><tr><th>Assessment</th><th>Result</th><th>Detail</th></tr></thead><tbody>${checkRows}</tbody></table></div>
-    <div style="padding:14px;border-radius:var(--radius);background:${anyFail?'#fee2e2':allPass?'#dcfce7':'var(--gray100)'};border:1.5px solid ${anyFail?'#fca5a5':allPass?'#bbf7d0':'var(--gray200)'};margin-bottom:14px">
-      <div style="font-weight:700;font-size:14px;color:${anyFail?'#991b1b':allPass?'#166534':'var(--gray600)'}">
-        ${anyFail?'✗ Not recommended for advancement':allPass?'✓ All assessments passed. Ready for final decision':'⏳ Assessment incomplete, do not finalise yet'}
-      </div>
-      <div style="font-size:12px;color:var(--gray500);margin-top:4px">${anyFail?'One or more assessments did not meet the required threshold.':allPass?'All screening assessments passed. Proceed to offer or final panel.':'Complete all assessments before making a hiring decision.'}</div>
-    </div>
-    ${(function(){
-      var out = '';
-      if(['Operations Decision','Endorsed to Client','Offer','Hired'].indexOf(a.candidateStage)>=0){
-        var od = a.offerDetails||{};
-        out += `<div class="assess-card" style="margin-bottom:14px">
+  const st = a.overallStatus || 'In Progress';
+  const outcome = st==='Hired' ? 'Hired'
+    : st==='Departed' ? 'No longer with us (was hired)'
+    : st==='Rejected' ? ((a.candidateStage==='Closed - Withdrawn' ? 'Closed: withdrew' : 'Closed: rejected') + (a.closedReason ? ' — '+a.closedReason : ''))
+    : st==='Hold' ? 'On hold'
+    : st==='NonCompliant' ? "Doesn't respond"
+    : 'In progress';
+  const btn = (cls, action, label) => `<button class="btn ${cls}" onclick="setDecision(${a.id},'${action}')">${label}</button>`;
+  let actions;
+  if(st==='In Progress') actions = btn('btn-green','Hired','✅ Mark as Hired') + `<button class="btn btn-red" onclick="openCloseDialog([${a.id}])">✗ Close…</button>` + btn('btn-amber','Hold','⏸ Put on Hold') +
+    `<button class="btn btn-gray" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying, even after reminders. Also set automatically ${SERVER_CONFIG.deadlineHours} hours after the assessment invite if nothing comes back.">🔕 Doesn't Respond</button>`;
+  else if(st==='Hold') actions = btn('btn-primary','In Progress','▶ Resume') + `<button class="btn btn-red" onclick="openCloseDialog([${a.id}])">✗ Close…</button>`;
+  else if(st==='Hired') actions = btn('btn-ghost','In Progress','↺ Reopen') + btn('btn-gray','Departed','🚪 No longer with us');
+  else if(st==='Departed') actions = btn('btn-ghost','Hired','↺ Back to hired');
+  else actions = btn('btn-ghost','In Progress','↺ Reopen');
+
+  const od = a.offerDetails||{};
+  const offer = ['Operations Decision','Endorsed to Client','Offer','Hired'].indexOf(a.candidateStage)>=0 ? `<div class="assess-card" style="margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;margin-bottom:8px">Job Offer &amp; Contract Details</div>
-      <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Fill these in once, then use the buttons below to send the Job Offer email and/or Contract. The details carry over automatically.</div>
+      <div style="font-size:11px;color:var(--gray400);margin-bottom:10px">Filled into the Next Steps, Job Offer and Contract emails (Email button at the top). Send Next Steps first: it carries the pre-onboarding requirements PDF.</div>
       <div style="margin-bottom:10px"><label class="lbl">Job Description (JD)</label><textarea class="inp" onchange="updateNestedField(${a.id},'offerDetails','jd',this.value)" placeholder="Key duties and responsibilities...">${escapeHtml(od.jd)}</textarea></div>
       <div class="g2" style="margin-bottom:10px">
-        <div><label class="lbl">Start Date</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','startDate',this.value)" value="${od.startDate||''}" placeholder="e.g. August 4, 2026"></div>
+        <div><label class="lbl">Start Date</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','startDate',this.value)" value="${escapeHtml(od.startDate)}" placeholder="e.g. August 4, 2026"></div>
         <div><label class="lbl">Rate</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','rate',this.value)" value="${escapeHtml(od.rate)}" placeholder="e.g. PHP 30,000/month"></div>
       </div>
-      <div class="g2" style="margin-bottom:12px">
+      <div class="g2">
         <div><label class="lbl">Contract Type</label><select class="inp" onchange="updateNestedField(${a.id},'offerDetails','contractType',this.value)">
           <option value="" ${!od.contractType?'selected':''}>Select...</option>
           <option value="Employee" ${od.contractType==='Employee'?'selected':''}>Employee</option>
@@ -2768,47 +2760,21 @@ function buildDecisionTab(a){
         </select></div>
         <div><label class="lbl">Signatory</label><input class="inp" onchange="updateNestedField(${a.id},'offerDetails','signatory',this.value)" value="${escapeHtml(od.signatory)}" placeholder="e.g. Frances Miranda"></div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-amber" onclick="openComposer(${a.id},'offer')">&#128203; Send Next Steps Email</button>
-        <button class="btn btn-sm btn-green" onclick="openComposer(${a.id},'job_offer')">&#128188; Send Job Offer Email</button>
-        <button class="btn btn-sm btn-blue" onclick="openComposer(${a.id},'contract')">&#128196; Send Contract</button>
-      </div>
-      <div style="font-size:11px;color:var(--gray400);margin-top:6px">Send the Next Steps email first -- it includes the pre-onboarding requirements (device/internet/typing/security checks) as an attached PDF. The formal Job Offer/Contract emails follow once that's done.</div>
-    </div>`;
-      }
-      return out;
-    })()}
-    ${a.overallStatus && a.overallStatus!=='In Progress' ? `<div style="padding:8px 12px;border-radius:var(--radius-sm);background:#eff6ff;border:1px solid #bfdbfe;font-size:13px;font-weight:700;color:#1e40af;margin-bottom:10px">Current decision: ${a.overallStatus==='NonCompliant'?"Doesn't Respond":(a.overallStatus==='Departed'?'No Longer With Us':a.overallStatus)}</div>` : ''}
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-green${a.overallStatus==='Hired'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hired')">${a.overallStatus==='Hired'?'✓ ':''}✅ Mark as Hired</button>
-      <button class="btn btn-red${a.overallStatus==='Rejected'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Rejected')">${a.overallStatus==='Rejected'?'✓ ':''}✗ Mark as Rejected</button>
-      <button class="btn btn-amber${a.overallStatus==='Hold'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hold')">${a.overallStatus==='Hold'?'✓ ':''}⏸ Put on Hold</button>
-      <button class="btn btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying even after reminders. Sets automatically 48 hours after the assessment invite if nothing comes in; you can also set it yourself at any stage.">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Doesn&#39;t Respond</button>
-    </div>
-    ${a.overallStatus && a.overallStatus!=='In Progress' ? `
-    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--gray200);text-align:right">
-      <button class="btn btn-sm btn-ghost" onclick="setDecision(${a.id},'In Progress')">&#8630; Undo / Back to In Progress</button>
-    </div>` : ''}
-    ${a.overallStatus==='Hired' || a.overallStatus==='Departed' ? `
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray200)">
-      <div style="font-size:12px;color:var(--gray500);margin-bottom:6px">They were hired, but have since resigned or their contract ended. Marking this keeps the candidate list honest about who is actually still with us &mdash; it does not remove them or change the fact that they were a successful hire.</div>
-      <button class="btn btn-sm btn-gray${a.overallStatus==='Departed'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Departed')">${a.overallStatus==='Departed'?'✓ ':''}&#128682; Mark as No Longer With Us</button>
-    </div>` : ''}
+    </div>` : '';
+
+  return`
+    <div class="table-wrap"><table style="margin-bottom:var(--space-2)"><thead><tr><th>Assessment</th><th>Result</th><th>Detail</th></tr></thead><tbody>${checkRows}</tbody></table></div>
+    <div style="padding:10px 14px;border-radius:var(--radius);background:${verdict.bg};border:1.5px solid ${verdict.bd};margin-bottom:14px;font-weight:700;font-size:14px;color:${verdict.fg}">${verdict.t}</div>
+    ${offer}
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--gray400);margin-bottom:4px">Outcome</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:10px">${escapeHtml(outcome)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}</div>
     <div style="margin-top:12px">
       <label class="lbl">Final Decision Notes</label>
       <textarea class="inp" onchange="var p=updateField(${a.id},'decisionNotes',this.value);flashSaved(this,p)" placeholder="Reason for decision, who approved, next steps...">${escapeHtml(a.decisionNotes)}</textarea>
     </div>`;
 }
 
-// ============================================================
-// FIELD UPDATES
-// ============================================================
-async function saveResumeNotesNow(id){
-  var ta=document.getElementById('resumeNotesInput_'+id);
-  if(!ta) return;
-  var res = await mutateApplicant(id, function(a){ a.resumeNotes=ta.value; }, {sync:'now'});
-  flashSaved(ta, Promise.resolve(res));
-}
 
 // Small inline "Saved" confirmation next to a field that just synced --
 // used by fields whose onchange saves silently (notes, scores) so there's
@@ -5070,8 +5036,7 @@ function buildCandidateStagePanel(a){
   var skipsClientRoundHint = (role && ROLE_CONFIG[role] && ROLE_CONFIG[role].requiresClientFinal===false)
     ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">This role skips the client hand-off stages. Offer follows straight from Operations Decision.</div>' : '';
 
-  return '<div class="card card-accent-blue" style="margin-bottom:var(--space-2)" id="candidateStagePanel_'+a.id+'">' +
-    '<div class="card-header"><div class="card-title-lg">📍 Candidate Stage</div></div>' +
+  return '<div class="card card-accent-blue" style="margin-bottom:var(--space-3);padding:var(--space-3) var(--space-4)" id="candidateStagePanel_'+a.id+'">' +
     '<div class="g2" style="margin-bottom:12px">' +
       '<div>' +
         '<label class="lbl">Current Stage</label>' +
