@@ -422,7 +422,9 @@ function saveApplicantLocked_(d){
 // by the record field that carries them. A blank value from a client that
 // didn't touch that field means "stale copy", so the stored value is kept.
 const JOB_ATTACHED_COLUMNS = {13:'grit',35:'grit',36:'grit',15:'values',16:'values',17:'values',38:'emmReceivedAt',40:'emmFileUrl'};
-const FROZEN_COLUMNS = [10,11,12,24];                 // DISC (retired), Interview Result (unused)
+// Numeric stage (retired: the named Candidate Stage is the only position), DISC
+// (retired), Interview Result (unused). New rows still get a 1 in the stage column.
+const FROZEN_COLUMNS = [8,10,11,12,24];
 function isBlankCell_(v){ return v===''||v===null||v===undefined; }
 // New clients send _changed: the record fields they actually edited since the
 // Sheet last confirmed the record. Older clients don't, and keep the old behavior.

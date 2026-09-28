@@ -1127,12 +1127,6 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div id="settingsMsg" style="display:none"></div>
   </div>
-  <div class="card card-accent-green" style="max-width:700px">
-    <div class="card-header"><div class="card-title-lg">Recalculate Pipeline Stages</div></div>
-    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The pipeline was rebuilt with more detailed stages, so applicants added before this update may show the wrong step. Run this once to re-check everyone's real GRIT, Values, EMM, and interview data and correct their stage automatically.</p>
-    <button class="btn btn-primary" onclick="recalculateAllStages()">🔄 Recalculate All Stages Now</button>
-    <div id="recalcMsg" style="display:none;margin-top:10px;font-size:13px"></div>
-  </div>
   <details class="card" style="max-width:700px">
     <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">🗂️ One-Time Migration Tools (safe to ignore once run, click to expand)</summary>
     <div style="margin-top:16px">
@@ -1783,8 +1777,7 @@ function buildNewApplicantRecord(fields, idOverride){
     source: fields.source||'',
     resumeNotes: fields.resumeNotes||'',
     requiresEmm: inferRequiresEmm(fields.position||'', fields.department||''),
-    stage:1,status:'Applied',createdAt:new Date().toISOString(),
-    stageDates:{1:new Date().toISOString()},
+    createdAt:new Date().toISOString(),
     // Without this, a brand-new applicant's blank candidateStage gets read
     // by getStageTask() as "not yet migrated" (an admin nag) instead of
     // "New Application" -- so they never show up correctly as a new
@@ -1985,6 +1978,12 @@ var TRACKER_QUICK_VIEW = (function(){
   try{ return localStorage.getItem(TRACKER_QUICK_VIEW_KEY) || 'default'; }catch(e){ return 'default'; }
 })();
 
+function isSameLocalDay(isoString, ref){
+  if(!isoString) return false;
+  var d = new Date(isoString);
+  if(isNaN(d.getTime())) return false;
+  return d.getFullYear()===ref.getFullYear() && d.getMonth()===ref.getMonth() && d.getDate()===ref.getDate();
+}
 function isNewApplicant(a){
   return !!(a && a.createdAt && isSameLocalDay(a.createdAt, new Date()));
 }
@@ -2111,17 +2110,11 @@ function filterTracker(){
 
 function closeModal(){document.getElementById('detailModal').classList.remove('open');restoreFocusTrigger();}
 
-// Replaces the old numbered 1-9 stepper + "Move to Next Stage" button at the
-// top of the profile with the same simple badge used on the Tracker/Board --
-// one vocabulary everywhere, and no second "advance" button competing with
-// the Candidate Stage panel below (which is the only place stage should be
-// set from now on). buildStageStepper()/advanceStage() are left in place
-// since the Assessments and Decision tab buttons still call them internally
-// -- rewiring those to set candidateStage directly is a separate cleanup.
+// The candidate's stage, next action and role, shown above every profile tab.
 function buildCandidateStageHeader(a){
   var badge = getCandidateStageBadge(a);
   var pill = '<span style="background:'+badge.bg+';color:'+badge.tone+';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">'+badge.label+'</span>';
-  var nextActionText = a.nextAction ? '<span style="font-size:13px;color:var(--gray600);font-weight:500;margin-left:10px">Next: '+a.nextAction+'</span>' : '';
+  var nextActionText = a.nextAction ? '<span style="font-size:13px;color:var(--gray600);font-weight:500;margin-left:10px">Next: '+escapeHtml(a.nextAction)+'</span>' : '';
   var roleText = a.roleCategory ? '<span style="font-size:12px;color:var(--gray500);margin-left:10px">'+escapeHtml(a.roleCategory)+'</span>' : '';
   var hint = badge.key==='__not_migrated__'
     ? '<div style="font-size:11px;color:#b45309;margin-top:8px">This record hasn\'t been through the stage migration yet. Set Candidate Stage below, or run the migration in Settings.</div>'
@@ -2129,136 +2122,18 @@ function buildCandidateStageHeader(a){
   return '<div style="margin-bottom:var(--space-4)">' + pill + nextActionText + roleText + hint + '</div>';
 }
 
-function buildStageStepper(a){
-  var steps=getStageLabels(a);
-  var status=a.overallStatus||'In Progress';
-  var curStage = status==='Hired' ? steps.length : (a.stage||1);
-  var stepperHtml = '<div style="display:flex;align-items:center;gap:2px;margin-bottom:14px;flex-wrap:wrap">' + steps.map(function(label,i){
-    var n=i+1, bg='#e2e8f0', color='#94a3b8', mark=n;
-    if(status==='Rejected' && n<=curStage){ bg='#fca5a5'; color='#fff'; mark='\u2715'; }
-    else if(n<curStage || (status==='Hired'&&n<=curStage)){ bg='#06d6a0'; color='#fff'; mark='\u2713'; }
-    else if(n===curStage && status==='In Progress'){ bg='#4361ee'; color='#fff'; }
-    return '<div style="display:flex;align-items:center;gap:6px">' +
-      '<div onclick="manualSetStage('+a.id+','+n+')" title="Click to move to this stage" style="cursor:pointer;width:24px;height:24px;border-radius:50%;background:'+bg+';color:'+color+';font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+mark+'</div>' +
-      '<span style="font-size:11px;font-weight:600;color:var(--gray600)">'+label+'</span>' +
-      (i<steps.length-1?'<span style="color:var(--gray300);margin:0 6px">\u203A</span>':'') +
-    '</div>';
-  }).join('') + '</div>';
-
-  // A single, unmissable button that just moves one stage forward -- this is
-  // the main way to advance someone day-to-day. The small numbered circles
-  // above stay available for jumping straight to any stage (forward or back),
-  // which is what fixes an applicant whose real progress has no data trail
-  // (e.g. endorsed to a client months ago, before this version existed).
-  var nextBtn = '';
-  if(status==='In Progress' && curStage<steps.length){
-    nextBtn = '<button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="advanceStage('+a.id+','+(curStage+1)+')">\u2192 Move to Next Stage: '+steps[curStage]+'</button>';
-  }
-
-  return stepperHtml + nextBtn +
-    '<div style="font-size:11px;color:var(--gray400);margin:6px 0 14px">Assessments auto-advance once fully submitted. For every other step, click "Move to Next Stage" above, or click any circle to jump straight to a stage, forward or back \u2014 handy for correcting a mistake or an old record.</div>';
-}
-
-// Lets HR jump an applicant directly to any stage, in either direction --
-// previously advanceStage() only allowed moving forward, so there was no way
-// to undo an accidental early endorsement short of editing the Sheet by hand.
-function manualSetStage(id, stage){
-  var apps=getApplicants();
-  var a=apps.find(function(x){ return x.id===id; });
-  if(!a) return;
-  if((a.stage||1)===stage) return;
-  var dir = stage>(a.stage||1) ? 'forward to' : 'back to';
-  var labels = getStageLabels(a);
-  // Same warning as the "Move to Next Stage" button -- jumping straight into
-  // the interview-ready circle (Track A stage 4 / Track B stage 3) via a
-  // manual click should still flag an ungraded/failed assessment instead of
-  // silently endorsing them, since this is the other click path that can
-  // cause the same premature-endorsement problem.
-  var enteringInterviewReady = stage>(a.stage||1) && stage===(isTrackB(a)?3:4);
-  var warn = enteringInterviewReady ? assessmentGapWarning(a) : null;
-  var msg = 'Move '+a.name+' '+dir+' "'+labels[stage-1]+'"?' + (warn ? '\n\nHeads up: '+warn+'.' : '');
-  if(!confirm(msg)) return;
-  a.stage=stage;
-  a.stageDates=a.stageDates||{};
-  a.stageDates[stage]=new Date().toISOString();
-  saveApplicants(apps);
-  syncApplicantToSheets(a);
-  refreshModalStageInfo(id);
-  showToast('Moved '+a.name+' to '+labels[stage-1]);
-  if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
-  if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
-}
 
 function jumpToModalTab(tab, id){
   var btn = document.getElementById('dtab-' + tab);
   if(btn) showModalTab(tab, btn, id);
 }
 
-function getNextStepActionAttr(a, n){
-  if (n.label === 'Complete initial screening & preliminary interview (HR)') {
-    return "advanceStage(" + a.id + ",2)";
-  }
-  if (n.label === 'Send the assessment invite email') {
-    return "setEmailAndSwitch(" + jsArg(a.name) + "," + jsArg(a.position) + "," + (a.requiresEmm?'true':'false') + "," + jsArg(a.email) + "," + a.id + ")";
-  }
-  if (n.label.indexOf('Grade their EMM assessment')===0) {
-    return "jumpToModalTab('emm'," + a.id + ")";
-  }
-  if (n.label.indexOf('Did not pass one of the assessments')===0) {
-    return "jumpToModalTab('decision'," + a.id + ")";
-  }
-  if (n.label === 'Assessments complete \u2014 ready for the Operations Manager interview' || n.label === 'Ready for the Operations Manager interview') {
-    return "advanceStage(" + a.id + ",5)";
-  }
-  if (n.label.indexOf('Schedule and conduct the Operations Manager interview')===0) {
-    return "jumpToModalTab('interview'," + a.id + ")";
-  }
-  if (n.label === 'Interview passed \u2014 send to the client for review') {
-    return "advanceStage(" + a.id + ",6)";
-  }
-  if (n.label.indexOf('Confirm the client has it')===0) {
-    return "advanceStage(" + a.id + ",7)";
-  }
-  if (n.label === 'Assessments complete \u2014 ready for Preliminary Interview (HR)') {
-    return "advanceStage(" + a.id + ",3)";
-  }
-  if (n.label === 'Ready for Preliminary Interview (HR)') {
-    return "advanceStage(" + a.id + ",4)";
-  }
-  if (n.label.indexOf('Conduct Preliminary Interview (HR)')===0) {
-    return "advanceStage(" + a.id + ",5)";
-  }
-  if (n.label.indexOf('Conduct Second Interview (Project Manager)')===0) {
-    return "advanceStage(" + a.id + ",6)";
-  }
-  if (n.label.indexOf('Conduct Final Interview (CEO)')===0) {
-    return "advanceStage(" + a.id + ",7)";
-  }
-  if (n.label === 'Waiting on the client\u2019s decision' || n.label.indexOf('Job Offer sent')===0) {
-    return "jumpToModalTab('decision'," + a.id + ")";
-  }
-  if (n.label === 'Ready \u2014 record the final hiring decision') {
-    return "jumpToModalTab('decision'," + a.id + ")";
-  }
-  return null;
-}
 
-function buildNextStepBanner(a){
-  var n=getNextStep(a);
-  var cls = n.tone==='action' ? 'alert-warn' : (n.tone==='waiting' ? 'alert-info' : 'alert-success');
-  var action = getNextStepActionAttr(a, n);
-  if(action){
-    return '<div class="alert '+cls+'" style="margin-bottom:var(--space-5);cursor:pointer;display:flex;align-items:center;gap:8px" onclick="'+action+'" title="Click to do this now">' +
-      '<span>'+n.icon+'</span><span style="flex:1"><strong>Next step:</strong> '+n.label+'</span>' +
-      '<span style="font-weight:800;font-size:16px">&#8250;</span></div>';
-  }
-  return '<div class="alert '+cls+'" style="margin-bottom:var(--space-5);display:flex;align-items:center;gap:8px"><span>'+n.icon+'</span><span><strong>Next step:</strong> '+n.label+'</span></div>';
-}
 
 function refreshModalStageInfo(id){
   var a=getApplicant(id);
   var el=document.getElementById('modalStageInfo');
-  if(el && a) el.innerHTML = buildCandidateStageHeader(a) + buildNextStepBanner(a);
+  if(el && a) el.innerHTML = buildCandidateStageHeader(a);
 }
 
 function buildApplicantDetail(a){
@@ -2266,7 +2141,7 @@ function buildApplicantDetail(a){
   const vOut=valuesOutcome(a.values&&a.values.score,a.values&&a.values.confScore||'',a.values&&a.values.intScore||'');
 
   return`
-  <div id="modalStageInfo">${buildCandidateStageHeader(a)}${buildNextStepBanner(a)}</div>
+  <div id="modalStageInfo">${buildCandidateStageHeader(a)}</div>
   <!-- Stage nav -->
   <div class="dtabs" id="modalDtabs">
     <button class="dtab active" id="dtab-profile" onclick="showModalTab('profile',this,${a.id})">Profile</button>
@@ -2330,18 +2205,15 @@ function showModalTab(tab,btn,id){
 }
 
 function buildStageHistory(a){
-  var labels = getStageLabels(a);
-  var entries=[{n:1,at:a.createdAt}];
-  if(a.stageDates){
-    for(var n=2;n<=labels.length;n++){
-      if(a.stageDates[n]) entries.push({n:n,at:a.stageDates[n]});
-    }
-  }
+  var dates = a.candidateStageDates || {};
+  var entries = Object.keys(dates).filter(function(k){ return dates[k]; }).map(function(k){ return {stage:k, at:dates[k]}; });
+  if(!entries.length && a.createdAt) entries.push({stage:'New Application', at:a.createdAt});
   entries.sort(function(x,y){ return new Date(x.at)-new Date(y.at); });
   return '<div style="margin-bottom:12px;background:var(--gray50);border-radius:var(--radius-sm);padding:10px 12px"><label class="card-title-sm">Stage History</label><div style="margin-top:6px">' +
     entries.map(function(e){
+      var label = (e.stage==='Initial Interview') ? getInterviewRoundLabel(a.department,'initial') : e.stage;
       return '<div style="font-size:12px;color:var(--gray600);padding:4px 0 4px 10px;border-left:2px solid var(--gray200);margin-left:4px">' +
-        '<span style="font-weight:700;color:var(--gray800)">' + (labels[e.n-1]||'') + '</span>' +
+        '<span style="font-weight:700;color:var(--gray800)">' + escapeHtml(label) + '</span>' +
         '<span style="color:var(--gray400)"> &middot; ' + new Date(e.at).toLocaleString() + '</span></div>';
     }).join('') + '</div></div>';
 }
@@ -2546,11 +2418,7 @@ function buildAssessmentsTab(a){
       </div>
       <span id="emmToggleLabel_${a.id}" style="font-size:13px;font-weight:600;color:${a.requiresEmm?'var(--blue)':'var(--gray400)'}">${a.requiresEmm?'Required':'Not required'}</span>
     </label>
-  </div>
-
-  ${isTrackB(a) ?
-    (a.stage<3 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},3)">✓ Assessments Passed: Ready for Preliminary Interview (HR)</button>` : '') :
-    (a.stage<5 ? `<button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},5)">✓ Assessments Passed: Ready for Operations Manager Interview</button>` : '')}`;
+  </div>`;
 }
 
 function buildEmmTab(a){
@@ -2933,22 +2801,8 @@ function buildDecisionTab(a){
       <div style="font-size:12px;color:var(--gray500);margin-top:4px">${anyFail?'One or more assessments did not meet the required threshold.':allPass?'All screening assessments passed. Proceed to offer or final panel.':'Complete all assessments before making a hiring decision.'}</div>
     </div>
     ${(function(){
-      var totalStages = getStageLabels(a).length;
-      var jobOfferStage = totalStages - 1;
-      var hiredStage = totalStages;
       var out = '';
-      if(a.stage===jobOfferStage-1){
-        out += `<div style="margin-bottom:12px">
-      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},${jobOfferStage})">📨 ${isTrackB(a)?'CEO Confirmed':'Client Confirmed'}: Send Job Offer</button>
-      <div style="font-size:11px;color:var(--gray400);margin-top:4px">${isTrackB(a)?'Waiting on the CEO’s decision.':'Waiting on the client’s decision.'} If they pass, use Rejected/Hold below instead.</div>
-    </div>`;
-      }
-      if(a.stage===jobOfferStage){
-        out += `<div style="margin-bottom:12px">
-      <button class="btn btn-primary btn-full" onclick="advanceStage(${a.id},${hiredStage})">✅ Offer Accepted: Mark Hired</button>
-    </div>`;
-      }
-      if(a.stage>=jobOfferStage-1){
+      if(['Operations Decision','Endorsed to Client','Offer','Hired'].indexOf(a.candidateStage)>=0){
         var od = a.offerDetails||{};
         out += `<div class="assess-card" style="margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;margin-bottom:8px">Job Offer &amp; Contract Details</div>
@@ -3092,7 +2946,7 @@ async function handleCvUpload(id,input){
     const a=getApplicant(id);
     if(a){
       mutateApplicant(id, function(x){ x.cvUrl=res.url; x.cvFileId=res.fileId; x.cvFileName=file.name; x.cvUploadedAt=new Date().toISOString(); }, {sync:'now'});
-      showToast('CV uploaded for '+a.name);
+      autoAdvance(id, 'cvUploaded', 'CV uploaded for '+a.name);
       const fresh=getApplicant(id);
       if(document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(fresh);
     }
@@ -3128,16 +2982,17 @@ function resetNaCvDropzone(){
 
 function updateNestedField(id,section,field,value){
   var p = mutateApplicant(id, function(a){ if(!a[section]) a[section]={}; a[section][field]=value; });
-  autoAdvanceIfNeeded(id);
+  if((section==='grit'||section==='values') && field==='score') autoAdvanceIfSubmitted(id);
   return p;
 }
 
 function setInterviewResult(id,result){
   updateNestedField(id,'interview','result',result);
-  showToast(result==='pass' ? '✓ Interview marked as Passed' : '✗ Interview marked as Failed');
   var content=document.getElementById('modalTabContent');
   if(content) content.innerHTML=buildInterviewTab(getApplicant(id));
   refreshModalStageInfo(id);
+  if(result==='pass') autoAdvance(id, 'interviewPassed', 'Interview marked as passed');
+  else { showToast('Interview marked as failed'); autoAdvance(id, 'interviewFailed'); }
 }
 
 
@@ -3160,43 +3015,6 @@ async function notifyPreliminaryInterviewEndorsement(a){
   }catch(e){ console.warn('Interview endorsement notification failed:', e); }
 }
 
-function advanceStage(id,stage){
-  const apps=getApplicants();
-  const a=apps.find(a=>a.id===id);
-  if(a&&a.stage<stage){
-    // Moving INTO the interview-ready stage (Track A stage 4 / Track B stage
-    // 3) is supposed to mean "assessments passed, go ahead and interview."
-    // The "Move to Next Stage" button has no built-in check though, so warn
-    // (don't hard-block, in case this really is an intentional override)
-    // instead of silently endorsing someone whose EMM isn't even graded yet.
-    var enteringInterviewReady = stage === (isTrackB(a) ? 3 : 4);
-    if(enteringInterviewReady){
-      var warn = assessmentGapWarning(a);
-      if(warn && !confirm('Heads up: ' + warn + ' for ' + a.name + '. Move them to the interview-ready stage anyway?')) return;
-    }
-    a.stage=stage;
-    if(stage===getStageLabels(a).length) a.overallStatus='Hired';
-    saveApplicants(apps);
-    syncApplicantToSheets(a);
-    // Only tell the team "assessments complete, go schedule the interview"
-    // once that's actually true -- previously this fired on stage===5 (a
-    // stale stage number left over from an earlier version of the pipeline)
-    // regardless of whether EMM had even been graded, which is exactly what
-    // sent a "completed assessments" email for an applicant whose EMM still
-    // said "pending grading."
-    if(stage===4 && !isTrackB(a) && assessmentsAllPassed(a)) notifyPreliminaryInterviewEndorsement(a);
-  }
-  refreshModalStageInfo(id);
-  if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
-  if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
-  if(stage===4 && !isTrackB(a) && a&&a.requiresEmm && !(a.emm && a.emm.graded)){
-    showToast('Stage updated. Go to EMM Grader to upload and grade their assessment.');
-  } else if(stage===4 && !isTrackB(a)){
-    showToast('Stage updated, ready for interview.');
-  } else {
-    showToast('Stage updated: ' + ((a && getStageLabels(a)[stage-1]) || ''));
-  }
-}
 
 // ============================================================
 // OUTCOMES -- one writer for "is this candidate finished, and how".
@@ -3245,9 +3063,91 @@ function setOutcome(id, change){
     else x.closedReason = '';
     if(x.overallStatus!==prev.overallStatus) x.statusChangedAt = new Date().toISOString();
   }, {sync:'now'});
+  if(change.stage!==undefined && change.stage!==prev.candidateStage) onStageEntered(getApplicant(id), change.stage);
   return {promise:promise, undo:function(){
     return mutateApplicant(id, function(x){ Object.assign(x, prev); x._undoStage = true; }, {sync:'now'});
   }};
+}
+
+// ============================================================
+// AUTO-ADVANCE on the named stages. Called with an event from the place it
+// happened (not a recompute of everything). Moves forward only, never out of
+// a closed stage, never while paused; every move can be undone. A failed
+// interview or a regret email opens the close dialog instead of closing
+// anyone automatically.
+// ============================================================
+var AUTO_ADVANCE_TARGETS = {
+  cvUploaded: 'CV Screening',
+  assessmentSent: 'Assessment Sent',
+  assessmentsSubmitted: 'Assessment Review',
+  interviewScheduled: 'Initial Interview',
+  interviewPassed: 'Operations Decision',
+  offerSent: 'Offer'
+};
+// Only from this stage (the rest just need to be earlier than the target).
+var AUTO_ADVANCE_FROM = { assessmentsSubmitted:'Assessment Sent', interviewPassed:'Initial Interview' };
+
+function emailEventFor(templateKey){
+  return ({assessment:'assessmentSent', assessment_no_emm:'assessmentSent', interview:'interviewScheduled',
+    offer:'offerSent', contract:'offerSent', regret:'regretSent'})[templateKey] || '';
+}
+
+// Every assessment the candidate owes has arrived (EMM: file received or graded).
+function assessmentsSubmitted(a){
+  if(!a) return false;
+  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
+  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
+  return !!(hasGrit && hasValues && (!a.requiresEmm || a.emmReceivedAt || (a.emm && a.emm.graded)));
+}
+
+// Returns the target stage if this event should move the candidate, else ''.
+function autoAdvanceTarget(a, event){
+  if(!a || isClosed(a) || isPaused(a)) return '';
+  var target = AUTO_ADVANCE_TARGETS[event];
+  if(!target) return '';
+  if(AUTO_ADVANCE_FROM[event] && a.candidateStage!==AUTO_ADVANCE_FROM[event]) return '';
+  if(CANDIDATE_STAGES.indexOf(a.candidateStage) >= CANDIDATE_STAGES.indexOf(target)) return '';
+  return target;
+}
+
+// actionLabel: the toast text for the action that caused this, so one toast
+// covers both ("Sent · moved to Assessment Sent · Undo").
+function autoAdvance(id, event, actionLabel){
+  var a = getApplicant(id);
+  if(!a || !event) { if(actionLabel) showToast(actionLabel); return; }
+  if(event==='interviewFailed'){ if(!isClosed(a)) openCloseDialog([id], {stage:'Closed - Rejected', reason:'Failed Interview'}); return; }
+  if(event==='regretSent'){ if(!isClosed(a)) openCloseDialog([id], {stage:'Closed - Rejected'}); return; }
+  var target = autoAdvanceTarget(a, event);
+  if(!target){ if(actionLabel) showToast(actionLabel); return; }
+  var r = setOutcome(id, {stage:target}); r.id = id;
+  refreshAfterOutcome(id);
+  outcomeToast((actionLabel ? actionLabel+' · ' : '')+a.name+' moved to '+target, [r]);
+}
+
+function autoAdvanceIfSubmitted(id){
+  var a = getApplicant(id);
+  if(assessmentsSubmitted(a)) autoAdvance(id, 'assessmentsSubmitted');
+}
+
+// Scores and EMM files are attached by the backend job, so after a pull
+// some candidates may have finished their assessments. Move them all at
+// once with a single toast (and a single undo).
+function sweepSubmittedAssessments(){
+  var results = [];
+  getApplicants().forEach(function(a){
+    if(assessmentsSubmitted(a) && autoAdvanceTarget(a, 'assessmentsSubmitted')){
+      var r = setOutcome(a.id, {stage:'Assessment Review'}); r.id = a.id; results.push(r);
+    }
+  });
+  if(results.length) outcomeToast(results.length+' candidate'+(results.length===1?'':'s')+' finished their assessments, moved to Assessment Review', results);
+}
+
+// Entering the Ops interview lets Operations know a candidate is coming
+// (this used to fire only from the old numeric stage buttons).
+function onStageEntered(a, stage){
+  if(stage==='Initial Interview' && !isTrackB(a) && assessmentsAllPassed(a) && typeof notifyPreliminaryInterviewEndorsement==='function'){
+    notifyPreliminaryInterviewEndorsement(a);
+  }
 }
 
 function refreshAfterOutcome(id){
@@ -4033,7 +3933,7 @@ function saveGradeToRecord(){
   mutateApplicant(a.id, function(a){ a.emm={graded:true,overallPct:gradeResult.rubric.total,legacyOverallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)}; }, {sync:'now'});
   a=getApplicant(a.id);
   updateTrackerBadge();
-  autoAdvanceIfNeeded(a.id);
+  autoAdvanceIfSubmitted(a.id);
   renderPendingGradingQueue();
   alert(`✓ EMM result saved to ${a.name}'s record.
 Score: ${gradeResult.rubric.total}/100 (${emmStatusLabel(a)})` + (gradeResult.highRiskFlag ? '\n\n⚠ This result also has a HIGH-severity integrity flag (see the Integrity tab).' : ''));
@@ -4370,8 +4270,8 @@ function markEmailSent(){
   saveApplicants(apps);
   syncApplicantToSheets(a);
   updateEmailSentStatus();
-  showToast('✓ Marked as sent for '+a.name);
-  autoAdvanceIfNeeded(a.id);
+  showToast('Marked as sent for '+a.name);
+  autoAdvance(a.id, emailEventFor(currentTemplate));
 }
 
 function updateEmailSentStatus(){
@@ -4593,7 +4493,7 @@ function exportCSV(list){
   if(!apps.length){alert('No records to export.');return;}
   const hdrs=['Name','Email','Phone','Position','Source','Date Received','Stage','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Pass','Interview Result','Last Email Sent','Overall Status','Decision Notes'];
   const rows=apps.map(a=>[
-    a.name,a.email,a.phone||'',a.position||'',a.source||'',a.dateReceived||'',a.stage,
+    a.name,a.email,a.phone||'',a.position||'',a.source||'',a.dateReceived||'',a.candidateStage||'',
     a.grit&&a.grit.score||'',a.grit&&a.grit.score?gritOutcome(a.grit.score).label:'Pending',
     a.values&&a.values.score||'',a.values&&a.values.score?valuesOutcome(a.values.score,a.values.confScore||'',a.values.intScore||'').label:'Pending',
     a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?emmStatusLabel(a):'Pending',
@@ -4874,37 +4774,9 @@ function showPage(id, btn) {
 // stage. "Application Received," "Job Offer Sent," and "Hired" are the only
 // exceptions, since those are one-time milestones rather than a state to act
 // on or wait through.
-var TRACK_A_LABELS = [
-  'Application Received',
-  'TO DO: Send Assessments',
-  'WAITING: Assessments',
-  'TO DO: Interview Them (Ops Manager)',
-  'TO DO: Finish Ops Manager Interview',
-  'TO DO: Send to Client',
-  'WAITING: Client’s Decision',
-  'Job Offer Sent',
-  'Hired'
-];
-var TRACK_B_LABELS = [
-  'Application Received',
-  'WAITING: Assessments',
-  'TO DO: Interview Them (HR)',
-  'TO DO: Finish HR Interview',
-  'TO DO: Finish PM Interview',
-  'TO DO: Finish CEO Interview',
-  'Job Offer Sent',
-  'Hired'
-];
 function isTrackB(a){
   return (a && a.department) === 'Sales and Marketing';
 }
-function getStageLabels(a){
-  return isTrackB(a) ? TRACK_B_LABELS : TRACK_A_LABELS;
-}
-// Kept as the default/fallback array for any code path that doesn't have a
-// specific applicant in scope (e.g. static UI built before an applicant is
-// picked). Always mirrors Track A.
-var STAGE_LABELS = TRACK_A_LABELS;
 var TEAM_DIRECTORY = {
   'Frances Miranda': 'frances.miranda@ab-businesssupport.com',
   'Wennielyn Pungasi': 'wennielyn.pungasi@ab-businesssupport.com',
@@ -5153,16 +5025,7 @@ function getInterviewerHint(a, round){
 // ============================================================
 // DASHBOARD TASK ENGINE -- single source of truth for "What's Pending" and
 // "Your Tasks" on the Dashboard, driven by Candidate Stage / Next Action /
-// Department (the fields HR/Ops actually edit day to day), NOT the old
-// numeric a.stage field. That field is legacy-only now (kept for the old
-// stepper/advanceStage buttons elsewhere) and is never updated when someone
-// edits the Candidate Stage panel, so a Dashboard built on it goes stale the
-// moment a record is migrated -- e.g. a candidate manually moved to
-// "Endorsed to Client" kept showing up as "needs an Ops Manager interview"
-// because her legacy stage number was never advanced to match. Records that
-// haven't been through the one-time migration yet (candidateStage blank)
-// still get a "Not migrated yet" task pointing at Settings, so nothing
-// silently falls through the cracks during the transition.
+// Department (the fields HR/Ops actually edit day to day).
 // Generic per-stage hint shown on the aggregate "What's Pending" cards
 // (which cover many candidates at once, so they can't show one person's
 // specific Next Action). Your Tasks / the drilldown list show the real
@@ -5178,10 +5041,8 @@ var STAGE_HINTS = {
   'Endorsed to Client': 'With the client for their interview and decision. Follow up if it’s been a while.',
   'Offer': 'Send (or follow up on) the offer.'
 };
-// Per-applicant version of the old getPipelineStep()/PIPELINE_CARD_DEFS
-// engine, but reading candidateStage/nextAction/department instead of the
-// legacy numeric stage. Returns null for terminal outcomes (Hired/Closed-*),
-// which the separate Outcomes cards already cover.
+// What needs doing for one candidate, from their stage / next action /
+// department. Null once they are closed or on hold.
 function getStageTask(a){
   if(!a) return null;
   if(isClosed(a) || isPaused(a)) return null;
@@ -5349,10 +5210,6 @@ var CARD_FILTERS = {
   statusNonCompliant: { label:"Doesn't Respond", fn: function(a){ return a.overallStatus === 'NonCompliant'; } },
   statusDeparted: { label:'No Longer With Us', fn: function(a){ return a.overallStatus === 'Departed'; } }
 };
-STAGE_LABELS.forEach(function(label, i){
-  var n = i + 1;
-  CARD_FILTERS['stage' + n] = { label: label, fn: function(a){ return a.stage === n; } };
-});
 var _activeDashCard = null;
 function showCardApplicants(key){
   var panel = document.getElementById('dashCardDetail');
@@ -5531,86 +5388,6 @@ function renderDashboard() {
     '</div>';
 }
 
-// ============================================================
-// OVERRIDE stageStatusBadge
-// ============================================================
-function stageStatusBadge(a) {
-  var st = getApplicantStatusLine(a);
-  return '<span class="badge" style="background:' + st.bg + ';color:' + st.tone + ';font-weight:700">' + st.label + '</span>';
-}
-
-// ============================================================
-// NEXT STEP -- plain-language guidance for what to do right now
-// ============================================================
-function getNextStep(a) {
-  if (a.overallStatus === 'Hired') return { label: 'Hired \u2014 no action needed', tone: 'done', icon: '\uD83C\uDF89' };
-  if (a.overallStatus === 'Rejected') return { label: 'Not moving forward \u2014 no action needed', tone: 'done', icon: '\u2715' };
-  if (a.overallStatus === 'Hold') return { label: 'On hold \u2014 revisit when ready', tone: 'waiting', icon: '\u23F8' };
-  if (a.overallStatus === 'NonCompliant') return { label: "Didn't respond, even after reminders \u2014 no action needed", tone: 'done', icon: '\u26D4' };
-  if (a.overallStatus === 'Departed') return { label: 'No longer with us \u2014 no action needed', tone: 'done', icon: '\uD83D\uDEAA' };
-
-  var stage = a.stage || 1;
-  var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
-  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
-  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
-
-  if (isTrackB(a)) {
-    // Track B (Sales and Marketing): Application Received -> Assessments Sent ->
-    // Ready for Prelim (HR) -> Second (Project Manager) -> Final (CEO) -> Job Offer -> Hired.
-    if (stage === 1) {
-      if (!emailedAssessment) return { label: 'Send the assessment invite email', tone: 'action', icon: '\u2709\uFE0F' };
-      return { label: 'Assessments sent \u2014 waiting on results', tone: 'waiting', icon: '\u23F3' };
-    }
-    if (stage === 2) {
-      if (!hasGrit || !hasValues) return { label: 'Waiting on GRIT/Values form results', tone: 'waiting', icon: '\u23F3' };
-      if (assessmentsAnyFailed(a)) return { label: 'Did not pass one of the assessments \u2014 decide Reject/Hold', tone: 'action', icon: '\u26A0\uFE0F' };
-      return { label: 'Assessments complete \u2014 ready for Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
-    }
-    if (stage === 3) return { label: 'Ready for Preliminary Interview (HR)', tone: 'action', icon: '\u27A1\uFE0F' };
-    if (stage === 4) return { label: 'Conduct Preliminary Interview (HR), then move to Second Interview', tone: 'action', icon: '\uD83C\uDFAF' };
-    if (stage === 5) return { label: 'Conduct Second Interview (Project Manager), then move to Final Interview', tone: 'action', icon: '\uD83C\uDFAF' };
-    if (stage === 6) return { label: 'Conduct Final Interview (CEO), then send Job Offer', tone: 'action', icon: '\uD83C\uDFAF' };
-    if (stage === 7) return { label: 'Job Offer sent \u2014 confirm once accepted', tone: 'action', icon: '\uD83D\uDCE8' };
-    return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
-  }
-
-  // Track A (Operations / AP-AR): Application Received -> Screening & Prelim
-  // Interview (HR) -> Assessments Sent -> Ready for Operations Manager Interview ->
-  // Operations Manager Interview -> Sent to Client for Review -> Waiting on Client's
-  // Decision -> Job Offer -> Hired.
-  if (stage === 1) return { label: 'Complete initial screening & preliminary interview (HR)', tone: 'action', icon: '\uD83D\uDC64' };
-
-  if (stage === 2) {
-    if (!emailedAssessment) return { label: 'Send the assessment invite email', tone: 'action', icon: '\u2709\uFE0F' };
-    return { label: 'Assessments sent \u2014 waiting on results', tone: 'waiting', icon: '\u23F3' };
-  }
-
-  if (stage === 3) {
-    if (!emailedAssessment) return { label: 'Send the assessment invite email', tone: 'action', icon: '\u2709\uFE0F' };
-    if (!hasGrit || !hasValues) return { label: 'Waiting on GRIT/Values form results', tone: 'waiting', icon: '\u23F3' };
-    if (a.requiresEmm && !(a.emm && a.emm.graded)) {
-      if (a.emmReceivedAt) return { label: 'Grade their EMM assessment \u2014 file received', tone: 'action', icon: '\u26A1' };
-      return { label: 'Waiting on EMM submission', tone: 'waiting', icon: '\u23F3' };
-    }
-    if (assessmentsAnyFailed(a)) return { label: 'Did not pass one of the assessments \u2014 decide Reject/Hold', tone: 'action', icon: '\u26A0\uFE0F' };
-    return { label: 'Assessments complete \u2014 ready for the Operations Manager interview', tone: 'action', icon: '\u27A1\uFE0F' };
-  }
-
-  if (stage === 4) return { label: 'Ready for the Operations Manager interview', tone: 'action', icon: '\u27A1\uFE0F' };
-
-  if (stage === 5) {
-    if (!(a.interview && a.interview.result)) return { label: 'Schedule and conduct the Operations Manager interview', tone: 'action', icon: '\uD83C\uDFAF' };
-    return { label: 'Interview passed \u2014 send to the client for review', tone: 'action', icon: '\u27A1\uFE0F' };
-  }
-
-  if (stage === 6) return { label: 'Confirm the client has it, then mark as waiting on their decision', tone: 'action', icon: '\u27A1\uFE0F' };
-
-  if (stage === 7) return { label: 'Waiting on the client\u2019s decision', tone: 'waiting', icon: '\u23F3' };
-
-  if (stage === 8) return { label: 'Job Offer sent \u2014 confirm once accepted', tone: 'action', icon: '\uD83D\uDCE8' };
-
-  return { label: 'Ready \u2014 record the final hiring decision', tone: 'action', icon: '\u2705' };
-}
 
 // Whether GRIT, Values, and (if required) EMM have each individually PASSED --
 // not merely "arrived." Gating auto-advance on this instead of just "graded"
@@ -5637,46 +5414,7 @@ function assessmentsAnyFailed(a){
 // Plain-language reason why someone isn't actually interview-ready yet, or
 // null if they genuinely are. Used to warn (not block) whoever is about to
 // manually push them into the interview stage anyway.
-function assessmentGapWarning(a){
-  if(assessmentsAllPassed(a)) return null;
-  if(a.requiresEmm && !(a.emm && a.emm.graded)) return "their EMM assessment hasn't been graded yet";
-  if(assessmentsAnyFailed(a)) return 'they did not pass one of the assessments (GRIT, Values, or EMM)';
-  return "their assessments aren't fully complete yet";
-}
 
-function checkAutoAdvance(a){
-  if(!a) return null;
-  if(a.overallStatus==='Hired'||a.overallStatus==='Rejected'||a.overallStatus==='Hold'||a.overallStatus==='NonCompliant'||a.overallStatus==='Departed') return null;
-  var stage = a.stage||1;
-  var target = stage;
-  var emailedAssessment = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
-  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
-  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
-  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
-  var assessmentsComplete = hasGrit && hasValues && emmDone;
-
-  if(isTrackB(a)){
-    // Track B: 1 -> 2 once the invite is sent, 2 -> 3 only once assessments are
-    // complete AND actually passed (a completed-but-failed set stays at stage
-    // 2, now flagged as "TO DO: Decide Reject/Hold" instead of moving on).
-    // Stages 4/5/6 (Prelim HR / PM / CEO interviews) have no scoring UI yet, so
-    // those are manual clicks via the stage stepper rather than auto-advanced.
-    if(stage===1 && emailedAssessment) target=2;
-    if((stage===2 || target===2) && assessmentsComplete && assessmentsAllPassed(a)) target=3;
-  } else {
-    // Track A: 2 -> 3 once the invite is sent, 3 -> 4 only once assessments are
-    // complete AND actually passed (same rule as above -- a completed-but-
-    // failed set stays at stage 3, flagged for a Reject/Hold decision), 5 -> 6
-    // only once the Operations Manager interview is scored PASS (a fail is a
-    // Decision-tab call, not an auto-send to the client). 6 -> 7 (actually
-    // hearing back from the client) has no data signal, so that one stays a
-    // manual click.
-    if(stage===2 && emailedAssessment) target=3;
-    if((stage===3 || target===3) && assessmentsComplete && assessmentsAllPassed(a)) target=4;
-    if(stage===5 && a.interview && a.interview.result==='pass') target=6;
-  }
-  return target>stage ? target : null;
-}
 
 // ============================================================
 // STAGE MIGRATION -- applicants added before the 8-stage rebuild kept their
@@ -5693,58 +5431,7 @@ function checkAutoAdvance(a){
 // rounds (HR/PM/CEO) have no dedicated scoring fields yet, so the same
 // limitation applies there from stage 4 onward.
 // ============================================================
-function recomputeStageFromEvidence(a){
-  var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
-  var hasValues = a.values && a.values.score !== '' && a.values.score != null;
-  var invited = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
 
-  if(a.overallStatus==='Hired' || a.overallStatus==='Departed') return getStageLabels(a).length;
-
-  if(isTrackB(a)){
-    // Only advance to stage 3 if the assessments actually PASSED -- a
-    // completed-but-failed set correctly lands back at stage 2, now flagged
-    // as "TO DO: Decide Reject/Hold" instead of looking interview-ready.
-    if(hasGrit && hasValues && assessmentsAllPassed(a)) return 3;
-    if(invited) return 2;
-    return 1;
-  }
-
-  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
-  var assessmentsComplete = hasGrit && hasValues && emmDone;
-  var ivResult = a.interview && a.interview.result;
-  if(ivResult==='pass') return 6;
-  if(ivResult==='fail') return 5;
-  if(assessmentsComplete && assessmentsAllPassed(a)) return 4;
-  if(invited) return 3;
-  return 1;
-}
-
-async function recalculateAllStages(){
-  if(!confirm('Recalculate every applicant\'s stage based on their actual assessment/interview data? This corrects stale stage numbers left over from the pipeline rebuild. You can still move anyone individually afterward using the stage circles on their profile.')) return;
-  var apps = getApplicants();
-  var msg = document.getElementById('recalcMsg');
-  if(msg){ msg.style.display='block'; msg.style.color='#555'; msg.textContent = 'Recalculating…'; }
-  var changed = 0;
-  apps.forEach(function(a){
-    var correct = recomputeStageFromEvidence(a);
-    if(correct !== (a.stage||1)){
-      a.stage = correct;
-      a.stageDates = a.stageDates || {};
-      a.stageDates[correct] = new Date().toISOString();
-      changed++;
-    }
-  });
-  saveApplicants(apps);
-  if(SCRIPT_URL){
-    for(var j=0;j<apps.length;j++){
-      try{ await syncApplicantToSheets(apps[j]); }catch(e){}
-    }
-  }
-  if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
-  if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
-  if(msg){ msg.style.color='#166534'; msg.textContent = '✓ Done: ' + changed + ' applicant(s) had their stage corrected. Please double-check anyone who was mid-interview or mid-endorsement, since a few manual hand-offs leave no data trail to recompute exactly.'; }
-  showToast('✓ Recalculated stages for ' + changed + ' applicant(s).');
-}
 
 // ============================================================
 // STAGE MODEL V4 -- ONE-TIME UPDATE UI. Preview before apply, for the
@@ -5882,30 +5569,7 @@ async function applyMigrationDateFixUI(){
   }
 }
 
-function autoAdvanceIfNeeded(id){
-  var apps=getApplicants();
-  var a=apps.find(function(x){ return x.id===id; });
-  if(!a) return;
-  var newStage=checkAutoAdvance(a);
-  if(newStage){
-    a.stage=newStage;
-    a.stageDates=a.stageDates||{};
-    a.stageDates[newStage]=new Date().toISOString();
-    saveApplicants(apps);
-    syncApplicantToSheets(a);
-    showToast('🚀 '+a.name+' auto-moved to '+getStageLabels(a)[newStage-1]);
-    refreshModalStageInfo(id);
-    if(typeof renderDashboard==='function') try{renderDashboard();}catch(e){}
-    if(typeof updateTrackerBadge==='function') try{updateTrackerBadge();}catch(e){}
-    if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{filterTracker();}catch(e){}
-  }
-}
 
-function nextStepCell(a) {
-  var n = getNextStep(a);
-  var color = n.tone === 'action' ? '#b45309' : (n.tone === 'waiting' ? '#1e40af' : '#166534');
-  return '<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:' + color + '"><span>' + n.icon + '</span><span>' + n.label + '</span></div>';
-}
 
 // ============================================================
 // ASSESSMENT DEADLINE STATUS -- the same rule the compliance job runs:
@@ -5931,187 +5595,8 @@ function getSlaStatus(a){
   return { label: '⏱️ ' + Math.max(0, Math.ceil(reminderAt - hoursElapsed)) + 'h until auto-reminder', tone: '#1e40af' };
 }
 
-function miniAssessBadge(letter, state, title){
-  var bg = state==='pass' ? '#e8f5e9' : state==='fail' ? '#fdecea' : state==='na' ? '#f1f1f4' : '#f1f1f4';
-  var fg = state==='pass' ? '#166534' : state==='fail' ? '#b52a2a' : state==='na' ? '#bbb' : '#888';
-  return '<span title="' + title.replace(/"/g,'&quot;') + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:' + bg + ';color:' + fg + ';font-size:11px;font-weight:800;margin-right:4px">' + letter + '</span>';
-}
 
-// ============================================================
-// OVERRIDE renderTrackerTable
-// ============================================================
-function getStageProgressBar(a, size){
-  var stageLabels = getStageLabels(a);
-  var n = stageLabels.length;
-  var current = a.stage||1;
-  var isRejectedOrNC = a.overallStatus==='Rejected' || a.overallStatus==='NonCompliant';
-  var isDoneGreen = a.overallStatus==='Hired' || (!a.overallStatus || a.overallStatus==='In Progress');
-  var segH = size==='large' ? 12 : 7;
-  var gap = size==='large' ? 8 : 4;
-  var segs = '';
-  for(var i=1;i<=n;i++){
-    var color;
-    if(isRejectedOrNC){
-      color = (i<=current) ? (a.overallStatus==='Rejected' ? '#f3a5a5' : '#c7cad1') : '#e2e8f0';
-    } else if(i < current || ((a.overallStatus==='Hired'||a.overallStatus==='Departed') && i<=current)){
-      color = '#06d6a0';
-    } else if(i === current){
-      color = '#4361ee';
-    } else {
-      color = '#e2e8f0';
-    }
-    segs += '<div style="flex:1;height:'+segH+'px;background:'+color+';border-radius:5px" title="'+(size==='large'?'':stageLabels[i-1])+'" aria-label="'+stageLabels[i-1]+(i===current?' (current)':(i<current?' (done)':''))+'" role="img"></div>';
-    if(i<n) segs += '<div style="width:'+gap+'px"></div>';
-  }
-  var bar = '<div style="display:flex;align-items:center">' + segs + '</div>';
-  if(size==='large'){
-    var labels = '<div style="display:flex;margin-top:8px;font-size:13px;color:#666;font-weight:600">' + stageLabels.map(function(l,i){
-      var align = i===0 ? 'left' : (i===n-1 ? 'right' : 'center');
-      var wt = (i+1===current && !isRejectedOrNC) ? '800' : '600';
-      var col = (i+1===current && !isRejectedOrNC) ? '#4361ee' : '#888';
-      return '<span style="flex:1;text-align:'+align+';font-weight:'+wt+';color:'+col+'">'+l+'</span>';
-    }).join('') + '</div>';
-    return bar + labels;
-  }
-  return bar;
-}
-
-function buildQuickStatusView(a){
-  var st = getApplicantStatusLine(a);
-  var sla = getSlaStatus(a);
-  var av = getAvatar(a.name);
-  return '<div style="text-align:center;padding:10px 6px 24px">' +
-    '<div class="avatar" style="width:64px;height:64px;font-size:24px;background:'+av.gradient+';margin:0 auto 14px">'+av.initials+'</div>' +
-    '<div style="font-size:26px;font-weight:800;color:var(--gray900)">'+escapeHtml(a.name)+'</div>' +
-    '<div style="font-size:16px;color:#888;margin-top:4px;margin-bottom:24px">'+escapeHtml(a.position||'No position')+(a.department?' &middot; '+escapeHtml(a.department):'')+'</div>' +
-    getStageProgressBar(a,'large') +
-    '<div style="font-size:22px;font-weight:800;margin:22px 0 6px;color:'+st.tone+'">'+st.label+'</div>' +
-    (sla ? '<div style="font-size:16px;font-weight:700;color:'+sla.tone+';margin-bottom:10px">'+sla.label+'</div>' : '') +
-    '<button class="btn btn-primary" style="font-size:15px;padding:12px 26px;margin-top:16px" onclick="openApplicant('+a.id+')">View Full Profile &#8594;</button>' +
-    '</div>';
-}
-
-function openStatusQuickView(id, evt){
-  if(evt) evt.stopPropagation();
-  var a = getApplicant(id);
-  if(!a) return;
-  var av = getAvatar(a.name);
-  document.getElementById('modalAvatar').style.background = av.gradient;
-  document.getElementById('modalAvatar').textContent = av.initials;
-  document.getElementById('modalTitle').textContent = a.name;
-  document.getElementById('modalSubtitle').textContent = (a.position||'No position') + ' \u00b7 ' + a.email;
-  document.getElementById('modalContent').innerHTML = buildQuickStatusView(a);
-  rememberFocusTrigger();
-  document.getElementById('detailModal').classList.add('open');
-  focusModalClose('detailModal');
-}
-
-// ============================================================
-// PIPELINE STATUS -- single source of truth for "where is this applicant
-// right now", used by the Tracker column, the dashboard card lists, AND the
-// new "What's Pending" dashboard cards / Tracker filter below. One place to
-// read, one place to change, so the wording can never drift between screens.
-// ============================================================
-// Single source of truth for "where is this applicant right now," across the
-// new 8-stage pipeline. Rejected/Hold/Non Compliant remain a separate
-// dimension (overallStatus) since they're exits reachable from any stage.
-function getPipelineStep(a){
-  if(a.overallStatus==='Hired') return { key:'pl_hired', label:'Hired', tone:'#166534', bg:'#e8f5e9' };
-  if(a.overallStatus==='Rejected') return { key:'pl_rejected', label:'Rejected', tone:'#b52a2a', bg:'#fdecea' };
-  if(a.overallStatus==='Hold') return { key:'pl_hold', label:'On Hold', tone:'#b45309', bg:'#fff8e1' };
-  if(a.overallStatus==='NonCompliant') return { key:'pl_noncompliant', label:"Doesn't Respond", tone:'#6b7280', bg:'#f1f1f4' };
-  if(a.overallStatus==='Departed') return { key:'pl_departed', label:'No Longer With Us', tone:'#6b7280', bg:'#f1f1f4' };
-
-  var stage = a.stage || 1;
-  var jobOfferStage = getStageLabels(a).length - 1;
-  if(stage===jobOfferStage) return { key:'pl_joboffer', label:'Job Offer Sent', tone:'#047857', bg:'#e8f5e9' };
-
-  if(isTrackB(a)){
-    // Track B (Sales and Marketing): no EMM, three internal interview rounds.
-    // Every label is either "TO DO:" (someone needs to act) or "WAITING:"
-    // (nothing to do) -- one rule, applied everywhere, so nobody has to
-    // decode a different sentence shape at every stage.
-    if(stage===1) return { key:'pl_b_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
-    if(stage===2){
-      var b2Submitted = a.grit && a.grit.score!=='' && a.grit.score!=null && a.values && a.values.score!=='' && a.values.score!=null;
-      if(b2Submitted && assessmentsAnyFailed(a)) return { key:'pl_b_stage2_failed', label:'TO DO: Decide Reject/Hold', tone:'#b52a2a', bg:'#fdecea' };
-      return { key:'pl_b_stage2', label:'WAITING: Assessments', tone:'#1e40af', bg:'#eef2ff' };
-    }
-    if(stage===3) return { key:'pl_b_stage3', label:'TO DO: Interview Them (HR)', tone:'#166534', bg:'#e8f5e9' };
-    if(stage===4) return { key:'pl_b_stage4', label:'TO DO: Finish HR Interview', tone:'#1e40af', bg:'#eef2ff' };
-    if(stage===5) return { key:'pl_b_stage5', label:'TO DO: Finish PM Interview', tone:'#1e40af', bg:'#eef2ff' };
-    if(stage===6) return { key:'pl_b_stage6', label:'TO DO: Finish CEO Interview', tone:'#6d28d9', bg:'#f3e8ff' };
-    return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
-  }
-
-  // Track A (Operations / AP-AR)
-  var emmPendingGrading = a.requiresEmm && a.emmReceivedAt && !(a.emm && a.emm.graded);
-  if(stage===1) return { key:'pl_a_stage1', label:'Application Received', tone:'#888', bg:'#f1f1f4' };
-  if(stage===2) return { key:'pl_a_stage2', label:'TO DO: Send Assessments', tone:'#1e40af', bg:'#eef2ff' };
-  if(stage===3){
-    if(emmPendingGrading) return { key:'pl_a_stage3_pending_emm', label:'TO DO: Grade EMM Test', tone:'#6d28d9', bg:'#f3e8ff' };
-    var a3Submitted = a.grit && a.grit.score!=='' && a.grit.score!=null && a.values && a.values.score!=='' && a.values.score!=null && (a.requiresEmm ? (a.emm && a.emm.graded) : true);
-    if(a3Submitted && assessmentsAnyFailed(a)) return { key:'pl_a_stage3_failed', label:'TO DO: Decide Reject/Hold', tone:'#b52a2a', bg:'#fdecea' };
-    return { key:'pl_a_stage3', label:'WAITING: Assessments', tone:'#1e40af', bg:'#eef2ff' };
-  }
-  if(stage===4) return { key:'pl_a_stage4', label:'TO DO: Interview Them (Ops Manager)', tone:'#166534', bg:'#e8f5e9' };
-  if(stage===5){
-    var ivResult = a.interview && a.interview.result;
-    if(ivResult==='fail') return { key:'pl_a_stage5_fail', label:'TO DO: Decide Reject/Hold', tone:'#b52a2a', bg:'#fdecea' };
-    return { key:'pl_a_stage5', label:'TO DO: Finish Ops Manager Interview', tone:'#1e40af', bg:'#eef2ff' };
-  }
-  if(stage===6) return { key:'pl_a_stage6', label:'TO DO: Send to Client', tone:'#6d28d9', bg:'#f3e8ff' };
-  if(stage===7) return { key:'pl_a_stage7', label:'WAITING: Client’s Decision', tone:'#6d28d9', bg:'#f3e8ff' };
-  return { key:'pl_other', label:'In Progress', tone:'#888', bg:'#f1f1f4' };
-}
-
-function getApplicantStatusLine(a){
-  return getPipelineStep(a);
-}
-
-// Ordered, non-terminal steps shown as "What's Pending" cards on the Dashboard
-// and as options in the Tracker's Pipeline Status filter. Terminal outcomes
-// (Hired/Rejected/Hold/Non Compliant) already have their own "Outcomes" cards,
-// so they're deliberately left out of this list to avoid duplicating them.
-// Job Offer means the same thing in both tracks, so it shares one key;
-// everything else is track-specific since the two pipelines are ordered
-// completely differently. One rule for every label: it starts with "TO DO:"
-// (someone on the team needs to act, right now) or "WAITING:" (nothing to
-// do). Same two words, every single card -- nothing else to learn. Near-
-// duplicate states that need the exact same (no) action, like "assessments
-// sent" vs. "partially submitted," are merged into one card so there's less
-// to scan. Every card also carries a "role" -- whose job it is to act on it,
-// or to keep an eye on it while waiting -- so the Dashboard's role filter can
-// show each person only their own queue instead of the whole pipeline.
-// "actionable" marks the states that belong on the flat "Your Tasks" list --
-// someone genuinely needs to do something right now. Pure waiting states
-// (and "Application Received"/"Job Offer Sent" once nothing further is owed)
-// are left off that list since there's nothing to click.
-var PIPELINE_CARD_DEFS = [
-  { key:'pl_a_stage1', label:'AP/AR Team: Application Received', color:'#6b7280', hint:'New, HR needs to interview them first.', role:'HR', actionable:true },
-  { key:'pl_a_stage2', label:'AP/AR Team: TO DO: Send Assessments', color:'#1e40af', hint:'HR already interviewed them. Send the test emails.', role:'HR', actionable:true },
-  { key:'pl_a_stage3', label:'AP/AR Team: WAITING: Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.', role:'HR', actionable:false },
-  { key:'pl_a_stage3_pending_emm', label:'AP/AR Team: TO DO: Grade EMM Test', color:'#6d28d9', hint:'Someone needs to grade their EMM test.', role:'HR', actionable:true },
-  { key:'pl_a_stage3_failed', label:'AP/AR Team: TO DO: Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass one of the tests (GRIT, Values, or EMM). Make the call.', role:'HR', actionable:true },
-  { key:'pl_a_stage4', label:'AP/AR Team: TO DO: Interview Them (Ops Manager)', color:'#166534', hint:'They passed their tests. The Operations Manager needs to interview them.', role:'Operations Manager', actionable:true },
-  { key:'pl_a_stage5', label:'AP/AR Team: TO DO: Finish Ops Manager Interview', color:'#1e40af', hint:'Interview is happening. Write down pass or fail.', role:'Operations Manager', actionable:true },
-  { key:'pl_a_stage5_fail', label:'AP/AR Team: TO DO: Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass. Make the call.', role:'HR', actionable:true },
-  { key:'pl_a_stage6', label:'AP/AR Team: TO DO: Send to Client', color:'#6d28d9', hint:'They passed the interview. Send them to the client now.', role:'Operations Manager', actionable:true },
-  { key:'pl_a_stage7', label:'AP/AR Team: WAITING: Client’s Decision', color:'#6d28d9', hint:'Already sent. Just wait for the client to answer.', role:'Operations Manager', actionable:false },
-  { key:'pl_b_stage1', label:'Sales Team: Application Received', color:'#6b7280', hint:'New, send them the assessment email.', role:'HR', actionable:true },
-  { key:'pl_b_stage2', label:'Sales Team: WAITING: Assessments', color:'#1e40af', hint:'Test emails sent. Just wait for their answers.', role:'HR', actionable:false },
-  { key:'pl_b_stage2_failed', label:'Sales Team: TO DO: Decide Reject/Hold', color:'#b52a2a', hint:'They did not pass one of the tests (GRIT or Values). Make the call.', role:'HR', actionable:true },
-  { key:'pl_b_stage3', label:'Sales Team: TO DO: Interview Them (HR)', color:'#166534', hint:'They passed their tests. HR needs to interview them.', role:'HR', actionable:true },
-  { key:'pl_b_stage4', label:'Sales Team: TO DO: Finish HR Interview', color:'#1e40af', hint:'HR is interviewing them. Once done, send to Frances.', role:'HR', actionable:true },
-  { key:'pl_b_stage5', label:'Sales Team: TO DO: Finish PM Interview', color:'#1e40af', hint:'Frances is interviewing them now.', role:'Project Manager', actionable:true },
-  { key:'pl_b_stage6', label:'Sales Team: TO DO: Finish CEO Interview', color:'#6d28d9', hint:'The CEO is interviewing them now.', role:'CEO', actionable:true },
-  { key:'pl_joboffer', label:'Job Offer Sent', color:'#047857', hint:'WAITING: for them to accept, then click Hired.', role:'HR', actionable:false }
-];
-// PIPELINE_CARD_DEFS above is now unused dead weight, kept only for
-// reference/history -- superseded by getStageTask() (Candidate Stage /
-// Next Action / Department driven, see DASHBOARD TASK ENGINE), which is
-// what the Dashboard's "What's Pending" grid and "Your Tasks" list, and the
-// drilldown filters below, actually run on now.
+// Drilldown filters for each active stage (the Dashboard cards), driven by getStageTask().
 ['__not_migrated__'].concat(CANDIDATE_STAGES.filter(function(s){ return CLOSED_STAGES.indexOf(s)<0; })).forEach(function(key){
   CARD_FILTERS[key] = {
     label: key === '__not_migrated__' ? 'Not Migrated Yet' : key,
@@ -6149,15 +5634,14 @@ function renderTrackerTable(apps) {
     var sla = getSlaStatus(a);
     // One clear badge is the primary (and usually only) thing shown per row --
     // the same wording used on the Dashboard and Board, so the vocabulary
-    // never drifts between screens. Stage history and full detail are one
-    // click away in the quick view (openStatusQuickView) instead of being
-    // crammed into every row. Next Action shows right under it since that's
+    // never drifts between screens; full detail is one click away in the
+    // profile. Next Action shows right under it since that's
     // the one field HR actually needs to act on day to day.
     var stageStatusInner =
       '<span style="background:' + st.bg + ';color:' + st.tone + ';font-weight:800;font-size:13px;padding:5px 12px;border-radius:6px;display:inline-block">' + st.label + '</span>' +
       (a.nextAction ? '<div style="font-size:11px;color:var(--gray600);margin-top:5px;font-weight:500">Next: ' + a.nextAction + '</div>' : '') +
       (sla ? '<div style="font-size:11px;color:' + sla.tone + ';margin-top:3px;font-weight:700">' + sla.label + '</div>' : '');
-    var stageStatusCell = '<div onclick="openStatusQuickView(' + a.id + ', event)" style="cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px" title="Click for a larger view">' + stageStatusInner + '</div>';
+    var stageStatusCell = '<div onclick="event.stopPropagation();openApplicant(' + a.id + ')" style="cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px" title="Click for a larger view">' + stageStatusInner + '</div>';
     var emm = getEmmBadge(a);
     var emmCell = '<span style="background:' + emm.bg + ';color:' + emm.tone + ';font-weight:800;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block;white-space:nowrap">' + emm.label + '</span>';
     var rawNote = (a.resumeNotes||'');
@@ -6305,7 +5789,7 @@ async function bulkSendEmail(){
   var skipped = apps.length - withEmail.length;
   if(!withEmail.length){ alert('None of the selected candidates have an email on file.'); return; }
   if(!confirm('Send "'+(EMAIL_TEMPLATE_LABELS[templateKey]||templateKey)+'" to '+withEmail.length+' candidate(s)'+(skipped?(' ('+skipped+' skipped, no email on file)'):'')+'?')) return;
-  var okCount = 0, failed = [];
+  var okCount = 0, failed = [], sentIds = [];
   for(var i=0;i<withEmail.length;i++){
     var a = withEmail[i];
     showToast('Sending '+(i+1)+'/'+withEmail.length+'...');
@@ -6319,21 +5803,21 @@ async function bulkSendEmail(){
     var res = await apiPost('sendEmail', {data:payload});
     if(res && res.success){
       okCount++;
-      var freshApps = getApplicants();
-      var fa = freshApps.find(function(x){ return x.id===a.id; });
-      if(fa){
-        if(!fa.emailsSent) fa.emailsSent={};
-        fa.emailsSent[templateKey]=new Date().toISOString();
-        saveApplicants(freshApps);
-        syncApplicantToSheets(fa);
-      }
+      mutateApplicant(a.id, function(fa){ if(!fa.emailsSent) fa.emailsSent={}; fa.emailsSent[templateKey]=new Date().toISOString(); }, {sync:'now'});
+      sentIds.push(a.id);
     } else {
       failed.push(a.name);
     }
   }
-  showToast('✓ Sent to '+okCount+'/'+withEmail.length+' candidate(s)' + (skipped?(', '+skipped+' skipped (no email)'):''));
+  showToast('Sent to '+okCount+'/'+withEmail.length+' candidate(s)' + (skipped?(', '+skipped+' skipped (no email)'):''));
   if(failed.length) alert('Some emails failed to send: '+failed.join(', '));
   clearTrackerSelection();
+  var ev = emailEventFor(templateKey);
+  if(ev==='regretSent'){ var open = sentIds.filter(function(id){ return !isClosed(getApplicant(id)); }); if(open.length) openCloseDialog(open, {stage:'Closed - Rejected'}); }
+  else if(ev){
+    var moved = sentIds.map(function(id){ var t = autoAdvanceTarget(getApplicant(id), ev); if(!t) return null; var r = setOutcome(id, {stage:t}); r.id = id; return r; }).filter(Boolean);
+    if(moved.length) outcomeToast(moved.length+' candidate(s) moved to '+AUTO_ADVANCE_TARGETS[ev], moved);
+  }
 }
 
 // ============================================================
@@ -6469,54 +5953,9 @@ function renderBoard(){
 // hire/reject/hold/non-compliant decisions. Local-device date/time is used
 // since that's what "today" means to whoever is looking at it.
 // ============================================================
-function isSameLocalDay(isoString, ref){
-  if(!isoString) return false;
-  var d = new Date(isoString);
-  if(isNaN(d.getTime())) return false;
-  return d.getFullYear()===ref.getFullYear() && d.getMonth()===ref.getMonth() && d.getDate()===ref.getDate();
-}
 
-function getEodData(){
-  var apps = getApplicants();
-  var today = new Date();
-  var newApps = [], emmSubmitted = [], emmGraded = [], decisions = [];
-  var emailsByType = {};
-  apps.forEach(function(a){
-    if(isSameLocalDay(a.createdAt, today)) newApps.push(a);
-    if(isSameLocalDay(a.emmReceivedAt, today)) emmSubmitted.push(a);
-    if(a.emm && a.emm.graded && isSameLocalDay(a.emm.gradedAt, today)) emmGraded.push(a);
-    if(isSameLocalDay(a.statusChangedAt, today) && a.overallStatus && a.overallStatus!=='In Progress'){
-      decisions.push({ a:a, status:a.overallStatus });
-    }
-    if(a.emailsSent){
-      Object.keys(a.emailsSent).forEach(function(k){
-        if(isSameLocalDay(a.emailsSent[k], today)){
-          if(!emailsByType[k]) emailsByType[k]=[];
-          emailsByType[k].push(a);
-        }
-      });
-    }
-  });
-  return { today:today, newApps:newApps, emmSubmitted:emmSubmitted, emmGraded:emmGraded, decisions:decisions, emailsByType:emailsByType };
-}
 
-function eodRow(a, hint){
-  var av = getAvatar(a.name);
-  return '<div onclick="openApplicant(' + a.id + ')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--gray100)">' +
-    '<div class="avatar avatar-sm" style="background:' + av.gradient + '">' + av.initials + '</div>' +
-    '<div style="flex:1;min-width:0">' +
-      '<div style="font-weight:700;font-size:14px">' + escapeHtml(a.name) + '</div>' +
-      '<div style="font-size:12px;color:var(--gray500);margin-top:2px">' + escapeHtml(a.position||'-') + (hint?' &middot; '+hint:'') + '</div>' +
-    '</div>' +
-  '</div>';
-}
 
-function eodSection(title, color, items){
-  var body = items.length
-    ? '<div class="table-wrap" style="border-radius:var(--radius)">' + items.join('') + '</div>'
-    : '<div class="empty" style="padding:14px;font-size:13px;color:var(--gray400)">Nothing today.</div>';
-  return '<div style="margin:20px 0 8px;font-size:13px;font-weight:700;color:' + color + ';text-transform:uppercase;letter-spacing:.03em">' + title + '</div>' + body;
-}
 
 // ============================================================
 // EXECUTIVE DASHBOARD (replaces the old activity-log EOD page) -- answers
@@ -7478,7 +6917,7 @@ async function confirmInterviewCalSlot(id, slotId){
   if(btn){ btn.disabled=true; btn.textContent='Confirming...'; }
   var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:(a&&a.candidateContact)||'', startIso:startIso, durationMin:durationMin}});
   if(res && res.success){
-    showToast(res.calendarWarning ? ('✓ Interview confirmed. ' + res.calendarWarning) : '✓ Interview confirmed. Added to David\'s calendar, confirmation email sent, other times declined');
+    autoAdvance(id, 'interviewScheduled', res.calendarWarning ? ('Interview confirmed. ' + res.calendarWarning) : 'Interview confirmed. Added to David\'s calendar, confirmation email sent, other times declined');
     await loadFromSheets();
     renderInterviewCalendar();
     openInterviewCalDetail(id, slotId); // refresh the overlay in place to show the confirmed state
@@ -7644,7 +7083,7 @@ function toggleEmmReceived(id) {
   if (!getApplicant(id)) return;
   mutateApplicant(id, function(x){ x.emmReceivedAt = x.emmReceivedAt ? '' : new Date().toISOString(); }, {sync:'now'});
   var a = getApplicant(id);
-  autoAdvanceIfNeeded(id);
+  autoAdvanceIfSubmitted(id);
   var fresh = getApplicant(id);
   if (document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML = buildEmmTab(fresh);
   showToast(a.emmReceivedAt ? ('✓ EMM marked received for ' + a.name) : ('EMM received flag cleared for ' + a.name));
@@ -8111,7 +7550,7 @@ updateSyncStatus(true);
       showToast('🔧 Reconnected automatically. Your saved sheet connection was out of date.');
     }
   }
-  if(loaded){ renderDashboard(); updateTrackerBadge(); }
+  if(loaded){ sweepSubmittedAssessments(); renderDashboard(); updateTrackerBadge(); }
   // Pull Offboarding cases too so a due clearance task shows up in "Your
   // Tasks" on first paint, not just after someone opens the Offboarding page.
   var offLoaded = await loadOffboardingFromSheets();
