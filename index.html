@@ -1319,7 +1319,7 @@ async function apiPost(action, data) {
 // for clicks. The Sheet is told which fields were changed (_changed), so a
 // save never overwrites fields another device or the compliance job updated.
 // ============================================================
-var RECORD_META_KEYS = ['_dirty','_rev','_syncFailed','_syncError','_syncTimer'];
+var RECORD_META_KEYS = ['_dirty','_rev','_syncFailed','_syncError','_syncTimer','_undoStage'];
 function recordFields(a){
   var out = {};
   Object.keys(a).forEach(function(k){ if(RECORD_META_KEYS.indexOf(k)<0) out[k] = a[k]; });
@@ -1370,7 +1370,7 @@ async function flushSync(id){
     // Edits made while this save was in flight stay dirty for the next one.
     var apps = getRawApplicants();
     var cur = apps.find(function(x){ return x.id===id; });
-    if(cur && cur._rev===a._rev){ delete cur._dirty; saveApplicants(apps); }
+    if(cur){ delete cur._undoStage; if(cur._rev===a._rev) delete cur._dirty; saveApplicants(apps); }
   }
   waiters.forEach(function(r){ r(res); });
   return res;
@@ -1387,6 +1387,8 @@ async function syncApplicantToSheets(applicant) {
   // Untracked records (created or queued by older code) send no list, which
   // the backend treats the old way: the client's copy wins.
   if(applicant._dirty) payload._changed = Object.keys(applicant._dirty);
+  // An undo tells the backend to drop the stage date it just stamped.
+  if(applicant._undoStage) payload._undoStage = true;
   const res = await apiPost('saveApplicant', {data: payload});
   if (res && res.success) {
     setSyncFailedFlag(applicant.id, false);
@@ -3196,14 +3198,140 @@ function advanceStage(id,stage){
   }
 }
 
-function setDecision(id,decision){
-  const apps=getApplicants();
-  const a=apps.find(a=>a.id===id);
-  if(a){a.overallStatus=decision;a.statusChangedAt=new Date().toISOString();if(decision==='Hired')a.stage=getStageLabels(a).length;saveApplicants(apps);syncApplicantToSheets(a);}
-  document.getElementById('modalTabContent').innerHTML=buildDecisionTab(getApplicant(id));
-  refreshModalStageInfo(id);
+// ============================================================
+// OUTCOMES -- one writer for "is this candidate finished, and how".
+// Stage and status used to be set separately and drifted apart (closed by
+// stage but still "In Progress", rejected but sitting in an active stage).
+// setOutcome is the only thing that writes a closed stage, the overall
+// status, or a close reason, and keeps the three consistent:
+//   Hired stage <-> Hired status; Closed - Rejected/Withdrawn <-> Rejected
+//   (with a reason); leaving a closed stage reopens as In Progress; Hold
+//   pauses without moving the stage; Departed only after Hired.
+// ============================================================
+var REASON_STAGES = ['Closed - Rejected','Closed - Withdrawn'];
+function isClosed(a){
+  if(!a) return true;
+  return CLOSED_STAGES.indexOf(a.candidateStage)>=0 ||
+    ['Hired','Rejected','NonCompliant','Departed','Deleted'].indexOf(a.overallStatus)>=0;
+}
+function isPaused(a){ return !!a && a.overallStatus==='Hold'; }
+
+function statusForStage(stage, status){
+  if(stage==='Hired') return status==='Departed' ? 'Departed' : 'Hired';
+  if(REASON_STAGES.indexOf(stage)>=0) return 'Rejected';
+  if(['Hired','Rejected','Departed'].indexOf(status)>=0) return 'In Progress'; // reopened
+  return status || 'In Progress';
+}
+
+// change: {stage?, status?, closedReason?}. Returns {promise, undo}.
+function setOutcome(id, change){
+  var a = getApplicant(id);
+  if(!a) return {promise:Promise.resolve({ok:false}), undo:function(){}};
+  var prev = {candidateStage:a.candidateStage||'', overallStatus:a.overallStatus||'In Progress', closedReason:a.closedReason||'', nextAction:a.nextAction||'', statusChangedAt:a.statusChangedAt||''};
+  var promise = mutateApplicant(id, function(x){
+    var status = x.overallStatus || 'In Progress';
+    if(change.stage!==undefined && change.stage!==x.candidateStage){
+      x.candidateStage = change.stage;
+      if(DEFAULT_NEXT_ACTION_BY_STAGE[change.stage]!==undefined) x.nextAction = DEFAULT_NEXT_ACTION_BY_STAGE[change.stage];
+      status = statusForStage(change.stage, status);
+    }
+    if(change.status!==undefined){
+      status = change.status;
+      if(status==='Hired' && x.candidateStage!=='Hired'){ x.candidateStage = 'Hired'; x.nextAction = 'None'; }
+      if(status==='Rejected' && REASON_STAGES.indexOf(x.candidateStage)<0){ x.candidateStage = 'Closed - Rejected'; x.nextAction = 'None'; }
+    }
+    x.overallStatus = status;
+    if(REASON_STAGES.indexOf(x.candidateStage)>=0){ if(change.closedReason!==undefined) x.closedReason = change.closedReason; }
+    else x.closedReason = '';
+    if(x.overallStatus!==prev.overallStatus) x.statusChangedAt = new Date().toISOString();
+  }, {sync:'now'});
+  return {promise:promise, undo:function(){
+    return mutateApplicant(id, function(x){ Object.assign(x, prev); x._undoStage = true; }, {sync:'now'});
+  }};
+}
+
+function refreshAfterOutcome(id){
+  var content = document.getElementById('modalTabContent');
+  var activeTab = document.querySelector('#modalDtabs .dtab.active');
+  if(content && activeTab && activeTab.id==='dtab-decision') content.innerHTML = buildDecisionTab(getApplicant(id));
+  if(typeof refreshCandidateStagePanel==='function') refreshCandidateStagePanel(id);
+  if(typeof refreshModalStageInfo==='function' && document.getElementById('modalStageInfo')) refreshModalStageInfo(id);
   renderDashboard();
   updateTrackerBadge();
+  if(document.getElementById('trackerTable') && typeof filterTracker==='function') filterTracker();
+}
+
+function outcomeToast(label, results){
+  showToast(label, 'success', function(){
+    results.forEach(function(r){ r.undo(); });
+    results.forEach(function(r){ if(r.id) refreshAfterOutcome(r.id); });
+    showToast('Change undone');
+  });
+}
+
+// One dialog for every way of closing a candidate: Rejected or Withdrawn,
+// with the reason (finally recorded -- the column existed but nothing set it).
+function openCloseDialog(ids, defaults, onDone){
+  defaults = defaults || {};
+  var old = document.getElementById('closeDialog');
+  if(old) old.remove();
+  var names = ids.map(function(id){ var a=getApplicant(id); return a ? a.name : ''; }).filter(Boolean);
+  var who = names.length===1 ? escapeHtml(names[0]) : (names.length+' candidates');
+  var stage = defaults.stage==='Closed - Withdrawn' ? 'Closed - Withdrawn' : 'Closed - Rejected';
+  var el = document.createElement('div');
+  el.id = 'closeDialog';
+  el.className = 'modal-overlay open';
+  el.innerHTML =
+    '<div class="modal" style="width:440px" role="dialog" aria-modal="true" aria-labelledby="closeDialogTitle">' +
+      '<div class="modal-header"><div class="modal-title" id="closeDialogTitle">Close '+who+'</div>' +
+        '<button class="modal-close" aria-label="Close" onclick="document.getElementById(\'closeDialog\').remove()">&times;</button></div>' +
+      '<div style="padding:var(--space-4)">' +
+        '<label class="lbl">Outcome</label>' +
+        '<select class="inp" id="closeDialogStage">' +
+          '<option value="Closed - Rejected"'+(stage==='Closed - Rejected'?' selected':'')+'>Rejected (we decided not to continue)</option>' +
+          '<option value="Closed - Withdrawn"'+(stage==='Closed - Withdrawn'?' selected':'')+'>Withdrawn (the candidate pulled out)</option>' +
+        '</select>' +
+        '<label class="lbl" style="margin-top:var(--space-3)">Reason</label>' +
+        '<select class="inp" id="closeDialogReason">' +
+          '<option value="">Choose a reason…</option>' +
+          CLOSED_REASON_OPTIONS.map(function(r){ return '<option value="'+escapeHtml(r)+'"'+(defaults.reason===r?' selected':'')+'>'+escapeHtml(r)+'</option>'; }).join('') +
+        '</select>' +
+        '<div id="closeDialogError" style="display:none;color:var(--red);font-size:12px;margin-top:6px">Pick a reason, it feeds the reports.</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:var(--space-4)">' +
+          '<button class="btn btn-ghost" onclick="document.getElementById(\'closeDialog\').remove()">Cancel</button>' +
+          '<button class="btn btn-red" id="closeDialogConfirm">Close candidate'+(names.length===1?'':'s')+'</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(el);
+  document.getElementById('closeDialogReason').focus();
+  document.getElementById('closeDialogConfirm').onclick = function(){
+    var reason = document.getElementById('closeDialogReason').value;
+    if(!reason){ document.getElementById('closeDialogError').style.display='block'; return; }
+    var st = document.getElementById('closeDialogStage').value;
+    el.remove();
+    var results = ids.map(function(id){ var r = setOutcome(id, {stage:st, closedReason:reason}); r.id = id; return r; });
+    ids.forEach(refreshAfterOutcome);
+    outcomeToast((names.length===1 ? names[0] : names.length+' candidates')+' closed: '+reason, results);
+    if(onDone) onDone();
+  };
+}
+
+// Decision-tab buttons.
+function setDecision(id, decision){
+  var a = getApplicant(id);
+  if(!a) return;
+  if(decision==='Rejected'){ openCloseDialog([id], {stage:'Closed - Rejected'}); return; }
+  if(decision==='Departed' && a.overallStatus!=='Hired' && a.overallStatus!=='Departed'){ showToast('Only a hired candidate can be marked as no longer with us.', 'error'); return; }
+  var change = {status:decision};
+  // "Back to In Progress" from a closed stage has to leave that stage too.
+  if(decision==='In Progress' && CLOSED_STAGES.indexOf(a.candidateStage)>=0){
+    change = {status:'In Progress', stage: a.candidateStage==='Hired' ? 'Offer' : 'Operations Decision'};
+  }
+  var r = setOutcome(id, change); r.id = id;
+  refreshAfterOutcome(id);
+  var labels = {'Hired':'Marked as hired','Hold':'Put on hold','NonCompliant':"Marked as doesn't respond",'Departed':'Marked as no longer with us','In Progress':'Back to in progress'};
+  outcomeToast((labels[decision]||'Updated')+': '+a.name, [r]);
 }
 
 function deleteApplicant(id){
@@ -5056,7 +5184,7 @@ var STAGE_HINTS = {
 // which the separate Outcomes cards already cover.
 function getStageTask(a){
   if(!a) return null;
-  if(a.overallStatus==='Hired' || a.overallStatus==='Rejected' || a.overallStatus==='Hold' || a.overallStatus==='NonCompliant' || a.overallStatus==='Departed') return null;
+  if(isClosed(a) || isPaused(a)) return null;
   var stage = a.candidateStage;
   if(!stage){
     return { key:'__not_migrated__', label:'Not Migrated Yet', color:'#6b7280', hint:'Run the one-time stage migration in Settings before this record can show up correctly.', role:'HR', actionable:true, waiting:false };
@@ -5164,21 +5292,16 @@ function updateCandidateStage(id){
   var sel = document.getElementById('candStage_'+id);
   if(!sel) return;
   var a = getApplicant(id);
-  var prevStage = a ? a.candidateStage : '';
-  var prevNextAction = a ? a.nextAction : '';
   var newStage = sel.value;
-  updateField(id, 'candidateStage', newStage);
-  // Suggest a sensible default Next Action for the new stage -- HR can
-  // change it immediately if it's not right for this particular candidate.
-  var suggestion = newStage ? DEFAULT_NEXT_ACTION_BY_STAGE[newStage] : '';
-  if(suggestion) updateField(id, 'nextAction', suggestion);
-  showToast('✓ Stage updated' + (suggestion ? '. Next Action suggested: '+suggestion : ''), 'success', function(){
-    updateField(id, 'candidateStage', prevStage);
-    updateField(id, 'nextAction', prevNextAction);
-    refreshCandidateStagePanel(id);
-    showToast('✓ Stage change undone');
-  });
-  refreshCandidateStagePanel(id);
+  if(REASON_STAGES.indexOf(newStage)>=0){
+    sel.value = a ? (a.candidateStage||'') : '';   // stays until the dialog confirms
+    openCloseDialog([id], {stage:newStage});
+    return;
+  }
+  var r = setOutcome(id, {stage:newStage}); r.id = id;
+  refreshAfterOutcome(id);
+  var suggestion = DEFAULT_NEXT_ACTION_BY_STAGE[newStage];
+  outcomeToast('Stage updated' + (suggestion && suggestion!=='None' ? '. Next Action suggested: '+suggestion : ''), [r]);
 }
 
 function updateCandidateNextAction(id){
@@ -5785,33 +5908,27 @@ function nextStepCell(a) {
 }
 
 // ============================================================
-// SLA / 24-HOUR DEADLINE STATUS -- mirrors the server-side
-// checkAssessmentCompliance() 12h reminder / 24h archive logic
+// ASSESSMENT DEADLINE STATUS -- the same rule the compliance job runs:
+// only while the candidate is waiting on assessments, using the reminder
+// and deadline hours the backend sends (SERVER_CONFIG).
 // ============================================================
 function getSlaStatus(a){
-  if(!a || (a.overallStatus && a.overallStatus!=='In Progress')) return null;
+  if(!a || isClosed(a) || isPaused(a)) return null;
+  if(a.candidateStage && a.candidateStage!=='Assessment Sent') return null;
   var invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
   if(!invitedAt) return null;
   var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
-  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
+  var emmDone = a.requiresEmm ? !!(a.emmReceivedAt || (a.emm && a.emm.graded)) : true;
   if(hasGrit && hasValues && emmDone) return null;
+  var deadline = SERVER_CONFIG.deadlineHours, reminderAt = SERVER_CONFIG.reminderHours;
   var reminderSent = a.emailsSent && (a.emailsSent.autoReminder || a.emailsSent.reminder);
-  // Mirrors the server-side checkAssessmentCompliance() 24h reminder / 48h
-  // archive timing -- keep these two numbers in sync if that ever changes
-  // again (this frontend copy won't update itself).
   var hoursElapsed = (Date.now() - new Date(invitedAt).getTime()) / 3600000;
-  if(hoursElapsed >= 48) return { label: '⛔ Overdue, will be archived soon', tone: '#b52a2a' };
-  if(reminderSent){
-    var left = Math.max(0, Math.ceil(48 - hoursElapsed));
-    return { label: '✉️ Reminder sent · ' + left + 'h to deadline', tone: '#b45309' };
-  }
-  if(hoursElapsed >= 24){
-    var left2 = Math.max(0, Math.ceil(48 - hoursElapsed));
-    return { label: '⏳ ' + left2 + 'h left, reminder due soon', tone: '#b45309' };
-  }
-  var leftReminder = Math.max(0, Math.ceil(24 - hoursElapsed));
-  return { label: '⏱️ ' + leftReminder + 'h until auto-reminder', tone: '#1e40af' };
+  var left = Math.max(0, Math.ceil(deadline - hoursElapsed));
+  if(hoursElapsed >= deadline) return { label: '⛔ Past the deadline, will be archived', tone: '#b52a2a' };
+  if(reminderSent) return { label: '✉️ Reminder sent · ' + left + 'h to deadline', tone: '#b45309' };
+  if(hoursElapsed >= reminderAt) return { label: '⏳ ' + left + 'h left, reminder going out', tone: '#b45309' };
+  return { label: '⏱️ ' + Math.max(0, Math.ceil(reminderAt - hoursElapsed)) + 'h until auto-reminder', tone: '#1e40af' };
 }
 
 function miniAssessBadge(letter, state, title){
@@ -6122,22 +6239,15 @@ function bulkChangeStage(){
   var sel = document.getElementById('bulkStageSelect');
   var stage = sel ? sel.value : '';
   if(!stage){ alert('Pick a stage to change the selected candidates to.'); return; }
-  if(!confirm('Change '+TRACKER_SELECTED.size+' selected candidate(s) to "'+stage+'"?')) return;
-  var apps = getApplicants();
-  var ids = Array.from(TRACKER_SELECTED);
-  var changed = 0;
-  ids.forEach(function(id){
-    var a = apps.find(function(x){ return x.id===id; });
-    if(a){
-      a.candidateStage = stage;
-      var suggestion = DEFAULT_NEXT_ACTION_BY_STAGE[stage];
-      if(suggestion) a.nextAction = suggestion;
-      changed++;
-    }
-  });
-  saveApplicants(apps);
-  ids.forEach(function(id){ var a=getApplicant(id); if(a) syncApplicantToSheets(a); });
-  showToast('✓ Updated stage for '+changed+' candidate(s)');
+  var ids = Array.from(TRACKER_SELECTED).filter(function(id){ return !!getApplicant(id); });
+  if(REASON_STAGES.indexOf(stage)>=0){
+    openCloseDialog(ids, {stage:stage}, clearTrackerSelection);
+    return;
+  }
+  if(!confirm('Change '+ids.length+' selected candidate(s) to "'+stage+'"?')) return;
+  var results = ids.map(function(id){ var r = setOutcome(id, {stage:stage}); r.id = id; return r; });
+  ids.forEach(refreshAfterOutcome);
+  outcomeToast('Updated stage for '+ids.length+' candidate(s)', results);
   clearTrackerSelection();
 }
 

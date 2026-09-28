@@ -393,7 +393,16 @@ function saveApplicantLocked_(d){
       if(existing && existing[57]){ try{ dates=canonicalStageDates_(JSON.parse(existing[57])); }catch(e){} }
       const oldStage = existing ? canonicalStage_(existing[53]) : '';
       const newStage = stageIn;
-      if(newStage && newStage!==oldStage) dates[newStage]=new Date().toISOString();
+      if(newStage && newStage!==oldStage){
+        if(d._undoStage){
+          // Undoing a stage change: forget the date stamped for the stage being
+          // left, and keep the restored stage's original date.
+          delete dates[oldStage];
+          if(!dates[newStage]) dates[newStage]=new Date().toISOString();
+        } else {
+          dates[newStage]=new Date().toISOString();
+        }
+      }
       return JSON.stringify(dates);
     })(),
     // Column 59 (Calendar Event ID) is server-only, written by confirmInterview
