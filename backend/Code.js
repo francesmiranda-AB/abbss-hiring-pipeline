@@ -384,11 +384,21 @@ function saveApplicantLocked_(d){
 // job also writes. The client always sends its whole (possibly stale) copy of
 // the record; without these rules a save made from an old copy silently undid
 // the compliance job's work.
-const FILL_ONLY_COLUMNS = [13,15,16,17,35,36,38,40]; // GRIT/Values scores, EMM received + file: attached by the job, never cleared by the client
+// Columns the compliance job attaches (GRIT/Values scores, EMM receipt), keyed
+// by the record field that carries them. A blank value from a client that
+// didn't touch that field means "stale copy", so the stored value is kept.
+const JOB_ATTACHED_COLUMNS = {13:'grit',35:'grit',36:'grit',15:'values',16:'values',17:'values',38:'emmReceivedAt',40:'emmFileUrl'};
 const FROZEN_COLUMNS = [10,11,12,24];                 // DISC (retired), Interview Result (unused)
 function isBlankCell_(v){ return v===''||v===null||v===undefined; }
+// New clients send _changed: the record fields they actually edited since the
+// Sheet last confirmed the record. Older clients don't, and keep the old behavior.
 function applyColumnOwnership_(row, existing, d){
-  FILL_ONLY_COLUMNS.forEach(function(c){ if(isBlankCell_(row[c])) row[c] = existing[c]; });
+  var changed = Array.isArray(d._changed) ? d._changed : null;
+  var touched = function(field){ return changed ? changed.indexOf(field)>=0 : false; };
+  Object.keys(JOB_ATTACHED_COLUMNS).forEach(function(k){
+    var c = Number(k);
+    if(isBlankCell_(row[c]) && !touched(JOB_ATTACHED_COLUMNS[k])) row[c] = existing[c];
+  });
   FROZEN_COLUMNS.forEach(function(c){ row[c] = existing[c]; });
   // Outcome labels always follow the (possibly kept) scores.
   row[14] = isBlankCell_(row[13]) ? '' : getGritLabel(parseFloat(row[13]));
@@ -401,12 +411,9 @@ function applyColumnOwnership_(row, existing, d){
   var sent = d.emailsSent ? JSON.parse(JSON.stringify(d.emailsSent)) : {};
   if(stored.autoReminder) sent.autoReminder = stored.autoReminder;
   row[30] = Object.keys(sent).length ? JSON.stringify(sent) : '';
-  // overallStatus: a client that says which status it started from, and
-  // didn't change it, must not overwrite a newer status set by the job or
-  // another person. Older clients don't send the base and behave as before.
-  if(d._baseOverallStatus !== undefined && (d.overallStatus||'In Progress') === (d._baseOverallStatus||'In Progress')){
-    row[9] = existing[9];
-  }
+  // overallStatus: a client that didn't change it must not overwrite a newer
+  // status set by the job or another person.
+  if(changed && !touched('overallStatus')) row[9] = existing[9];
   return row;
 }
 

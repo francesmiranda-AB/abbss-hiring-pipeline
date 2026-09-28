@@ -1314,11 +1314,85 @@ async function apiPost(action, data) {
   return await parseApiResponse(res);
 }
 
+// ============================================================
+// ONE WAY TO CHANGE A RECORD. Every edit goes through mutateApplicant: it
+// updates this device's copy, remembers which fields changed (_dirty) until
+// the Sheet confirms them, and syncs -- debounced while typing, right away
+// for clicks. The Sheet is told which fields were changed (_changed), so a
+// save never overwrites fields another device or the compliance job updated.
+// ============================================================
+var RECORD_META_KEYS = ['_dirty','_rev','_syncFailed','_syncError','_syncTimer'];
+function recordFields(a){
+  var out = {};
+  Object.keys(a).forEach(function(k){ if(RECORD_META_KEYS.indexOf(k)<0) out[k] = a[k]; });
+  return out;
+}
+var _syncTimers = new Map();   // id -> timeout handle
+var _syncWaiters = new Map();  // id -> [resolve]
+
+// fn(a) edits the record in place. opts.sync: 'debounced' (default), 'now', or 'none'.
+// Resolves to {ok, error} once the Sheet has (or hasn't) confirmed the save.
+function mutateApplicant(id, fn, opts){
+  opts = opts || {};
+  var apps = getRawApplicants();
+  var a = apps.find(function(x){ return x.id===id; });
+  if(!a) return Promise.resolve({ok:false, error:'That record no longer exists on this device.'});
+  var before = JSON.parse(JSON.stringify(recordFields(a)));
+  fn(a);
+  var after = recordFields(a);
+  var dirty = a._dirty || {};
+  Object.keys(Object.assign({}, before, after)).forEach(function(k){
+    if(JSON.stringify(before[k]) !== JSON.stringify(after[k])) dirty[k] = Date.now();
+  });
+  a._dirty = dirty;
+  a._rev = (a._rev||0) + 1;
+  saveApplicants(apps);
+  if(opts.sync==='none') return Promise.resolve({ok:true});
+  return scheduleSync(id, opts.sync==='now' ? 0 : 1500);
+}
+
+function scheduleSync(id, delayMs){
+  return new Promise(function(resolve){
+    var waiters = _syncWaiters.get(id) || [];
+    waiters.push(resolve);
+    _syncWaiters.set(id, waiters);
+    clearTimeout(_syncTimers.get(id));
+    _syncTimers.set(id, setTimeout(function(){ flushSync(id); }, delayMs));
+  });
+}
+
+async function flushSync(id){
+  clearTimeout(_syncTimers.get(id));
+  _syncTimers.delete(id);
+  var waiters = _syncWaiters.get(id) || [];
+  _syncWaiters.delete(id);
+  var a = getApplicant(id);
+  var res = a ? await syncApplicantToSheets(a) : {ok:false, error:'That record no longer exists on this device.'};
+  if(res.ok && a){
+    // Edits made while this save was in flight stay dirty for the next one.
+    var apps = getRawApplicants();
+    var cur = apps.find(function(x){ return x.id===id; });
+    if(cur && cur._rev===a._rev){ delete cur._dirty; saveApplicants(apps); }
+  }
+  waiters.forEach(function(r){ r(res); });
+  return res;
+}
+
+// Don't lose a pending debounced save when the tab is hidden or closed.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='hidden') Array.from(_syncTimers.keys()).forEach(function(id){ flushSync(id); });
+});
+
 async function syncApplicantToSheets(applicant) {
-  if (!SCRIPT_URL || !applicant) return;
-  const res = await apiPost('saveApplicant', {data: applicant});
+  if (!SCRIPT_URL || !applicant) return {ok:false, error:'Not connected to the shared sheet.'};
+  var payload = recordFields(applicant);
+  // Untracked records (created or queued by older code) send no list, which
+  // the backend treats the old way: the client's copy wins.
+  if(applicant._dirty) payload._changed = Object.keys(applicant._dirty);
+  const res = await apiPost('saveApplicant', {data: payload});
   if (res && res.success) {
     setSyncFailedFlag(applicant.id, false);
+    return {ok:true};
   } else {
     // res===null only happens when SCRIPT_URL itself isn't set (caught by the
     // guard above already, kept here just as a defensive fallback). Every
@@ -1345,6 +1419,7 @@ async function syncApplicantToSheets(applicant) {
       } catch(e){}
     }
     setSyncFailedFlag(applicant.id, true, errMsg);
+    return {ok:false, error:errMsg};
   }
 }
 
@@ -1372,15 +1447,25 @@ async function loadFromSheets() {
     const sheetMap = {}; res.data.forEach(a => sheetMap[a.id] = a);
     const localMap = {}; local.forEach(a => localMap[a.id] = a);
     const allIds = new Set([...Object.keys(sheetMap), ...Object.keys(localMap)]);
+    const toRepush = [];
     const merged = Array.from(allIds).map(id => {
       const sheetA = sheetMap[id], localA = localMap[id];
       if (sheetA && localA) {
-        return {...localA, ...sheetA,
-          interview: localA.interview || sheetA.interview,
-          emm: localA.emm?.fullResult ? localA.emm : sheetA.emm,
-          resumeNotes: (localA.resumeNotes || sheetA.resumeNotes || ''),
-          decisionNotes: (localA.decisionNotes || sheetA.decisionNotes || '')
-        };
+        // The Sheet is the truth, except for fields edited on this device that
+        // the Sheet hasn't confirmed yet -- those go back on top and are re-sent.
+        // A save that failed under older code left no field list: this
+        // device's whole copy is the unsaved truth, so keep it and retry.
+        if (localA._syncFailed && !localA._dirty) { toRepush.push(localA.id); return localA; }
+        const m = {...localA, ...sheetA};
+        const dirty = localA._dirty || {};
+        Object.keys(dirty).forEach(k => { m[k] = localA[k]; });
+        if (Object.keys(dirty).length) { m._dirty = dirty; m._rev = localA._rev; toRepush.push(m.id); }
+        else { delete m._dirty; }
+        // The Sheet stores a shortened list of wrong EMM categories; keep the full local one.
+        if (m.emm && localA.emm && localA.emm.catWrong && (!m.emm.catWrong || localA.emm.catWrong.length > m.emm.catWrong.length) && m.emm.gradedAt === localA.emm.gradedAt) {
+          m.emm = {...m.emm, catWrong: localA.emm.catWrong};
+        }
+        return m;
       }
       if (sheetA) return sheetA;
       // Local-only record: the Sheet doesn't have it yet. Retry pushing it now
@@ -1389,6 +1474,7 @@ async function loadFromSheets() {
       return localA;
     });
     saveApplicants(merged);
+    toRepush.forEach(id => scheduleSync(id, 0));
     _pullFailed = false;
     updateSyncWarningBanner();
     return true;
@@ -2293,7 +2379,7 @@ function buildProfileTab(a){
   ${buildCandidateStagePanel(a)}
   <div style="margin-bottom:var(--space-4)">
     <label class="lbl">Resume Notes</label>
-    <textarea class="inp" id="resumeNotesInput_${a.id}" onchange="updateField(${a.id},'resumeNotes',this.value);flashSaved(this)">${escapeHtml(a.resumeNotes)}</textarea>
+    <textarea class="inp" id="resumeNotesInput_${a.id}" onchange="var p=updateField(${a.id},'resumeNotes',this.value);flashSaved(this,p)">${escapeHtml(a.resumeNotes)}</textarea>
     <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
       <button class="btn btn-sm btn-primary" onclick="saveResumeNotesNow(${a.id})">💾 Save Notes Now</button>
       <span id="resumeNotesSavedMsg_${a.id}" style="font-size:12px;color:#166534;display:none">✓ Saved</span>
@@ -2404,7 +2490,7 @@ function buildAssessmentsTab(a){
     <div class="g2" style="margin-bottom:10px">
       <div>
         <label class="lbl">GRIT Score (avg 1.0–5.0)</label>
-        <input class="inp" type="number" step="0.1" min="1" max="5" value="${a.grit&&a.grit.score||''}" placeholder="e.g. 3.5" onchange="updateNestedField(${a.id},'grit','score',this.value);this.closest('.assess-card').className='assess-card '+(parseFloat(this.value)>=3.0?'passed':'failed');flashSaved(this)">
+        <input class="inp" type="number" step="0.1" min="1" max="5" value="${a.grit&&a.grit.score||''}" placeholder="e.g. 3.5" onchange="var p=updateNestedField(${a.id},'grit','score',this.value);this.closest('.assess-card').className='assess-card '+(parseFloat(this.value)>=3.0?'passed':'failed');flashSaved(this,p)">
       </div>
       <div>
         <label class="lbl">Outcome</label>
@@ -2416,8 +2502,8 @@ function buildAssessmentsTab(a){
       </div>
     </div>
     <div class="g2">
-      <div><label class="lbl">Perseverance Score</label><input class="inp" type="number" step="0.1" value="${a.grit&&a.grit.perseverance||''}" placeholder="e.g. 3.5" onchange="updateNestedField(${a.id},'grit','perseverance',this.value);flashSaved(this)"></div>
-      <div><label class="lbl">Consistency Score</label><input class="inp" type="number" step="0.1" value="${a.grit&&a.grit.consistency||''}" placeholder="e.g. 2.5" onchange="updateNestedField(${a.id},'grit','consistency',this.value);flashSaved(this)"></div>
+      <div><label class="lbl">Perseverance Score</label><input class="inp" type="number" step="0.1" value="${a.grit&&a.grit.perseverance||''}" placeholder="e.g. 3.5" onchange="var p=updateNestedField(${a.id},'grit','perseverance',this.value);flashSaved(this,p)"></div>
+      <div><label class="lbl">Consistency Score</label><input class="inp" type="number" step="0.1" value="${a.grit&&a.grit.consistency||''}" placeholder="e.g. 2.5" onchange="var p=updateNestedField(${a.id},'grit','consistency',this.value);flashSaved(this,p)"></div>
     </div>
   </div>
 
@@ -2432,15 +2518,15 @@ function buildAssessmentsTab(a){
     <div class="g3" style="margin-bottom:10px">
       <div>
         <label class="lbl">Total Score (out of 315)</label>
-        <input class="inp" type="number" min="0" max="315" value="${a.values&&a.values.score||''}" placeholder="e.g. 220" onchange="updateNestedField(${a.id},'values','score',this.value);flashSaved(this)">
+        <input class="inp" type="number" min="0" max="315" value="${a.values&&a.values.score||''}" placeholder="e.g. 220" onchange="var p=updateNestedField(${a.id},'values','score',this.value);flashSaved(this,p)">
       </div>
       <div>
         <label class="lbl">Confidentiality Score</label>
-        <input class="inp" type="number" step="0.1" value="${a.values&&a.values.confScore||''}" placeholder="e.g. 4.5" onchange="updateNestedField(${a.id},'values','confScore',this.value);flashSaved(this)">
+        <input class="inp" type="number" step="0.1" value="${a.values&&a.values.confScore||''}" placeholder="e.g. 4.5" onchange="var p=updateNestedField(${a.id},'values','confScore',this.value);flashSaved(this,p)">
       </div>
       <div>
         <label class="lbl">Integrity Score</label>
-        <input class="inp" type="number" step="0.1" value="${a.values&&a.values.intScore||''}" placeholder="e.g. 5.0" onchange="updateNestedField(${a.id},'values','intScore',this.value);flashSaved(this)">
+        <input class="inp" type="number" step="0.1" value="${a.values&&a.values.intScore||''}" placeholder="e.g. 5.0" onchange="var p=updateNestedField(${a.id},'values','intScore',this.value);flashSaved(this,p)">
       </div>
     </div>
     <div style="margin-bottom:10px;padding:var(--space-2) var(--space-3);background:var(--gray100);border-radius:var(--radius-sm)">
@@ -2449,7 +2535,7 @@ function buildAssessmentsTab(a){
       ${vOut.questions&&vOut.questions.length?`<ul style="margin:8px 0 0 16px;padding:0;font-size:11px;color:var(--gray600)">${vOut.questions.map(q=>`<li style="margin-bottom:3px">${q}</li>`).join('')}</ul>`:''}
     </div>
     <label class="lbl">Values Notes</label>
-    <textarea class="inp" onchange="updateNestedField(${a.id},'values','notes',this.value);flashSaved(this)" placeholder="Observations from values assessment...">${a.values&&a.values.notes||''}</textarea>
+    <textarea class="inp" onchange="var p=updateNestedField(${a.id},'values','notes',this.value);flashSaved(this,p)" placeholder="Observations from values assessment...">${a.values&&a.values.notes||''}</textarea>
   </div>
 
   <!-- EMM Toggle inside assessments tab -->
@@ -2509,7 +2595,7 @@ function buildEmmTab(a){
     </div>`;
   const notesBlock=`
     <label class="lbl">HR Notes on EMM</label>
-    <textarea class="inp" onchange="updateNestedField(${a.id},'emm','notes',this.value);flashSaved(this)" placeholder="Observations, integrity flags, recommendations...">${a.emm.notes||''}</textarea>`;
+    <textarea class="inp" onchange="var p=updateNestedField(${a.id},'emm','notes',this.value);flashSaved(this,p)" placeholder="Observations, integrity flags, recommendations...">${a.emm.notes||''}</textarea>`;
   if(!g||!g.catByCat){
     return receivedBlock+banner+`<div class="alert alert-info" style="margin-bottom:14px"><span>&#8505;&#65039;</span><span>Detailed category/flag breakdown isn't available for this result \u2014 it was likely graded before the detailed report feature was added.</span></div>`+notesBlock;
   }
@@ -2800,7 +2886,7 @@ function buildInterviewTab(a){
 
     <div class="assess-card" style="margin-top:14px">
       <label class="lbl">Interview Notes</label>
-      <textarea class="inp" onchange="updateNestedField(${a.id},'interview','notes',this.value);flashSaved(this)" style="min-height:120px" placeholder="Overall observations, answers, red flags, resilience/adaptability examples...">${escapeHtml(iv.notes)}</textarea>
+      <textarea class="inp" onchange="var p=updateNestedField(${a.id},'interview','notes',this.value);flashSaved(this,p)" style="min-height:120px" placeholder="Overall observations, answers, red flags, resilience/adaptability examples...">${escapeHtml(iv.notes)}</textarea>
     </div>
 
     <div class="assess-card" style="margin-top:14px">
@@ -2914,7 +3000,7 @@ function buildDecisionTab(a){
     </div>` : ''}
     <div style="margin-top:12px">
       <label class="lbl">Final Decision Notes</label>
-      <textarea class="inp" onchange="updateField(${a.id},'decisionNotes',this.value);flashSaved(this)" placeholder="Reason for decision, who approved, next steps...">${escapeHtml(a.decisionNotes)}</textarea>
+      <textarea class="inp" onchange="var p=updateField(${a.id},'decisionNotes',this.value);flashSaved(this,p)" placeholder="Reason for decision, who approved, next steps...">${escapeHtml(a.decisionNotes)}</textarea>
     </div>`;
 }
 
@@ -2924,43 +3010,37 @@ function buildDecisionTab(a){
 async function saveResumeNotesNow(id){
   var ta=document.getElementById('resumeNotesInput_'+id);
   if(!ta) return;
-  var apps=getApplicants();
-  var a=apps.find(function(x){ return x.id===id; });
-  if(!a) return;
-  clearTimeout(a._syncTimer);
-  a.resumeNotes=ta.value;
-  saveApplicants(apps);
-  if(SCRIPT_URL){
-    try{ await syncApplicantToSheets(a); }catch(e){}
-  }
-  var msg=document.getElementById('resumeNotesSavedMsg_'+id);
-  if(msg){ msg.style.display='inline'; setTimeout(function(){ if(msg) msg.style.display='none'; },3000); }
-  showToast('✓ Notes saved for '+a.name);
+  var res = await mutateApplicant(id, function(a){ a.resumeNotes=ta.value; }, {sync:'now'});
+  flashSaved(ta, Promise.resolve(res));
 }
 
 // Small inline "Saved" confirmation next to a field that just synced --
 // used by fields whose onchange saves silently (notes, scores) so there's
 // some visible confirmation the edit registered, without a toast for every
 // single keystroke-triggered save on the page.
-function flashSaved(el){
+// Shows "Saving…" next to the field, then whether the shared sheet actually
+// took it (the sync banner explains and retries failures).
+function flashSaved(el, savePromise){
   if(!el || !el.parentNode) return;
   var existing = el.nextElementSibling;
   if(existing && existing.className==='saved-flash') existing.remove();
   var span = document.createElement('span');
   span.className = 'saved-flash';
-  span.textContent = '✓ Saved';
   el.insertAdjacentElement('afterend', span);
-  setTimeout(function(){ if(span && span.parentNode) span.remove(); }, 2000);
+  var done = function(ok){
+    span.textContent = ok ? '✓ Saved' : '⚠ Not saved yet';
+    setTimeout(function(){ if(span && span.parentNode) span.remove(); }, ok ? 2000 : 5000);
+  };
+  if(savePromise && savePromise.then){
+    span.textContent = 'Saving…';
+    savePromise.then(function(r){ done(!r || r.ok); });
+  } else {
+    done(true);
+  }
 }
 
 function updateField(id,field,value){
-  const apps=getApplicants();
-  const a=apps.find(a=>a.id===id);
-  if(a){a[field]=value;saveApplicants(apps);
-    // Debounced sync to sheets
-    clearTimeout(a._syncTimer);
-    a._syncTimer=setTimeout(()=>syncApplicantToSheets(getApplicant(id)),2000);
-  }
+  return mutateApplicant(id, function(a){ a[field]=value; });
 }
 
 // Lets HR go back and fix/add the Source on an existing applicant -- most
@@ -3059,14 +3139,9 @@ function resetNaCvDropzone(){
 }
 
 function updateNestedField(id,section,field,value){
-  const apps=getApplicants();
-  const a=apps.find(a=>a.id===id);
-  if(a){if(!a[section])a[section]={};a[section][field]=value;saveApplicants(apps);
-    // Debounced sync to sheets
-    clearTimeout(a._syncTimer);
-    a._syncTimer=setTimeout(()=>syncApplicantToSheets(getApplicant(id)),2000);
-    autoAdvanceIfNeeded(id);
-  }
+  var p = mutateApplicant(id, function(a){ if(!a[section]) a[section]={}; a[section][field]=value; });
+  autoAdvanceIfNeeded(id);
+  return p;
 }
 
 function setInterviewResult(id,result){
@@ -5959,16 +6034,10 @@ var PIPELINE_CARD_DEFS = [
 });
 
 async function updateFieldImmediate(id, field, value){
-  var apps = getApplicants();
-  var a = apps.find(function(x){ return x.id===id; });
-  if(!a) return;
-  clearTimeout(a._syncTimer);
-  a[field] = value;
-  saveApplicants(apps);
-  if(SCRIPT_URL){
-    try{ await syncApplicantToSheets(a); }catch(e){}
-  }
-  showToast('✓ Note saved for ' + a.name);
+  var a = getApplicant(id);
+  var res = await mutateApplicant(id, function(x){ x[field] = value; }, {sync:'now'});
+  if(res.ok) showToast('Note saved for ' + (a ? a.name : 'this candidate'));
+  else showToast('Note kept on this device, but not saved to the shared sheet yet.', 'error');
 }
 
 function renderTrackerTable(apps) {
@@ -6598,7 +6667,7 @@ async function saveEodOverride(role){
     showToast('✓ Saved for ' + role);
     renderEodReport();
   } else {
-    showToast('Could not save. Try again.');
+    showToast('Could not save. Try again.', 'error');
   }
 }
 
@@ -7407,7 +7476,7 @@ function deleteInterviewCalSlot(applicantId, slotId){
   closeInterviewCalOverlay();
   renderInterviewCalendar();
   apiPost('removeInterviewSlot', {data:{id:applicantId, slotId:slotId}}).then(function(res){
-    if(!(res && res.success)) showToast('⚠️ Could not save the removal to the Sheet ('+((res&&res.error)||'no response')+'). It may reappear after a refresh -- try again.');
+    if(!(res && res.success)) showToast('⚠️ Could not save the removal to the Sheet ('+((res&&res.error)||'no response')+'). It may reappear after a refresh -- try again.', 'error');
   });
 }
 
@@ -7426,7 +7495,7 @@ function unconfirmInterviewCalSlot(applicantId){
   renderInterviewCalendar();
   if(slotId) openInterviewCalDetail(applicantId, slotId);
   apiPost('unconfirmInterview', {data:{id:applicantId}}).then(function(res){
-    if(!(res && res.success)) showToast('⚠️ Could not save the undo to the Sheet ('+((res&&res.error)||'no response')+'). It may show as confirmed again after a refresh -- try again.');
+    if(!(res && res.success)) showToast('⚠️ Could not save the undo to the Sheet ('+((res&&res.error)||'no response')+'). It may show as confirmed again after a refresh -- try again.', 'error');
   });
 }
 
@@ -7491,11 +7560,9 @@ function toggleEmmSwitch() {
 }
 
 function toggleApplicantEmm(id) {
-  var apps = getApplicants();
-  var a = apps.find(function(x) { return x.id === id; });
+  mutateApplicant(id, function(x){ x.requiresEmm = !x.requiresEmm; });
+  var a = getApplicant(id);
   if (!a) return;
-  a.requiresEmm = !a.requiresEmm;
-  saveApplicants(apps);
   var t = document.getElementById('emmToggle_' + id);
   if (t) t.className = 'toggle-track' + (a.requiresEmm ? ' on' : '');
   document.getElementById('modalTabContent').innerHTML = buildAssessmentsTab(getApplicant(id));
@@ -7738,7 +7805,7 @@ async function toggleOffboardingItem(id, itemKey){
     renderOffboardingList();
     if(typeof renderDashboard==='function') renderDashboard();
   } else {
-    showToast('Could not save checklist change. Check your connection.');
+    showToast('Could not save checklist change. Check your connection.', 'error');
   }
 }
 
@@ -7751,7 +7818,7 @@ async function saveOffboardingNotes(id, notes){
     await loadOffboardingFromSheets();
     showToast('✓ Notes saved');
   } else {
-    showToast('Could not save notes. Check your connection.');
+    showToast('Could not save notes. Check your connection.', 'error');
   }
 }
 
