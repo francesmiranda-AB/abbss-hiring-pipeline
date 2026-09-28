@@ -510,7 +510,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="topbar-logo">A</div>
     <div class="topbar-brand-text">
       <div class="topbar-title">ABBSS Hiring Pipeline</div>
-      <div class="topbar-sub">Assessment Tracker &middot; EMM Grading &middot; Live Validation</div>
+      <div class="topbar-sub">Assessment Tracker &middot; EMM Grading</div>
     </div>
   </div>
   <div class="topbar-right">
@@ -903,7 +903,6 @@ tbody tr:last-child td{border-bottom:none}
         <button class="dtab" onclick="showGradeTab('categories',this)">Categories</button>
         <button class="dtab" onclick="showGradeTab('actions',this)">Action Points</button>
         <button class="dtab" onclick="showGradeTab('errors',this)" id="gradeErrTab">Errors</button>
-        <button class="dtab" onclick="showGradeTab('livevalidation',this)">Live Validation</button>
       </div>
       <div id="gradeTabContent"></div>
     </div>
@@ -911,7 +910,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="card-header"><div class="card-title">Save &amp; Export</div></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-success btn-sm" onclick="saveGradeToRecord()">Save to Record</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.print()">Print / Save as PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="printGradeReport()">&#128424; Print / Save as PDF</button>
       </div>
     </div>
   </div>
@@ -2325,6 +2324,17 @@ function buildAssessmentsTab(a){
   </div>`;
 }
 
+// The EMM tab's one way into grading: opens the Grader linked to this
+// candidate, loading their submitted file when there is one.
+function openInGrader(id){
+  var a = getApplicant(id);
+  closeModal();
+  showPage('grade', document.getElementById('nav-grade'));
+  var sel = document.getElementById('gradeApplicantSelect');
+  if(sel) sel.value = String(id);
+  if(a && a.emmFileUrl) loadEmmFromDrive(id);
+}
+
 function buildEmmTab(a){
   const receivedBlock=`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${a.emmReceivedAt?'#dcfce7':'#fef9c3'};border:1px solid ${a.emmReceivedAt?'#bbf7d0':'#fde68a'};border-radius:var(--radius-sm);margin-bottom:14px">
@@ -2338,12 +2348,12 @@ function buildEmmTab(a){
     <div style="text-align:center;padding:var(--space-6);color:var(--gray400)">
       <div style="font-size:32px;margin-bottom:12px">⚡</div>
       <p style="margin-bottom:var(--space-2);font-size:14px">Their file has been submitted and is ready to grade.</p>
-      <button class="btn btn-primary" onclick="closeModal();showPage('grade',document.querySelector('.nav-item:nth-child(4)'));loadEmmFromDrive(${a.id})">Grade Now (auto-load from Drive) →</button>
+      <button class="btn btn-primary" onclick="openInGrader(${a.id})">Open in Grader →</button>
     </div>`:`
     <div style="text-align:center;padding:var(--space-6);color:var(--gray400)">
       <div style="font-size:32px;margin-bottom:12px">⏳</div>
       <p style="margin-bottom:var(--space-2);font-size:14px">${a.requiresEmm?'Still waiting on their EMM file. Nothing to grade yet.':'No EMM result recorded yet.'}</p>
-      <button class="btn btn-primary" onclick="closeModal();showPage('grade',document.querySelector('.nav-item:nth-child(4)'))">Go to EMM Grader →</button>
+      <button class="btn btn-primary" onclick="openInGrader(${a.id})">Open in Grader →</button>
     </div>`);
   const g=JSON.parse(a.emm.fullResult||'{}');
   const banner=`
@@ -2354,14 +2364,14 @@ function buildEmmTab(a){
         <span class="badge ${a.emm.pass?(emmHighRiskFlag(a)?'badge-warn':'badge-pass'):'badge-fail'}">${a.emm.pass?(emmHighRiskFlag(a)?'⚠ PASS (Flagged for Review)':'✓ PASS'):'✗ FAIL'}</span>
       </div>
       <div>
-        <div style="font-size:13px;color:var(--gray500)"><strong>Category ID:</strong> ${a.emm.catPct}%</div>
-        <div style="font-size:13px;color:var(--gray500)"><strong>Action Points:</strong> ${a.emm.actPct}%</div>
+        ${(g&&g.catByCat)?'':`<div style="font-size:13px;color:var(--gray500)"><strong>Category ID:</strong> ${a.emm.catPct}%</div>
+        <div style="font-size:13px;color:var(--gray500)"><strong>Action Points:</strong> ${a.emm.actPct}%</div>`}
         <div style="font-size:12px;color:var(--gray400);margin-top:4px">Graded: ${a.emm.gradedAt?new Date(a.emm.gradedAt).toLocaleDateString():''}</div>
       </div>
     </div>`;
   const notesBlock=`
     <label class="lbl">HR Notes on EMM</label>
-    <textarea class="inp" onchange="var p=updateNestedField(${a.id},'emm','notes',this.value);flashSaved(this,p)" placeholder="Observations, integrity flags, recommendations...">${a.emm.notes||''}</textarea>`;
+    <textarea class="inp" onchange="var p=updateNestedField(${a.id},'emm','notes',this.value);flashSaved(this,p)" placeholder="Observations, integrity flags, recommendations...">${escapeHtml(a.emm.notes)}</textarea>`;
   if(!g||!g.catByCat){
     return receivedBlock+banner+`<div class="alert alert-info" style="margin-bottom:14px"><span>&#8505;&#65039;</span><span>Detailed category/flag breakdown isn't available for this result \u2014 it was likely graded before the detailed report feature was added.</span></div>`+notesBlock;
   }
@@ -2413,8 +2423,9 @@ function buildEmmTab(a){
     ${notesBlock}`;
 }
 
-function printEmmReport(id){
-  const a=getApplicant(id);
+function printEmmReport(id){ printEmmReportFor(getApplicant(id)); }
+// One printable EMM report, from a candidate record or the grader's result.
+function printEmmReportFor(a){
   if(!a||!a.emm||!a.emm.graded){alert('No graded EMM result to print for this applicant.');return;}
   const g=JSON.parse(a.emm.fullResult||'{}');
   const hasDetail=g&&g.catByCat;
@@ -3731,29 +3742,20 @@ function showGradeTab(tab,btn){
     const show=filtered.slice(0,200);
     el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><strong>${g.catWrongCount} total errors</strong><select onchange="gradeErrFilter=this.value;showGradeTab('errors')" style="padding:6px 10px;border:1.5px solid var(--gray200);border-radius:var(--radius-sm);font-size:12px;outline:none">${opts}</select></div>${filtered.length===0?'<div style="text-align:center;padding:20px;color:var(--gray300)">'+(g.catWrongCount===0?'🎉 No errors!':'No errors for this category.')+'</div>':`<p style="font-size:12px;color:var(--gray400);font-style:italic;margin-bottom:8px">Showing ${show.length} of ${filtered.length}.</p><div class="table-wrap"><table><thead><tr><th>Entry No.</th><th>Applicant Answer</th><th>Expected</th><th>Why Wrong</th></tr></thead><tbody>${show.map(w=>`<tr><td class="td-mono">${w.entry}</td><td class="td-err">${w.got||'(blank)'}</td><td class="td-ok">${w.expected}</td><td style="font-size:11px;color:var(--gray500)">${HINTS[w.expected]||''}</td></tr>`).join('')}</tbody></table></div>`}`;
   }
-  else if(tab==='livevalidation'){
-    el.innerHTML=buildLiveValidationTab();
-  }
 }
 
-function buildLiveValidationTab(){
-  const questions=[
-    {num:1,skill:'Formula Comprehension: SUMIF',color:'#3b3f8c',ask:'Open your Matching sheet. Pick any row and explain: what does your SUMIF formula calculate, and what does the result tell you about that account?',pass:'Explains what SUMIF does and connects the number to a business meaning.',fail:'Cannot explain the formula or describe what the output means.',note:'Applicants who copied formulas may be unable to explain why they reference specific columns.'},
-    {num:2,skill:'Formula Construction: COUNTIFS',color:'#3b3f8c',ask:'In a blank column, write a COUNTIFS formula that counts rows with the same Order Ref AND Doc Type of "Payment". Show me as you type.',pass:'Writes a working COUNTIFS with correct column references and both criteria.',fail:'Cannot construct the formula from scratch without copying.',note:'Struggling from scratch suggests the original formulas may not have been written by the applicant.'},
-    {num:3,skill:'Classification Judgment: Similar Categories',color:'#b07d0c',ask:'Scenario A: 1 Credit Memo, 1 Invoice, 1 Payment, 0 Refunds, SUMIF=-958. Scenario B: 1 Credit Memo, 0 others, SUMIF=-75. What category is each and why?',pass:"Correctly identifies both as Missing Refund and explains the CM-Refund pairing.",fail:"Calls Scenario A 'Match,' the most common error in sample files.",note:'Drawn from actual errors in sample applicant files.'},
-    {num:4,skill:'Edge Case: Rounding Boundary',color:'#b07d0c',ask:'A group has 1 Invoice, 1 Payment, SUMIF = 0.01. Is this Match or Invoice > Payment? What would you do in a real reconciliation?',pass:'Recognises the rounding issue, classifies as Match.',fail:'Insists on Invoice > Payment because technically positive.',note:'This pattern caused ~250 errors for one sample applicant.'},
-    {num:5,skill:'Real-World AR Understanding',color:'#1a7a4a',ask:'You found 266 Missing Invoice entries totalling -$207,720. What would you do next and who would you involve?',pass:'Understands the financial implication, describes logical next steps with right stakeholders.',fail:'Treats it as a data entry issue only.',note:'Separates candidates with real AR experience from those who only completed the exercise.'}
-  ];
-  return`
-  <div style="padding:10px 0 14px;font-size:13px;color:var(--gray500);font-style:italic">Use these questions during the live interview or video call. Score each question, then save the result to the applicant record.</div>
-  ${questions.map(q=>`<div class="q-card" style="margin-bottom:12px">
-    <div class="q-header" style="background:${q.color}">${q.num}. ${q.skill}</div>
-    <div class="q-body">
-      <div class="q-ask">Ask: ${q.ask}</div>
-      <div style="font-size:12px;color:var(--gray600);margin-bottom:10px;line-height:1.6"><strong style="color:#166534">Pass:</strong> ${q.pass}<br><strong style="color:#991b1b">Concern:</strong> ${q.fail}<br><em style="color:var(--gray400)">Note: ${q.note}</em></div>
-    </div>
-  </div>`).join('')}
-  <div class="info-box">💡 To record live validation scores against an applicant record, open their profile from the Tracker and go to the Interview tab.</div>`;
+
+// The EMM result as stored on a candidate record.
+function emmRecordFromGrade(g, notes){
+  return {graded:true,overallPct:g.rubric.total,legacyOverallPct:g.overallPct,catPct:g.catPct,actPct:g.actPct,pass:g.pass,highRiskFlag:g.highRiskFlag,gradedAt:g.gradedAt,notes:notes||'',fullResult:JSON.stringify(g)};
+}
+// The grader prints the same report as the candidate's EMM tab.
+function printGradeReport(){
+  if(!gradeResult){ alert('No graded result to print.'); return; }
+  var selId = document.getElementById('gradeApplicantSelect').value;
+  var linked = selId ? getApplicant(parseInt(selId)) : null;
+  var name = linked ? linked.name : (document.getElementById('gradeNameManual').value.trim() || 'Applicant');
+  printEmmReportFor(Object.assign({name:name, position:'', email:''}, linked || {}, {emm: emmRecordFromGrade(gradeResult, linked && linked.emm && linked.emm.notes)}));
 }
 
 function saveGradeToRecord(){
@@ -3767,7 +3769,7 @@ function saveGradeToRecord(){
   // so the score shown everywhere (Tracker, PDF, CSV, this record) and the
   // reason it passed or failed always agree. The old "final answers only"
   // blend is kept as legacyOverallPct purely for reference/debugging.
-  mutateApplicant(a.id, function(a){ a.emm={graded:true,overallPct:gradeResult.rubric.total,legacyOverallPct:gradeResult.overallPct,catPct:gradeResult.catPct,actPct:gradeResult.actPct,pass:gradeResult.pass,highRiskFlag:gradeResult.highRiskFlag,gradedAt:gradeResult.gradedAt,notes:'',fullResult:JSON.stringify(gradeResult)}; }, {sync:'now'});
+  mutateApplicant(a.id, function(a){ a.emm=emmRecordFromGrade(gradeResult, a.emm && a.emm.notes); }, {sync:'now'});
   a=getApplicant(a.id);
   updateTrackerBadge();
   autoAdvanceIfSubmitted(a.id);
@@ -6362,9 +6364,7 @@ function renderInterviewCalSidebar(instances){
     var extras = '';
     if(showConfirmedExtras){
       if(i.contact) extras += '<div style="font-size:12px;font-weight:700;margin-top:2px">📞 '+escapeHtml(i.contact)+'</div>';
-      extras += i.smsSentAt
-        ? '<div style="font-size:11px;color:#166534;margin-top:2px">✓ HR sent a text <button onclick="event.stopPropagation();unmarkSmsSentFromCal('+i.applicantId+')" class="btn-sm btn-ghost" style="font-size:10px;padding:1px 6px;margin-left:4px">Undo</button></div>'
-        : '<div style="margin-top:4px;border-top:1px dashed rgba(255,255,255,.4);padding-top:6px"><button onclick="event.stopPropagation();markSmsSentFromCal('+i.applicantId+')" class="btn-sm" style="font-size:11px;padding:4px 8px;background:var(--gray700);color:#fff">📱 Mark HR Sent Text</button></div>';
+      if(i.smsSentAt) extras += '<div style="font-size:11px;color:#166534;margin-top:2px">✓ HR sent a text</div>';
     }
     return '<div onclick="openInterviewCalDetail('+i.applicantId+',\''+String(i.slotId).replace(/'/g,"\\'")+'\')" style="cursor:pointer;background:'+meta.bg+';border:1.5px solid '+meta.border+';border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
       '<div style="font-weight:700;font-size:13px;color:'+meta.tone+'">'+escapeHtml(i.applicantName)+'</div>' +
@@ -6519,7 +6519,7 @@ async function confirmInterviewCalSlot(id, slotId){
   if(btn){ btn.disabled=true; btn.textContent='Confirming...'; }
   var res = await apiPost('confirmInterview', {data:{id:id, slotId:slotId, contact:(a&&a.candidateContact)||'', startIso:startIso, durationMin:durationMin}});
   if(res && res.success){
-    autoAdvance(id, 'interviewScheduled', res.calendarWarning ? ('Interview confirmed. ' + res.calendarWarning) : 'Interview confirmed. Added to David\'s calendar, confirmation email sent, other times declined');
+    autoAdvance(id, 'interviewScheduled', res.calendarWarning ? ('Interview confirmed. ' + res.calendarWarning) : 'Interview confirmed');
     await loadFromSheets();
     renderInterviewCalendar();
     openInterviewCalDetail(id, slotId); // refresh the overlay in place to show the confirmed state
@@ -6537,7 +6537,7 @@ async function confirmInterviewCalSlot(id, slotId){
   var refreshed = getApplicant(id);
   var actuallyConfirmed = refreshed && refreshed.confirmedSlot && String(refreshed.confirmedSlot.id)===String(slotId);
   if(actuallyConfirmed){
-    showToast('✓ Interview confirmed. Confirmation email sent, other times declined');
+    showToast('Interview confirmed');
     renderInterviewCalendar();
     openInterviewCalDetail(id, slotId);
     return;
@@ -6552,7 +6552,6 @@ async function markSmsSentFromCal(id){
   if(!getApplicant(id)) return;
   mutateApplicant(id, function(x){ x.smsSentAt = new Date().toISOString(); }, {sync:'now'});
   var a = getApplicant(id);
-  showToast('Marked as texted');
   renderInterviewCalendar();
   if(document.getElementById('interviewCalOverlay').style.display==='flex' && a.confirmedSlot){
     openInterviewCalDetail(id, a.confirmedSlot.id);
@@ -6563,7 +6562,6 @@ function unmarkSmsSentFromCal(id){
   if(!getApplicant(id)) return;
   mutateApplicant(id, function(x){ x.smsSentAt = ''; }, {sync:'now'});
   var a = getApplicant(id);
-  showToast('Undone');
   renderInterviewCalendar();
   if(document.getElementById('interviewCalOverlay').style.display==='flex' && a.confirmedSlot){
     openInterviewCalDetail(id, a.confirmedSlot.id);
@@ -6708,10 +6706,9 @@ function renderGradeResults() {
     '<div style="position:relative;z-index:1">' +
     '<div class="score-label">Overall Score</div>' +
     '<div class="score-big">' + r.total + '/100</div>' +
-    '<div class="score-sub">' + r.total + ' of 100 points across 5 graded areas</div>' +
     '<div class="score-badge">' + (r.pass ? '&#10003; PASS &mdash; Meets threshold (&ge;'+PASS_EMM+')' : '&#10007; FAIL &mdash; Below threshold (&lt;'+PASS_EMM+')') + '</div>' +
     '</div>' +
-    '<div class="rings">' + ring(r.total,'Overall') + ring(g.catPct,'Category ID') + ring(g.actPct,'Action Rec.') + '</div>' +
+    '<div class="rings">' + ring(g.catPct,'Category ID') + ring(g.actPct,'Action Rec.') + '</div>' +
     '</div>';
   document.getElementById('gradeErrTab').textContent = 'Errors' + (g.catWrongCount>0?' ('+g.catWrongCount+')':'');
   showGradeTab('overview', document.querySelector('#gradeTabs .dtab'));
