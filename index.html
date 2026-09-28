@@ -517,14 +517,12 @@ tbody tr:last-child td{border-bottom:none}
     <button class="topbar-pill no-print" id="roleSwitcherPill" onclick="openRoleSwitchModal()" style="cursor:pointer" title="Switch which role's view you're seeing">
       <span id="roleSwitcherLabel">Viewing as: &hellip;</span>
     </button>
-    <div style="display:flex;align-items:center;gap:6px;border-left:1px solid rgba(255,255,255,.15);padding-left:10px;margin-left:2px;cursor:pointer" id="syncStatus" onclick="retryFailedSyncs()" title="Click to retry syncing any unsaved changes">
+    <div style="display:flex;align-items:center;gap:6px;border-left:1px solid rgba(255,255,255,.15);padding-left:10px;margin-left:2px" id="syncStatus">
       <span class="topbar-dot" id="syncDot" style="background:var(--gray400)"></span>
       <span id="syncLabel" style="color:rgba(255,255,255,.85);font-size:13px">Not synced</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;border-left:1px solid rgba(255,255,255,.15);padding-left:10px;margin-left:2px">
       <a href="https://abbss-ops-portal.vercel.app" style="color:rgba(255,255,255,.75);font-size:13px;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'" title="Back to the ABBSS Operations Portal">&#8592; Back to Portal</a>
-      <button class="topbar-pill" onclick="exportCSV()">&#11015; Export</button>
-      <button class="topbar-pill" onclick="window.print()">&#128424; Print</button>
     </div>
     <div style="border-left:1px solid rgba(255,255,255,.15);padding-left:10px;margin-left:2px">
       <button class="topbar-pill no-print" onclick="openReportProblemModal(false)" title="Tell us about a bug or anything that seems wrong">&#128030; Report a Problem</button>
@@ -555,15 +553,12 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item" id="nav-interviewcal" onclick="showPage('interviewcal',this)"><span class="nav-icon">&#128197;</span> Interview Calendar</button>
   <button class="nav-item" id="nav-grade" onclick="showPage('grade',this)"><span class="nav-icon">&#9889;</span> Assessments &amp; EMM</button>
   <button class="nav-item" id="nav-email" onclick="currentEmailApplicantId=null;showPage('email',this)"><span class="nav-icon">&#9993;&#65039;</span> Email Templates</button>
-  <div class="sidebar-section" id="navsec-projects">Hiring Projects</div>
-  <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> Hiring Projects</button>
-  <div class="sidebar-section" id="navsec-offboarding">Offboarding</div>
   <button class="nav-item" id="nav-offboarding" onclick="showPage('offboarding',this)"><span class="nav-icon">&#128682;</span> Offboarding</button>
   <div class="sidebar-section" id="navsec-reports">Reports</div>
+  <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> Hiring Projects</button>
   <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
   <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
   <button class="nav-item" id="nav-analytics" onclick="showPage('analytics',this)"><span class="nav-icon">&#128200;</span> Analytics <span style="font-size:10px;font-weight:700;color:var(--gray400);margin-left:4px">SOON</span></button>
-  <div class="sidebar-section" id="navsec-system">System</div>
   <button class="nav-item" id="nav-settings" onclick="showPage('settings',this)"><span class="nav-icon">&#9881;&#65039;</span> Settings</button>
 </nav>
 
@@ -648,7 +643,6 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm btn-ghost" onclick="exportCSV(TRACKER_LAST_FILTERED)" title="Exports what's currently shown (filters applied)">&#11015; Export CSV</button>
-      <button class="btn btn-sm btn-ghost" onclick="window.print()">&#128424; Print</button>
     </div>
   </div>
   <div class="alert alert-info" id="opsQueueBanner" style="display:none;margin-bottom:var(--space-2)">
@@ -971,7 +965,7 @@ tbody tr:last-child td{border-bottom:none}
             <div class="et-group" style="border-left:1.5px solid var(--gray200);padding-left:10px">
               <span id="emailCopyMsg" style="display:none;font-size:12px;color:var(--green);font-weight:600">&#10003; Copied!</span>
               <span id="emailAddrCopyMsg" style="display:none;font-size:12px;color:#1a73e8;font-weight:600">&#10003; Email address copied. Paste into To field</span>
-              <button class="btn btn-sm btn-green" onclick="markComposerEmailSent()">&#10003; Mark as Sent</button>
+              <button class="btn btn-sm btn-green" id="markSentBtn" onclick="markComposerEmailSent()">&#10003; Mark as Sent</button>
             </div>
           </div>
         </div>
@@ -1073,44 +1067,17 @@ tbody tr:last-child td{border-bottom:none}
   <div class="card card-accent-blue" style="max-width:700px">
     <div class="card-header">
       <div class="card-title-lg">Google Sheets Sync</div>
-      <span id="connectionStatus" class="badge badge-gray" style="font-size:13px;padding:6px 12px;font-weight:700">Not connected</span>
     </div>
     <p style="font-size:13px;color:var(--gray500);margin-bottom:18px;line-height:1.7">Once connected, all applicant records sync automatically to your Google Sheet so every HR staff member sees the same data in real time. GRIT and Values scores are pulled in automatically by email match.</p>
     <div style="margin-bottom:14px"><label class="lbl">Apps Script Web App URL</label><input class="inp" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/YOUR_ID/exec"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
       <button class="btn btn-primary" onclick="saveScriptUrl()">Save &amp; Connect</button>
       <button class="btn btn-ghost" onclick="testConnection()">Test Connection</button>
-      <button class="btn btn-ghost" onclick="syncFromSheets()">Pull from Sheets</button>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;border-left:1.5px solid var(--gray200);padding-left:10px">
-        <button class="btn btn-ghost" onclick="pushAllToSheets()">Push All to Sheets</button>
         <button class="btn btn-danger" onclick="resetScriptUrlToDefault()">Reset to Default</button>
       </div>
     </div>
-    <div id="settingsMsg" style="display:none"></div>
   </div>
-  <details class="card" style="max-width:700px">
-    <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--gray900);letter-spacing:-.01em">🗂️ One-Time Migration Tools (safe to ignore once run, click to expand)</summary>
-    <div style="margin-top:16px">
-  <div class="card card-accent-blue" style="max-width:700px">
-    <div class="card-header"><div class="card-title-lg">Update Stage Names (V4)</div></div>
-    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The Candidate Stage list was updated to match the HR / Operations / PM / CEO role structure: "Preliminary Interview" is now "HR Preliminary Interview," "Final Interview" was folded into "Endorsed to Client," a new "Operations Decision" stage makes the Approve/Hold/Reject/Endorse point visible on dashboards, and "Job Offer" is now just "Offer." This moves any applicant still on one of the three old stage names to its new equivalent. Skips anyone already on a current stage name, so it's safe to run more than once. Preview first, nothing changes until you click Apply.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="previewStageModelV4Migration()">👀 Preview (no changes)</button>
-      <button class="btn btn-primary" id="stageMigV4ApplyBtn" style="display:none;margin-left:auto" onclick="applyStageModelV4Migration()">✓ Apply Update</button>
-    </div>
-    <div id="stageMigV4Msg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
-  </div>
-  <div class="card card-accent-blue" style="max-width:700px">
-    <div class="card-header"><div class="card-title-lg">Fix Migration Timestamps</div></div>
-    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">The Candidate Stage migration above used to stamp every record it touched with today's date, inflating the Executive Dashboard's "Today's Progress." That's fixed going forward: new migrations leave the date blank unless it's a brand-new application, where the real received date is used instead. This tool is the one-time cleanup for records migrated under the old behavior: it clears any fabricated stage date (set to today, no real history behind it), or backfills the true received date for new applications. Preview first, nothing changes until you click Apply. Safe to run more than once.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="previewMigrationDateFixUI()">👀 Preview (no changes)</button>
-      <button class="btn btn-primary" id="dateFixApplyBtn" style="display:none;margin-left:auto" onclick="applyMigrationDateFixUI()">✓ Apply Fix</button>
-    </div>
-    <div id="dateFixMsg" style="display:none;margin-top:14px;font-size:13px;line-height:1.6"></div>
-  </div>
-    </div>
-  </details>
 </div>
 
 </div>
@@ -1436,6 +1403,7 @@ async function loadFromSheets() {
     saveApplicants(merged);
     toRepush.forEach(id => scheduleSync(id, 0));
     _pullFailed = false;
+    _lastSyncAt = new Date();
     updateSyncWarningBanner();
     return true;
   }
@@ -1451,7 +1419,7 @@ async function loadFromSheets() {
 // When a push to Google Sheets fails (dropped internet, timeout, etc.),
 // the record is flagged locally so nothing is lost silently and the
 // person can see it and retry.
-let _sheetsConnected = false;
+let _lastSyncAt = null;
 let _pullFailed = false;
 
 function getSyncFailedApplicants(){
@@ -1501,8 +1469,8 @@ function updateSyncWarningBanner(){
   } else {
     if(banner) banner.style.display='none';
     if(dot && lbl){
-      if(_sheetsConnected){ dot.style.background='var(--green)'; lbl.textContent='Sheets connected'; }
-      else { dot.style.background='var(--gray400)'; lbl.textContent='Not synced'; }
+      if(_lastSyncAt){ dot.style.background='var(--green)'; lbl.textContent='Synced ' + _lastSyncAt.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+      else { dot.style.background='var(--gray400)'; lbl.textContent = SCRIPT_URL ? 'Connecting...' : 'Not connected'; }
     }
   }
 }
@@ -1568,7 +1536,7 @@ function downloadEmmTemplate(){
     a.click();
     showToast('✓ Template downloaded. Attach it in Gmail before sending.');
   }catch(e){
-    alert('Could not download the template: '+e.message);
+    showToast('Could not download the template: '+e.message, 'error');
   }
 }
 
@@ -1581,7 +1549,7 @@ function openNextStepsPdfTab(){
     const blob = new Blob([byteArray], {type:'application/pdf'});
     window.open(URL.createObjectURL(blob), '_blank');
   }catch(e){
-    alert('Could not open the PDF: '+e.message);
+    showToast('Could not open the PDF: '+e.message, 'error');
   }
 }
 const ANS_SUMMARY={
@@ -2549,7 +2517,7 @@ async function saveInterviewInfo(id){
       res = {success:true, slots:recheck1.interviewSlots, schedulingToken:recheck1.schedulingToken};
     } else {
       if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
-      alert('Could not save (' + (res && res.error || 'unknown error') + '). Please try again.');
+      showToast('Could not save (' + (res && res.error || 'unknown error') + '). Please try again.', 'error');
       return;
     }
   }
@@ -2565,7 +2533,7 @@ async function saveInterviewInfo(id){
     var recheck2 = getApplicant(id);
     var actuallySaved = recheck2 && recheck2.candidateContact===contact;
     if(!actuallySaved){
-      alert('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.');
+      showToast('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.', 'error');
     }
   }
 
@@ -2840,7 +2808,7 @@ async function handleCvUpload(id,input){
       if(document.getElementById('modalTabContent')) document.getElementById('modalTabContent').innerHTML=buildProfileTab(fresh);
     }
   } else {
-    alert('CV upload failed: '+(res&&res.error?res.error:'Check your connection and try again.'));
+    showToast('CV upload failed: '+(res&&res.error?res.error:'Check your connection and try again.'), 'error');
     if(statusEl) statusEl.textContent='';
   }
 }
@@ -3231,14 +3199,14 @@ async function loadEmmFileIntoGrader(fileUrl, label, opts){
   document.getElementById('gradeError').style.display='none';
   var res=await apiPost('fetchDriveFile',{data:{fileId:fileId}});
   if(!res || !res.success){
-    alert('Could not load the file from Drive: '+((res&&res.error)||'no response from the server.'));
+    showToast('Could not load the file from Drive: '+((res&&res.error)||'no response from the server.'), 'error');
     reset();
     return;
   }
   try{
     gradeFile={name:res.filename||((label||'submission')+'.xlsx'), data:base64ToArrayBuffer(res.base64)};
   }catch(decodeErr){
-    alert('Could not read that file after loading it from Drive: '+decodeErr.message);
+    showToast('Could not read that file after loading it from Drive: '+decodeErr.message, 'error');
     reset();
     return;
   }
@@ -3774,8 +3742,7 @@ function saveGradeToRecord(){
   updateTrackerBadge();
   autoAdvanceIfSubmitted(a.id);
   renderPendingGradingQueue();
-  alert(`✓ EMM result saved to ${a.name}'s record.
-Score: ${gradeResult.rubric.total}/100 (${emmStatusLabel(a)})` + (gradeResult.highRiskFlag ? '\n\n⚠ This result also has a HIGH-severity integrity flag (see the Integrity tab).' : ''));
+  showToast('EMM result saved to ' + a.name + ': ' + gradeResult.rubric.total + '/100 (' + emmStatusLabel(a) + ')' + (gradeResult.highRiskFlag ? '. High-severity integrity flag: see the Integrity tab.' : ''));
 }
 
 // ============================================================
@@ -3835,7 +3802,7 @@ Congratulations! We are pleased to inform you that you have passed the initial a
 
 We would like to invite you to a brief interview. During the interview, we will ask you some questions related to your assessment results and your experience in accounts receivable and data analysis.
 
-We will reach out separately to coordinate a suitable time. Please keep an eye on your inbox.
+Our HR team will call you to agree on a time, and you will get a confirmation email with the details.
 
 We look forward to speaking with you.
 
@@ -4019,7 +3986,7 @@ function getLastEmailSentInfo(a){
 
 
 async function sendEmailAutomatically(){
-  if(currentEmailApplicantId==null){ alert("Open this email from a candidate (the Email button on their profile) so it can be sent and tracked."); return; }
+  if(currentEmailApplicantId==null) return;
   if(!SCRIPT_URL){ alert('Not connected to the shared sheet, so automatic sending is unavailable right now. Use "Open in Gmail" instead.'); return; }
   var to=document.getElementById('et-email').value.trim();
   if(!to){ alert("Enter the applicant's email address first."); return; }
@@ -4031,15 +3998,16 @@ async function sendEmailAutomatically(){
   var res = await sendTemplatedEmail(id, key, {to:to, subject:document.getElementById('emailSubject').value || '', body:composerBodyText(), sentByName:sentByName});
   if(btn){ btn.disabled=false; btn.innerHTML='&#9993; Send Automatically'; }
   if(res.ok){ updateEmailSentStatus(); autoAdvance(id, emailEventFor(key), 'Email sent to '+to); }
-  else alert('Could not send automatically (' + (res.error || 'unknown error') + '). Use "Open in Gmail" instead.');
+  else showToast('Could not send automatically (' + (res.error || 'unknown error') + '). Use "Open in Gmail" instead.', 'error');
 }
 
 
 function updateEmailSentStatus(){
   const el=document.getElementById('emailSentStatus');
   if(!el) return;
-  if(!currentEmailApplicantId){
-    el.textContent="Not linked to an applicant. Generate this from an applicant's Profile tab to track send status.";
+  ['sendAutoBtn','markSentBtn'].forEach(function(bid){ var b=document.getElementById(bid); if(b) b.disabled = currentEmailApplicantId==null; });
+  if(currentEmailApplicantId==null){
+    el.textContent="Not linked to a candidate. Open it from the candidate's Email button to send and track it.";
     el.style.color='var(--gray400)';
     el.style.display='block';
     return;
@@ -4174,7 +4142,7 @@ function unrecordEmailSent(id, key){
 
 // Composer "Mark as Sent" (for an email sent some other way, e.g. from Gmail).
 function markComposerEmailSent(){
-  if(currentEmailApplicantId==null){ alert("Open this email from a candidate (the Email button on their profile) so it can be tracked."); return; }
+  if(currentEmailApplicantId==null) return;
   var a = getApplicant(currentEmailApplicantId);
   if(!a){ alert('That candidate record no longer exists.'); return; }
   recordEmailSent(a.id, currentTemplate);
@@ -4290,13 +4258,12 @@ function exportOffboardingCsv(){
 // ============================================================
 function saveScriptUrl(){
   const rawUrl = document.getElementById('scriptUrlInput').value.trim();
-  if(!rawUrl){showSettingsMsg('Please enter a URL.','#b52a2a');return;}
+  if(!rawUrl){ showToast('Enter the backend URL first.', 'error'); return; }
   const url = normalizeScriptUrl(rawUrl);
-  if(IS_LOCAL_PREVIEW && url===DEFAULT_SCRIPT_URL){showSettingsMsg('This is a local preview: it can only connect to a staging backend, never production.','#b52a2a');return;}
+  if(IS_LOCAL_PREVIEW && url===DEFAULT_SCRIPT_URL){ showToast('A local preview can only connect to a staging backend, never production.', 'error'); return; }
   SCRIPT_URL = url;
   localStorage.setItem('abbss_script_url', url);
   document.getElementById('scriptUrlInput').value = url;
-  showSettingsMsg(url!==rawUrl ? '✓ URL saved (auto-corrected to the public form so applicant links work). Testing connection...' : '✓ URL saved. Testing connection...', '#1a7a4a');
   testConnection();
 }
 
@@ -4304,49 +4271,19 @@ function resetScriptUrlToDefault(){
   localStorage.removeItem('abbss_script_url');
   SCRIPT_URL = resolveScriptUrl();
   document.getElementById('scriptUrlInput').value = SCRIPT_URL;
-  if(!SCRIPT_URL){showSettingsMsg('This is a local preview: running disconnected until a staging URL is saved.','#b52a2a');return;}
-  showSettingsMsg('✓ Reset to the default URL. Testing connection...','#1a7a4a');
+  if(!SCRIPT_URL){ showToast('Local preview: disconnected until a staging URL is saved.', 'error'); updateSyncWarningBanner(); return; }
   testConnection();
 }
 
+// Checks the backend answers by loading the latest records from it.
 async function testConnection(){
-  if(!SCRIPT_URL){showSettingsMsg('No URL saved yet.','#b52a2a');return;}
-  showSettingsMsg('Testing...','#888');
-  const res = await apiGet('setup');
-  if(res && res.success){
-    showSettingsMsg('✓ Connected! Sheet is ready. Run "Pull from Sheets" to load existing records.','#1a7a4a');
-    document.getElementById('connectionStatus').textContent = '✓ Connected to Google Sheets';
-    document.getElementById('connectionStatus').style.color = '#1a7a4a';
-  } else {
-    showSettingsMsg('✗ Connection failed. Check the URL and make sure the script is deployed as a Web App with access "Anyone".','#b52a2a');
-    document.getElementById('connectionStatus').textContent = '✗ Not connected';
-    document.getElementById('connectionStatus').style.color = '#b52a2a';
-  }
-}
-
-async function syncFromSheets(){
-  showSettingsMsg('Pulling from Google Sheets...','#888');
+  if(!SCRIPT_URL){ showToast('No backend URL saved yet.', 'error'); return; }
   const loaded = await loadFromSheets();
-  if(loaded){
-    showSettingsMsg('✓ Records loaded from Google Sheets.','#1a7a4a');
-    renderDashboard(); updateTrackerBadge();
-  } else {
-    showSettingsMsg('No records found in sheet, or connection failed.','#b07d0c');
-  }
+  if(loaded){ showToast('Connected. Latest records loaded.'); renderDashboard(); updateTrackerBadge(); }
+  else showToast('Could not reach the backend. Check the URL and that the script is deployed as a Web App anyone can open.', 'error');
 }
 
-async function pushAllToSheets(){
-  if(!SCRIPT_URL){showSettingsMsg('Not connected. Save a URL first.','#b52a2a');return;}
-  const apps = getRawApplicants();
-  if(!apps.length){showSettingsMsg('No local records to push.','#888');return;}
-  showSettingsMsg(`Pushing ${apps.length} records...`,'#888');
-  let ok=0;
-  for(const a of apps){
-    const res = await apiPost('saveApplicant',{data:a});
-    if(res&&res.success)ok++;
-  }
-  showSettingsMsg(`✓ Pushed ${ok}/${apps.length} records to Google Sheets.`,'#1a7a4a');
-}
+
 
 
 
@@ -4709,11 +4646,9 @@ function getAllowedRoutesForRole(role){
 // (instead of leaving an empty "Pipeline" label floating above nothing).
 var NAV_SECTIONS = {
   'navsec-main':      ['nav-dashboard','nav-new'],
-  'navsec-pipeline':  ['nav-tracker','nav-interviewcal','nav-grade','nav-email'],
-  'navsec-projects':  ['nav-eod'],
-  'navsec-offboarding': ['nav-offboarding'],
-  'navsec-reports':   ['nav-board','nav-sources','nav-analytics'],
-  'navsec-system':    ['nav-settings']
+  'navsec-pipeline':  ['nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-offboarding'],
+  'navsec-reports':   ['nav-eod','nav-board','nav-sources','nav-analytics'],
+  '':                 ['nav-settings']
 };
 function applyRoleNavVisibility(){
   var role = getAppRole();
@@ -5288,141 +5223,9 @@ function assessmentsAnyFailed(a){
 // ============================================================
 
 
-// ============================================================
-// STAGE MODEL V4 -- ONE-TIME UPDATE UI. Preview before apply, for the
-// V3->V4 stage renames (previewStageModelV4 / migrateStageModelV4 on the backend).
-// ============================================================
-async function previewStageModelV4Migration(){
-  var msgEl = document.getElementById('stageMigV4Msg');
-  var applyBtn = document.getElementById('stageMigV4ApplyBtn');
-  if(!msgEl) return;
-  if(!SCRIPT_URL){
-    msgEl.style.display='block';
-    msgEl.innerHTML = '<span style="color:#b45309">Connect Google Sheets above first. This runs against your shared Sheet.</span>';
-    return;
-  }
-  msgEl.style.display='block';
-  msgEl.innerHTML = 'Checking your data&hellip;';
-  if(applyBtn) applyBtn.style.display='none';
 
-  var res = await apiGet('previewStageModelV4');
-  if(!res || !res.success){
-    msgEl.innerHTML = '<span style="color:#b52a2a">Could not preview: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
-    return;
-  }
-  window._stageMigV4Preview = res;
 
-  if(res.totalToMigrate === 0){
-    msgEl.innerHTML = '<span style="color:#166534">✓ Nothing to update. No records are on an old stage name.</span>';
-    return;
-  }
 
-  var oldStageLines = Object.keys(res.countsByOldStage)
-    .map(function(s){ return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--gray100)"><span>'+s+'</span><span style="font-weight:700">'+res.countsByOldStage[s]+'</span></div>'; }).join('');
-  var sampleRows = res.sample.map(function(p){
-    return '<tr><td style="padding:5px 8px;font-size:12px">'+escapeHtml(p.name)+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px">'+p.oldStage+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px">'+p.newStage+'</td></tr>';
-  }).join('');
-
-  msgEl.innerHTML =
-    '<div style="font-weight:700;margin-bottom:10px;color:var(--gray900)">' + res.totalToMigrate + ' record(s) will be updated &mdash; nothing has changed yet, this is a preview.</div>' +
-    '<div style="margin-bottom:14px"><div class="card-title-sm" style="margin-bottom:4px">Old stage name &rarr; how many</div>' + oldStageLines + '</div>' +
-    '<div class="card-title-sm" style="margin-bottom:4px">First 20 examples</div>' +
-    '<div class="table-wrap" style="max-height:240px;overflow:auto"><table><thead><tr><th style="padding:5px 8px;font-size:11px">Name</th><th style="padding:5px 8px;font-size:11px">Old Stage</th><th style="padding:5px 8px;font-size:11px">New Stage</th></tr></thead><tbody>' + sampleRows + '</tbody></table></div>';
-
-  if(applyBtn) applyBtn.style.display='inline-block';
-}
-
-async function applyStageModelV4Migration(){
-  var preview = window._stageMigV4Preview;
-  var msgEl = document.getElementById('stageMigV4Msg');
-  if(!preview || !preview.totalToMigrate){
-    showToast('Run Preview first.');
-    return;
-  }
-  if(!confirm('Update ' + preview.totalToMigrate + ' applicant record(s) still on an old stage name to the new one? Records already on a current stage name are never touched.')) return;
-
-  if(msgEl) msgEl.innerHTML = 'Applying&hellip;';
-  var res = await apiPost('runStageModelV4', {});
-  if(res && res.success){
-    showToast('✓ Updated ' + res.migrated + ' record(s).');
-    if(msgEl) msgEl.innerHTML = '<span style="color:#166534">✓ Done &mdash; ' + res.migrated + ' record(s) updated.</span>';
-    var applyBtn = document.getElementById('stageMigV4ApplyBtn');
-    if(applyBtn) applyBtn.style.display='none';
-    window._stageMigV4Preview = null;
-    if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
-    if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
-    if(document.getElementById('trackerTable') && typeof filterTracker==='function') try{ filterTracker(); }catch(e){}
-  } else {
-    if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
-  }
-}
-
-async function previewMigrationDateFixUI(){
-  var msgEl = document.getElementById('dateFixMsg');
-  var applyBtn = document.getElementById('dateFixApplyBtn');
-  if(!msgEl) return;
-  if(!SCRIPT_URL){
-    msgEl.style.display='block';
-    msgEl.innerHTML = '<span style="color:#b45309">Connect Google Sheets above first. This runs against your shared Sheet.</span>';
-    return;
-  }
-  msgEl.style.display='block';
-  msgEl.innerHTML = 'Checking for fabricated dates&hellip;';
-  if(applyBtn) applyBtn.style.display='none';
-
-  var res = await apiGet('previewMigrationDateFix');
-  if(!res || !res.success){
-    msgEl.innerHTML = '<span style="color:#b52a2a">Could not preview: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
-    return;
-  }
-  window._dateFixPreview = res;
-
-  if(res.totalToFix === 0){
-    msgEl.innerHTML = '<span style="color:#166534">✓ Nothing to fix. No fabricated timestamps found.</span>';
-    return;
-  }
-
-  var sampleRows = res.sample.map(function(p){
-    return '<tr><td style="padding:5px 8px;font-size:12px">'+escapeHtml(p.name)+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px">'+p.stage+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px;color:#b52a2a">'+(p.oldDate?new Date(p.oldDate).toLocaleDateString():'')+'</td>' +
-      '<td style="padding:5px 8px;font-size:12px;color:#166534">'+(p.newDate?new Date(p.newDate).toLocaleDateString():'<span style="color:var(--gray500)">cleared (unknown)</span>')+'</td></tr>';
-  }).join('');
-
-  msgEl.innerHTML =
-    '<div style="font-weight:700;margin-bottom:10px;color:var(--gray900)">' + res.totalToFix + ' record(s) have a fabricated "moved today" date &mdash; nothing has changed yet, this is a preview.</div>' +
-    '<div class="card-title-sm" style="margin-bottom:4px">First 20 examples</div>' +
-    '<div class="table-wrap" style="max-height:240px;overflow:auto"><table><thead><tr><th style="padding:5px 8px;font-size:11px">Name</th><th style="padding:5px 8px;font-size:11px">Stage</th><th style="padding:5px 8px;font-size:11px">Wrong date (now)</th><th style="padding:5px 8px;font-size:11px">Corrected to</th></tr></thead><tbody>' + sampleRows + '</tbody></table></div>' +
-    '<div style="margin-top:10px;font-size:12px;color:var(--gray500)">"New Application" records get backfilled with their real received date. Every other stage gets cleared to unknown rather than left showing a made-up date.</div>';
-
-  if(applyBtn) applyBtn.style.display='inline-block';
-}
-
-async function applyMigrationDateFixUI(){
-  var preview = window._dateFixPreview;
-  var msgEl = document.getElementById('dateFixMsg');
-  if(!preview || !preview.totalToFix){
-    showToast('Run Preview first.');
-    return;
-  }
-  if(!confirm('Correct the fabricated "moved today" timestamp on ' + preview.totalToFix + ' record(s)? This only touches dates the old migration wrote incorrectly today. Real stage history is never changed.')) return;
-
-  if(msgEl) msgEl.innerHTML = 'Applying&hellip;';
-  var res = await apiPost('applyMigrationDateFix', {});
-  if(res && res.success){
-    showToast('✓ Fixed ' + res.fixed + ' record(s).');
-    if(msgEl) msgEl.innerHTML = '<span style="color:#166534">✓ Done &mdash; ' + res.fixed + ' record(s) corrected. The Executive Dashboard\'s Today\'s Progress will no longer count these as moved today.</span>';
-    var applyBtn = document.getElementById('dateFixApplyBtn');
-    if(applyBtn) applyBtn.style.display='none';
-    window._dateFixPreview = null;
-    if(SCRIPT_URL){ try{ await loadFromSheets(); }catch(e){} }
-    if(typeof renderDashboard==='function') try{ renderDashboard(); }catch(e){}
-  } else {
-    if(msgEl) msgEl.innerHTML = '<span style="color:#b52a2a">Could not apply: ' + (res && res.error ? res.error : 'no response from the server') + '</span>';
-  }
-}
 
 
 
@@ -5623,7 +5426,7 @@ async function bulkSendEmail(){
     }
   }
   showToast('Sent to '+okCount+'/'+withEmail.length+' candidate(s)' + (skipped?(', '+skipped+' skipped (no email)'):''));
-  if(failed.length) alert('Some emails failed to send: '+failed.join(', '));
+  if(failed.length) showToast('Some emails failed to send: '+failed.join(', '), 'error');
   clearTrackerSelection();
   var ev = emailEventFor(templateKey);
   if(ev==='regretSent'){ var open = sentIds.filter(function(id){ return !isClosed(getApplicant(id)); }); if(open.length) openCloseDialog(open, {stage:'Closed - Rejected'}); }
@@ -6543,7 +6346,7 @@ async function confirmInterviewCalSlot(id, slotId){
     return;
   }
   if(btn){ btn.disabled=false; btn.innerHTML='✓ Confirm This Time'; }
-  alert('Could not confirm the interview (' + (res&&res.error||'unknown error') + '). Please try again in a moment.');
+  showToast('Could not confirm the interview (' + (res&&res.error||'unknown error') + '). Please try again in a moment.', 'error');
 }
 
 // HR's one-click "I already texted them" confirmation -- this app can't send
@@ -6746,17 +6549,6 @@ function showPreflight(inspection, parsed) {
   panel.style.display = 'block';
 }
 
-// ============================================================
-// OVERRIDE settings messages
-// ============================================================
-function showSettingsMsg(msg, color) {
-  var el = document.getElementById('settingsMsg');
-  var cls = color === '#1a7a4a' ? 'alert-success' : color === '#b52a2a' ? 'alert-err' : 'alert-info';
-  var icon = color === '#1a7a4a' ? '&#10003;' : color === '#b52a2a' ? '&#9888;&#65039;' : '&#8505;&#65039;';
-  el.className = 'alert ' + cls;
-  el.innerHTML = '<span>' + icon + '</span><span>' + msg + '</span>';
-  el.style.display = 'flex';
-}
 
 // ============================================================
 // OVERRIDE updateTrackerBadge
@@ -6773,13 +6565,6 @@ function updateTrackerBadge() {
   if (ab) { if (actionable > 0) { ab.textContent = actionable; ab.style.display = 'inline'; } else ab.style.display = 'none'; }
 }
 
-// ============================================================
-// OVERRIDE sync status
-// ============================================================
-function updateSyncStatus(connected) {
-  _sheetsConnected = connected;
-  updateSyncWarningBanner();
-}
 
 // ============================================================
 // OFFBOARDING / CLEARANCE TRACKING (frontend)
@@ -6872,7 +6657,7 @@ async function deleteOffboardingCase(id){
     renderOffboardingList();
     showToast('✓ Case deleted');
   } else {
-    alert('Could not delete this case (' + (res&&res.error||'unknown error') + '). Try again in a moment.');
+    showToast('Could not delete this case (' + (res&&res.error||'unknown error') + '). Try again in a moment.', 'error');
   }
 }
 
@@ -7113,9 +6898,7 @@ updateTrackerBadge();
 var savedUrl = normalizeScriptUrl(localStorage.getItem('abbss_script_url'));
 if(savedUrl) localStorage.setItem('abbss_script_url', savedUrl); // persist the corrected form
 document.getElementById('scriptUrlInput').value = SCRIPT_URL;
-document.getElementById('connectionStatus').className = 'badge badge-pass';
-document.getElementById('connectionStatus').textContent = '✓ Connected';
-updateSyncStatus(true);
+updateSyncWarningBanner();
 (async function(){
   var loaded = await loadFromSheets();
   if(!loaded && !IS_LOCAL_PREVIEW && savedUrl && savedUrl !== DEFAULT_SCRIPT_URL){
