@@ -91,7 +91,29 @@ function assertCalendarWritable_(){
 // 'Initial Interview' is intentionally still named generically, not
 // 'Operations Interview' -- see getInterviewRoundLabel() below for why, and
 // how the correct department-specific label gets shown anyway.
-const CANDIDATE_STAGES = ['New Application','CV Screening','HR Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Operations Decision','Endorsed to Client','Waiting for Client Decision','Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+const CANDIDATE_STAGES = ['New Application','CV Screening','HR Preliminary Interview','Assessment Sent','Assessment Review','Initial Interview','Operations Decision','Endorsed to Client','Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+// Stage names that no longer exist, and where those candidates belong now.
+// 'Waiting for Assessment' and 'Waiting for Client Decision' were the same
+// step as the stage before them (same next action, same person waiting).
+const STAGE_ALIASES = {
+  'Waiting for Assessment':'Assessment Sent',
+  'Waiting for Client Decision':'Endorsed to Client',
+  'Preliminary Interview':'HR Preliminary Interview',
+  'Final Interview':'Endorsed to Client',
+  'Job Offer':'Offer'
+};
+function canonicalStage_(stage){ stage = String(stage||''); return STAGE_ALIASES[stage] || stage; }
+// Stage-date keys under old names fold into the current name, keeping the
+// earliest time so 'days in stage' still counts from when the step began.
+function canonicalStageDates_(dates){
+  var out = {};
+  Object.keys(dates||{}).forEach(function(k){
+    var v = dates[k]; if(!v) return;
+    var c = canonicalStage_(k);
+    if(!out[c] || new Date(v).getTime() < new Date(out[c]).getTime()) out[c] = v;
+  });
+  return out;
+}
 const CLOSED_STAGES = ['Hired','Closed - Rejected','Closed - Withdrawn'];
 // Keys match the real values in the Department dropdown ('Operations',
 // 'Sales and Marketing', plus Finance/HR/IT/Other which this pipeline
@@ -133,9 +155,9 @@ const CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client De
 // Suggested default when a stage is first set -- HR can always change it.
 const DEFAULT_NEXT_ACTION_BY_STAGE = {
   'New Application':'Screen CV','CV Screening':'Call Candidate','HR Preliminary Interview':'Schedule HR Preliminary Interview',
-  'Assessment Sent':'Follow up Candidate','Waiting for Assessment':'Follow up Candidate','Assessment Review':'Review Assessment',
+  'Assessment Sent':'Follow up Candidate','Assessment Review':'Review Assessment',
   'Initial Interview':'Schedule Initial Interview','Operations Decision':'Decide Reject/Hold','Endorsed to Client':'Follow up Client',
-  'Waiting for Client Decision':'Follow up Client','Offer':'Send Offer','Hired':'None',
+  'Offer':'Send Offer','Hired':'None',
   'Closed - Rejected':'None','Closed - Withdrawn':'None'
 };
 // How many days a candidate should typically spend in each active stage
@@ -144,8 +166,7 @@ const DEFAULT_NEXT_ACTION_BY_STAGE = {
 // real data on how long things actually take.
 const STAGE_SLA_DAYS = {
   'New Application':2,'CV Screening':2,'HR Preliminary Interview':3,'Assessment Sent':1,
-  'Waiting for Assessment':3,'Assessment Review':2,'Initial Interview':3,'Operations Decision':2,'Endorsed to Client':3,
-  'Waiting for Client Decision':5,'Offer':3
+  'Assessment Review':2,'Initial Interview':3,'Operations Decision':2,'Endorsed to Client':5,'Offer':3
 };
 // A candidate whose Next Action is literally "follow up" something is the
 // clearest, most direct signal that HR has work to do on them right now --
@@ -315,6 +336,10 @@ function saveApplicantLocked_(d){
   if(emmForSync&&emmForSync.catWrong&&emmForSync.catWrong.length>300){
     emmForSync={...emmForSync,catWrong:emmForSync.catWrong.slice(0,300),catWrongTruncated:true};
   }
+  // Old stage names are mapped to current ones; anything unrecognised keeps
+  // the stored stage instead of writing a value no screen can show.
+  let stageIn=canonicalStage_(d.candidateStage);
+  if(stageIn && CANDIDATE_STAGES.indexOf(stageIn)<0) stageIn = existing ? canonicalStage_(existing[53]) : '';
   const row=[d.id,d.name,d.email,d.phone||'',d.position||'',d.source||'',d.dateReceived||'',
     d.requiresEmm?'Yes':'No',d.stage||1,d.overallStatus||'In Progress',
     d.disc?.type||'',d.disc?.pass===true?'Yes':d.disc?.pass===false?'No':'',d.disc?.notes||'',
@@ -356,7 +381,7 @@ function saveApplicantLocked_(d){
     // Columns 54-56 (Candidate Stage / Next Action / Role Category) are
     // plain client-set fields -- HR picks them from dropdowns, same as
     // Department. Column 57 (Closed Reason) likewise.
-    d.candidateStage||'', d.nextAction||'', d.roleCategory||'', d.closedReason||'',
+    stageIn, d.nextAction||'', d.roleCategory||'', d.closedReason||'',
     // Column 58 (Candidate Stage Dates JSON) is the one exception: it's
     // computed here server-side, not client-set, so it stays reliable no
     // matter which device/browser changed the stage. We diff the incoming
@@ -365,9 +390,9 @@ function saveApplicantLocked_(d){
     // "average days in stage" is computed from later.
     (function(){
       let dates={};
-      if(existing && existing[57]){ try{ dates=JSON.parse(existing[57]); }catch(e){} }
-      const oldStage = existing ? (existing[53]||'') : '';
-      const newStage = d.candidateStage||'';
+      if(existing && existing[57]){ try{ dates=canonicalStageDates_(JSON.parse(existing[57])); }catch(e){} }
+      const oldStage = existing ? canonicalStage_(existing[53]) : '';
+      const newStage = stageIn;
       if(newStage && newStage!==oldStage) dates[newStage]=new Date().toISOString();
       return JSON.stringify(dates);
     })(),
@@ -456,7 +481,7 @@ function getAllApplicants(){
     let assessmentViews={};
     if(r[52]){ try{ assessmentViews=JSON.parse(r[52]); }catch(e){} }
     let candidateStageDates={};
-    if(r[57]){ try{ candidateStageDates=JSON.parse(r[57]); }catch(e){} }
+    if(r[57]){ try{ candidateStageDates=canonicalStageDates_(JSON.parse(r[57])); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
@@ -475,7 +500,7 @@ function getAllApplicants(){
       candidateSlotPicks:candidateSlotPicks,candidateContact:r[47]||'',availabilitySubmittedAt:r[48]||'',
       confirmedSlot:confirmedSlot,confirmedAt:r[50]||'',smsSentAt:r[51]||'',
       assessmentViews:assessmentViews,
-      candidateStage:r[53]||'',nextAction:r[54]||'',roleCategory:r[55]||'',closedReason:r[56]||'',
+      candidateStage:canonicalStage_(r[53]),nextAction:r[54]||'',roleCategory:r[55]||'',closedReason:r[56]||'',
       candidateStageDates:candidateStageDates,calendarEventId:r[58]||''
     };
   });
@@ -637,12 +662,82 @@ function migrateStageModelV3(){
 // migration in this file -- nothing changes until Apply is clicked, and the
 // preview shows exactly which candidates and how many are affected.
 // ============================================================
+// ============================================================
+// ONE-TIME NORMALIZE (lean-out release). Brings every row onto the current
+// stage list and makes stage and status agree:
+//  - old stage names and stage-date keys -> current names (earliest date kept)
+//  - no stage at all -> derived from the old numeric stage, like the V3 tool
+//  - status Rejected with an active stage -> 'Closed - Rejected'
+//  - status Hired/Departed with another stage -> 'Hired'
+//  - a closed stage whose status is still In Progress/Hold -> the matching status
+// Deleted rows are left alone. Preview first; apply backs up the tab, writes
+// only cells that change, and running it again changes nothing.
+// ============================================================
+function buildNormalizePlan_(rows){
+  var plan = [];
+  for(var i=1;i<rows.length;i++){
+    var r = rows[i];
+    if(!r[0]) continue;
+    var status = r[9] || 'In Progress';
+    if(status==='Deleted') continue;
+    var stageFrom = r[53] || '';
+    var stage = canonicalStage_(stageFrom);
+    if(!stage) stage = canonicalStage_(deriveNewStageForRow(r));
+    if(CANDIDATE_STAGES.indexOf(stage)<0) stage = canonicalStage_(deriveNewStageForRow(r));
+    if(status==='Rejected' && CLOSED_STAGES.indexOf(stage)<0) stage = 'Closed - Rejected';
+    if((status==='Hired'||status==='Departed') && stage!=='Hired') stage = 'Hired';
+    var statusTo = status;
+    if(stage==='Hired' && (status==='In Progress'||status==='Hold')) statusTo = 'Hired';
+    if((stage==='Closed - Rejected'||stage==='Closed - Withdrawn') && (status==='In Progress'||status==='Hold')) statusTo = 'Rejected';
+    var datesFrom = r[57] || '';
+    var datesTo = datesFrom;
+    try{ if(datesFrom) datesTo = JSON.stringify(canonicalStageDates_(JSON.parse(datesFrom))); }catch(e){ datesTo = datesFrom; }
+    if(stage!==stageFrom || statusTo!==status || datesTo!==datesFrom){
+      plan.push({row:i, id:r[0], name:r[1], stageFrom:stageFrom, stageTo:stage, statusFrom:status, statusTo:statusTo, datesFrom:datesFrom, datesTo:datesTo});
+    }
+  }
+  return plan;
+}
+
+function previewNormalize(){
+  try{
+    var t = SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+    var plan = buildNormalizePlan_(t.getDataRange().getValues());
+    var counts = {};
+    plan.forEach(function(p){
+      var k = (p.stageFrom||'(blank)')+' / '+p.statusFrom+'  ->  '+p.stageTo+' / '+p.statusTo;
+      counts[k] = (counts[k]||0)+1;
+    });
+    return {success:true, total:plan.length, counts:counts, sample:plan.slice(0,25).map(function(p){ return {id:p.id, name:p.name, stage:p.stageFrom+' -> '+p.stageTo, status:p.statusFrom+' -> '+p.statusTo, datesChanged:p.datesFrom!==p.datesTo}; })};
+  }catch(e){ return {success:false, error:e.message}; }
+}
+
+function applyNormalize(){
+  var lock = LockService.getScriptLock();
+  if(!lock.tryLock(30000)) return {success:false, error:'The sheet is busy. Try again in a moment.'};
+  try{
+    var ss = SpreadsheetApp.openById(MASTER_SHEET_ID);
+    var t = ss.getSheetByName('Applicants');
+    var plan = buildNormalizePlan_(t.getDataRange().getValues());
+    if(!plan.length) return {success:true, changed:0};
+    var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmm');
+    t.copyTo(ss).setName('Applicants_backup_'+stamp);
+    plan.forEach(function(p){
+      if(p.stageTo!==p.stageFrom) t.getRange(p.row+1, 54).setValue(p.stageTo);
+      if(p.statusTo!==p.statusFrom) t.getRange(p.row+1, 10).setValue(p.statusTo);
+      if(p.datesTo!==p.datesFrom) t.getRange(p.row+1, 58).setValue(p.datesTo);
+    });
+    return {success:true, changed:plan.length, backup:'Applicants_backup_'+stamp};
+  }catch(e){ return {success:false, error:e.message}; }
+  finally{ lock.releaseLock(); }
+}
+
 function buildStageV4RenameMap(){
   // 'Final Interview' folds into 'Endorsed to Client' -- there's no
   // remaining stage for candidates who were sitting in the old
   // 'Final Interview' value, so they land back in 'Endorsed to Client'
   // (client/CEO interview is now understood to happen during that period).
-  return {'Preliminary Interview':'HR Preliminary Interview', 'Final Interview':'Endorsed to Client', 'Job Offer':'Offer'};
+  return STAGE_ALIASES;
 }
 // What Next Action V3 would have defaulted to for each OLD stage name --
 // used below to detect "HR never touched this since it was auto-set" so we
@@ -750,7 +845,7 @@ function buildMigrationDateFixPlan(){
   for(let i=1;i<data.length;i++){
     const r=data[i];
     if(!r[0]) continue;
-    const stage=r[53];
+    const stage=canonicalStage_(r[53]);
     if(!stage) continue; // never migrated -- nothing to fix
     const createdAt=r[27]||'';
     let dates={};
@@ -1188,6 +1283,7 @@ function doGet(e){
   try{
     const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
+    else if(a==='previewNormalize')out=previewNormalize();
     else if(a==='getAll')out={success:true,data:getAllApplicants(),config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS},minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
@@ -1214,6 +1310,7 @@ function doPost(e){
   try{
     const p=JSON.parse(e.postData.contents);let out={};
     if(p.action==='saveApplicant')out=saveApplicant(p.data);
+    else if(p.action==='applyNormalize')out=applyNormalize();
     else if(p.action==='uploadCV')out=uploadCV(p.data);
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
     else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
@@ -1890,7 +1987,7 @@ const ASSESSMENT_REMINDER_HOURS = 12;
 const MIN_CLIENT_VERSION = 1;
 
 const COMPLIANCE_SKIP_STATUSES = ['Hired','Rejected','Hold','Deleted','Departed'];
-const ASSESSMENT_WAITING_STAGES = ['Assessment Sent','Waiting for Assessment'];
+const ASSESSMENT_WAITING_STAGES = ['Assessment Sent'];
 
 // The job reads the whole sheet once, then spends a while on form lookups.
 // A person may edit a row in the meantime, so status and emailsSent writes
@@ -1936,7 +2033,7 @@ function checkAssessmentCompliance(){
     const r=data[i];
     const id=r[0]; if(!id) continue;
     let status=r[9]||'In Progress';
-    const stage=r[53]||'';
+    const stage=canonicalStage_(r[53]);
 
     // Finished, paused or removed candidates are never touched automatically --
     // by status OR by stage (a candidate closed via the stage panel keeps an

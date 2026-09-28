@@ -710,12 +710,10 @@ tbody tr:last-child td{border-bottom:none}
         <option value="CV Screening">CV Screening</option>
         <option value="HR Preliminary Interview">HR Preliminary Interview</option>
         <option value="Assessment Sent">Assessment Sent</option>
-        <option value="Waiting for Assessment">Waiting for Assessment</option>
         <option value="Assessment Review">Assessment Review</option>
         <option value="Initial Interview">Initial Interview (Operations/PM)</option>
         <option value="Operations Decision">Operations Decision</option>
         <option value="Endorsed to Client">Endorsed to Client</option>
-        <option value="Waiting for Client Decision">Waiting for Client Decision</option>
         <option value="Offer">Offer</option>
         <option value="Hired">Hired</option>
         <option value="Closed - Rejected">Closed - Rejected</option>
@@ -4793,7 +4791,7 @@ var EMM_RESPONDER_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I
 // auto-advance here. See the V3 -> V4 changelog comment in Code.gs for what
 // changed and why.
 // ============================================================
-var CANDIDATE_STAGES = ['New Application','CV Screening','HR Preliminary Interview','Assessment Sent','Waiting for Assessment','Assessment Review','Initial Interview','Operations Decision','Endorsed to Client','Waiting for Client Decision','Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
+var CANDIDATE_STAGES = ['New Application','CV Screening','HR Preliminary Interview','Assessment Sent','Assessment Review','Initial Interview','Operations Decision','Endorsed to Client','Offer','Hired','Closed - Rejected','Closed - Withdrawn'];
 var CLOSED_STAGES = ['Hired','Closed - Rejected','Closed - Withdrawn'];
 var INTERVIEW_ROUNDS_BY_DEPARTMENT = {
   'Operations': { preliminary:'HR', initial:'Operations Manager', final:'Client' },
@@ -4831,12 +4829,10 @@ var CANDIDATE_STAGE_META = {
   'CV Screening': { tone:'#475569', bg:'#f1f5f9' },
   'HR Preliminary Interview': { tone:'#1e40af', bg:'#eef2ff' },
   'Assessment Sent': { tone:'#6d28d9', bg:'#f3e8ff' },
-  'Waiting for Assessment': { tone:'#b45309', bg:'#fff8e1' },
   'Assessment Review': { tone:'#6d28d9', bg:'#f3e8ff' },
   'Initial Interview': { tone:'#1e40af', bg:'#eef2ff' },
   'Operations Decision': { tone:'#9333ea', bg:'#faf5ff' },
   'Endorsed to Client': { tone:'#0f766e', bg:'#f0fdfa' },
-  'Waiting for Client Decision': { tone:'#b45309', bg:'#fff8e1' },
   'Offer': { tone:'#047857', bg:'#e8f5e9' },
   'Hired': { tone:'#166534', bg:'#e8f5e9' },
   'Closed - Rejected': { tone:'#b52a2a', bg:'#fdecea' },
@@ -5009,9 +5005,9 @@ function candidateStageDrilldownBadge(a){
 var CLOSED_REASON_OPTIONS = ['Failed Assessment','Failed Interview','Client Declined','Salary Mismatch','Candidate Withdrew','Non-Responsive','Other'];
 var DEFAULT_NEXT_ACTION_BY_STAGE = {
   'New Application':'Screen CV','CV Screening':'Call Candidate','HR Preliminary Interview':'Schedule HR Preliminary Interview',
-  'Assessment Sent':'Follow up Candidate','Waiting for Assessment':'Follow up Candidate','Assessment Review':'Review Assessment',
+  'Assessment Sent':'Follow up Candidate','Assessment Review':'Review Assessment',
   'Initial Interview':'Schedule Initial Interview','Operations Decision':'Decide Reject/Hold','Endorsed to Client':'Follow up Client',
-  'Waiting for Client Decision':'Follow up Client','Offer':'Send Offer','Hired':'None',
+  'Offer':'Send Offer','Hired':'None',
   'Closed - Rejected':'None','Closed - Withdrawn':'None'
 };
 // Who conducts Initial/Final Interview for this candidate, based on
@@ -5048,12 +5044,10 @@ var STAGE_HINTS = {
   'CV Screening': 'Decide if they move forward, then schedule the preliminary interview.',
   'HR Preliminary Interview': 'Interview is happening. Write down pass or fail.',
   'Assessment Sent': 'Just wait for their answers.',
-  'Waiting for Assessment': 'Just wait for their answers.',
   'Assessment Review': 'Review their assessment results.',
   'Initial Interview': 'Interview is happening. Write down pass or fail.',
   'Operations Decision': 'Approve, hold, reject, or endorse to the client.',
-  'Endorsed to Client': 'Sent to the client, interview may still be pending. Follow up if it’s been a while.',
-  'Waiting for Client Decision': 'Just wait for the client to answer.',
+  'Endorsed to Client': 'With the client for their interview and decision. Follow up if it’s been a while.',
   'Offer': 'Send (or follow up on) the offer.'
 };
 // Per-applicant version of the old getPipelineStep()/PIPELINE_CARD_DEFS
@@ -5078,8 +5072,7 @@ function getStageTask(a){
   else if(stage==='Initial Interview') owner = initialOwner;
   else if(stage==='Operations Decision'){ owner = initialOwner; actionable = true; waiting = false; }
   else if(stage==='Endorsed to Client'){ owner = finalOwner; actionable = false; waiting = true; }
-  else if(stage==='Waiting for Client Decision'){ owner = finalOwner; actionable = false; waiting = true; }
-  else if(stage==='Assessment Sent' || stage==='Waiting for Assessment'){ owner = 'HR'; actionable = false; waiting = true; }
+  else if(stage==='Assessment Sent'){ owner = 'HR'; actionable = false; waiting = true; }
   var prefix = actionable ? 'TO DO' : 'WAITING';
   // 'Initial Interview' is one neutral stored value for every department --
   // show the department-correct label (Operations Interview / PM Interview)
@@ -5133,7 +5126,7 @@ function buildCandidateStagePanel(a){
   var interviewerHint = '';
   if(stage==='HR Preliminary Interview') interviewerHint = getInterviewerHint(a,'preliminary');
   else if(stage==='Initial Interview') interviewerHint = getInterviewerHint(a,'initial');
-  else if(stage==='Endorsed to Client' || stage==='Waiting for Client Decision') interviewerHint = getInterviewerHint(a,'final');
+  else if(stage==='Endorsed to Client') interviewerHint = getInterviewerHint(a,'final');
 
   var skipsClientRoundHint = (role && ROLE_CONFIG[role] && ROLE_CONFIG[role].requiresClientFinal===false)
     ? '<div style="font-size:11px;color:var(--gray400);margin-top:4px">This role skips the client hand-off stages. Offer follows straight from Operations Decision.</div>' : '';
