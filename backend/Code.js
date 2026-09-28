@@ -296,7 +296,15 @@ function ensureCandidateStageColumns(){
   }
 }
 
+// Read-modify-write of a whole row: hold the script lock so two saves (or a
+// save and the compliance job) can't interleave and drop each other's edits.
 function saveApplicant(d){
+  const lock = LockService.getScriptLock();
+  if(!lock.tryLock(20000)) return {success:false, error:'The sheet is busy. Please try again in a moment.'};
+  try{ return saveApplicantLocked_(d); } finally { lock.releaseLock(); }
+}
+
+function saveApplicantLocked_(d){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   let t=ss.getSheetByName('Applicants');if(!t){setupSheet();t=ss.getSheetByName('Applicants');}
   const rows=t.getDataRange().getValues();
@@ -367,8 +375,39 @@ function saveApplicant(d){
     // when it adds the interview to David's calendar -- same reasoning as columns 43-50.
     existing?(existing[58]||''):''
   ];
+  if(existing) applyColumnOwnership_(row, existing, d);
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
+}
+
+// Who owns each Applicants column, for columns the client sends but a server
+// job also writes. The client always sends its whole (possibly stale) copy of
+// the record; without these rules a save made from an old copy silently undid
+// the compliance job's work.
+const FILL_ONLY_COLUMNS = [13,15,16,17,35,36,38,40]; // GRIT/Values scores, EMM received + file: attached by the job, never cleared by the client
+const FROZEN_COLUMNS = [10,11,12,24];                 // DISC (retired), Interview Result (unused)
+function isBlankCell_(v){ return v===''||v===null||v===undefined; }
+function applyColumnOwnership_(row, existing, d){
+  FILL_ONLY_COLUMNS.forEach(function(c){ if(isBlankCell_(row[c])) row[c] = existing[c]; });
+  FROZEN_COLUMNS.forEach(function(c){ row[c] = existing[c]; });
+  // Outcome labels always follow the (possibly kept) scores.
+  row[14] = isBlankCell_(row[13]) ? '' : getGritLabel(parseFloat(row[13]));
+  row[18] = isBlankCell_(row[15]) ? '' : getValuesLabel(parseFloat(row[15]), parseFloat(row[16]||0), parseFloat(row[17]||0));
+  // emailsSent: the client's copy wins (so "undo mark as sent" deletions
+  // stick), but the job's own autoReminder stamp is kept -- losing it made
+  // the job send the reminder again.
+  var stored = {};
+  try{ stored = existing[30] ? JSON.parse(existing[30]) : {}; }catch(e){ stored = {}; }
+  var sent = d.emailsSent ? JSON.parse(JSON.stringify(d.emailsSent)) : {};
+  if(stored.autoReminder) sent.autoReminder = stored.autoReminder;
+  row[30] = Object.keys(sent).length ? JSON.stringify(sent) : '';
+  // overallStatus: a client that says which status it started from, and
+  // didn't change it, must not overwrite a newer status set by the job or
+  // another person. Older clients don't send the base and behave as before.
+  if(d._baseOverallStatus !== undefined && (d.overallStatus||'In Progress') === (d._baseOverallStatus||'In Progress')){
+    row[9] = existing[9];
+  }
+  return row;
 }
 
 function getAllApplicants(){
@@ -414,9 +453,9 @@ function getAllApplicants(){
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
       requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
-      grit:{score:r[13]||'',perseverance:r[35]||'',consistency:r[36]||''},
+      grit:{score:r[13]||'',perseverance:r[35]||'',consistency:r[36]||'',label:r[14]||''},
       enteredBy:r[37]||'',
-      values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||''},
+      values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||'',label:r[18]||''},
       emm:emm,
       interview:interview,decisionNotes:r[25]||'',
       resumeNotes:r[26]||'',createdAt:r[27]||'',
@@ -1142,7 +1181,7 @@ function doGet(e){
   try{
     const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
-    else if(a==='getAll')out={success:true,data:getAllApplicants()};
+    else if(a==='getAll')out={success:true,data:getAllApplicants(),config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS},minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
     else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
@@ -1835,21 +1874,73 @@ function authorizeMailSending(){
   return 'Authorization test email sent to ' + me + '. Automatic sending should now work.';
 }
 
+// Candidates get this long to finish GRIT/Values/EMM after the invite; the
+// reminder goes out halfway. Sent to the client in getAll so every screen
+// and email uses the same numbers.
+const ASSESSMENT_DEADLINE_HOURS = 24;
+const ASSESSMENT_REMINDER_HOURS = 12;
+// Raise when a release needs open tabs running an older frontend to reload.
+const MIN_CLIENT_VERSION = 1;
+
+const COMPLIANCE_SKIP_STATUSES = ['Hired','Rejected','Hold','Deleted','Departed'];
+const ASSESSMENT_WAITING_STAGES = ['Assessment Sent','Waiting for Assessment'];
+
+// The job reads the whole sheet once, then spends a while on form lookups.
+// A person may edit a row in the meantime, so status and emailsSent writes
+// re-read the row under the script lock and only apply if it's still safe.
+function withScriptLock_(fn){
+  var lock = LockService.getScriptLock();
+  if(!lock.tryLock(10000)) return false;
+  try{ return fn(); } finally { lock.releaseLock(); }
+}
+function readRow_(t, i){
+  return t.getRange(i+1, 1, 1, t.getLastColumn()).getValues()[0];
+}
+function setStatusIfUnchanged_(t, i, seenRow, newStatus){
+  return withScriptLock_(function(){
+    var cur = readRow_(t, i);
+    if(String(cur[0])!==String(seenRow[0])) return false;            // row moved
+    if((cur[9]||'In Progress')!==(seenRow[9]||'In Progress')) return false; // someone changed the status
+    if((cur[53]||'')!==(seenRow[53]||'')) return false;              // or the stage
+    t.getRange(i+1,10).setValue(newStatus);
+    return true;
+  }) === true;
+}
+function mergeEmailsSent_(t, i, patch){
+  return withScriptLock_(function(){
+    var cur = readRow_(t, i);
+    var sent = {};
+    try{ sent = cur[30] ? JSON.parse(cur[30]) : {}; }catch(e){ sent = {}; }
+    Object.keys(patch).forEach(function(k){ sent[k] = patch[k]; });
+    t.getRange(i+1,31).setValue(JSON.stringify(sent));
+    return true;
+  }) === true;
+}
+
 function checkAssessmentCompliance(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');
   if(!t) return;
   const data=t.getDataRange().getValues();
   const now=new Date();
-  const REMINDER_HOURS=12, ARCHIVE_HOURS=24;
+  const REMINDER_HOURS=ASSESSMENT_REMINDER_HOURS, ARCHIVE_HOURS=ASSESSMENT_DEADLINE_HOURS;
   let reminders=0, archived=0, healed=0, attached=0, emmDetected=0;
   for(let i=1;i<data.length;i++){
     const r=data[i];
     const id=r[0]; if(!id) continue;
     let status=r[9]||'In Progress';
+    const stage=r[53]||'';
 
-    // Terminal outcomes never change automatically.
-    if(status==='Hired'||status==='Rejected'||status==='Hold') continue;
+    // Finished, paused or removed candidates are never touched automatically --
+    // by status OR by stage (a candidate closed via the stage panel keeps an
+    // "In Progress" status until the outcome model is unified). Deleted and
+    // Departed used to fall through here, so the job emailed them and flipped
+    // them to NonCompliant, which brought deleted records back.
+    if(COMPLIANCE_SKIP_STATUSES.indexOf(status)>=0) continue;
+    if(CLOSED_STAGES.indexOf(stage)>=0) continue;
+    // Reminders and archiving only apply while the candidate is still
+    // waiting on their assessments.
+    const inAssessmentWindow = !stage || ASSESSMENT_WAITING_STAGES.indexOf(stage)>=0;
 
     let emailsSent={};
     try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
@@ -1954,28 +2045,29 @@ function checkAssessmentCompliance(){
         if(setByPerson){
           continue;
         }
-        t.getRange(i+1,10).setValue('In Progress');
-        status='In Progress';
-        healed++;
+        if(setStatusIfUnchanged_(t, i, r, 'In Progress')){
+          status='In Progress';
+          healed++;
+        } else {
+          continue;
+        }
       } else {
         continue;
       }
     }
 
-    if(!inviteSentAt) continue;
+    if(!inviteSentAt || !inAssessmentWindow) continue;
     const assessmentsComplete=hasGrit&&hasValues&&(requiresEmm?(emmReceived||emmGraded):true);
     if(assessmentsComplete) continue;
     const hoursElapsed=(now.getTime()-new Date(inviteSentAt).getTime())/3600000;
     if(hoursElapsed>=ARCHIVE_HOURS){
-      t.getRange(i+1,10).setValue('NonCompliant');
-      archived++;
+      if(setStatusIfUnchanged_(t, i, r, 'NonCompliant')) archived++;
       continue;
     }
     if(hoursElapsed>=REMINDER_HOURS && !emailsSent.autoReminder && !emailsSent.reminder){
       try{
         sendComplianceReminderEmail(r[2],r[1],r[4],r[37],r[0]);
-        emailsSent.autoReminder=now.toISOString();
-        t.getRange(i+1,31).setValue(JSON.stringify(emailsSent));
+        mergeEmailsSent_(t, i, {autoReminder: now.toISOString()});
         reminders++;
       }catch(e){ Logger.log('Reminder send failed for row '+(i+1)+': '+e.message); }
     }

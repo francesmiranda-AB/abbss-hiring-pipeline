@@ -536,6 +536,12 @@ tbody tr:last-child td{border-bottom:none}
   <button class="btn btn-sm btn-primary" onclick="retryFailedSyncs()">Retry Now</button>
 </div>
 
+<div id="newVersionBanner" class="alert alert-warn no-print" style="display:none;margin:0;border-radius:0;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px">
+  <span class="alert-icon">&#128260;</span>
+  <span style="flex:1;max-width:640px">A new version of the app is available. Reload to keep your changes saving correctly.</span>
+  <button class="btn btn-sm btn-primary" onclick="location.reload()">Reload</button>
+</div>
+
 <div class="layout">
 <div class="sidebar-backdrop no-print" id="sidebarBackdrop" onclick="closeSidebar()"></div>
 <nav class="sidebar no-print" id="mainSidebar">
@@ -1342,9 +1348,24 @@ async function syncApplicantToSheets(applicant) {
   }
 }
 
+// Bump when a release needs tabs left open on an older copy of this page to
+// reload; the backend's MIN_CLIENT_VERSION says which versions are too old.
+const APP_VERSION = 1;
+// Shared numbers from the backend, so every screen and email agrees with
+// what the compliance job actually does. Defaults match the backend.
+var SERVER_CONFIG = {deadlineHours: 24, reminderHours: 12};
+var ROLE_HEALTH = {};
+function applyServerMeta(res){
+  if(res.config) SERVER_CONFIG = Object.assign({}, SERVER_CONFIG, res.config);
+  if(res.roleHealth) ROLE_HEALTH = res.roleHealth;
+  var banner = document.getElementById('newVersionBanner');
+  if(banner && typeof res.minClientVersion === 'number' && res.minClientVersion > APP_VERSION) banner.style.display = 'flex';
+}
+
 async function loadFromSheets() {
   if (!SCRIPT_URL) return false;
   const res = await apiGet('getAll');
+  if (res && res.success) applyServerMeta(res);
   if (res && res.success && res.data) {
     // Merge: union of local-only and sheet-only records, sheet wins on conflicts
     const local = getRawApplicants();
