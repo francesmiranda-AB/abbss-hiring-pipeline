@@ -1768,57 +1768,16 @@ function escapeHtml(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Candidates used to pick their own interview times from a link. Scheduling
+// is now done by phone (HR records the time, David confirms on the Interview
+// Calendar), so old links in inboxes, and old pages still open, get this.
+const SCHEDULING_BY_PHONE_HTML_ = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Interview scheduling</h2><p>We now schedule interviews by phone. Please contact HR and we will agree on a time with you.</p></div>';
 function renderSchedulingPage(id, token){
-  try{
-    const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
-    const t=ss.getSheetByName('Applicants');
-    const rows=t.getDataRange().getValues();
-    const idx=rows.findIndex(function(r,i){ return i>0 && String(r[0])===String(id); });
-    if(idx<=0 || !token || String(rows[idx][45])!==String(token)){
-      return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Link not valid</h2><p>This scheduling link is invalid or has expired. Please contact HR for a new one.</p></div>');
-    }
-    var name = rows[idx][1] || '';
-    var slots = [];
-    try{ slots = rows[idx][44] ? JSON.parse(rows[idx][44]) : []; }catch(e){}
-    if(!slots.length){
-      return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>No times available yet</h2><p>Our team hasn\'t added interview times yet. Please check back soon or contact HR.</p></div>');
-    }
-    var checkboxes = slots.map(function(s){
-      return '<label style="display:block;padding:10px 14px;margin-bottom:8px;border:1px solid #ddd;border-radius:8px;cursor:pointer">' +
-        '<input type="checkbox" name="slot" value="' + escapeHtml(String(s.id)) + '" style="margin-right:10px"> ' + escapeHtml(s.label) +
-      '</label>';
-    }).join('');
-    var html = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:40px auto;padding:0 16px">' +
-      '<h2>Interview Scheduling' + (name?(': '+escapeHtml(name)):'') + '</h2>' +
-      '<p style="color:#555">Please check all the times below that work for you, then submit. Our team will confirm one final time by email.</p>' +
-      '<form method="POST" action="' + PUBLIC_WEBAPP_URL + '">' +
-      '<input type="hidden" name="formAction" value="submitAvailability">' +
-      '<input type="hidden" name="id" value="' + escapeHtml(String(id)) + '">' +
-      '<input type="hidden" name="token" value="' + escapeHtml(String(token)) + '">' +
-      checkboxes +
-      '<div style="margin:16px 0"><label style="font-weight:bold;display:block;margin-bottom:6px">Viber or WhatsApp Number (optional)</label>' +
-      '<input type="text" name="contact" placeholder="e.g. +63 917 123 4567" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box"></div>' +
-      '<button type="submit" style="background:#3b3f8c;color:#fff;border:none;padding:12px 20px;border-radius:8px;font-size:15px;cursor:pointer">Submit My Availability</button>' +
-      '</form></div>';
-    return HtmlService.createHtmlOutput(html);
-  }catch(e){
-    return HtmlService.createHtmlOutput('<p>Something went wrong loading this page. Please contact HR directly.</p>');
-  }
+  return HtmlService.createHtmlOutput(SCHEDULING_BY_PHONE_HTML_);
 }
 
 function handleSubmitAvailability(e){
-  try{
-    var id = e.parameter.id, token = e.parameter.token;
-    var contact = e.parameter.contact || '';
-    var picks = (e.parameters && e.parameters.slot) ? e.parameters.slot : [];
-    var ok = recordAvailability(id, token, picks, contact);
-    if(!ok){
-      return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555"><h2>Link not valid</h2><p>This scheduling link is invalid or has expired. Please contact HR for a new one.</p></div>');
-    }
-    return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center"><h2>Thank you!</h2><p>Your available times have been recorded. Our team will follow up shortly to confirm your interview.</p></div>');
-  }catch(err){
-    return HtmlService.createHtmlOutput('<p>Something went wrong. Please contact HR directly.</p>');
-  }
+  return HtmlService.createHtmlOutput(SCHEDULING_BY_PHONE_HTML_);
 }
 
 function generateSchedulingTokenServer(){
@@ -1854,6 +1813,12 @@ function saveInterviewSlots(data){
     var schedulingToken = rows[idx][45] || generateSchedulingTokenServer();
     t.getRange(idx+1, 45).setValue(JSON.stringify(newSlots));  // col 45 = index 44 (Interview Slots JSON)
     t.getRange(idx+1, 46).setValue(schedulingToken);           // col 46 = index 45 (Scheduling Token)
+    // HR enters the time the candidate gave on the phone, so every option is
+    // theirs (picks), and the number they gave is saved in the same call.
+    if(data.contact!==undefined){
+      t.getRange(idx+1, 47).setValue(JSON.stringify(newSlots.map(function(sl){ return sl.id; }))); // col 47 = index 46 (Candidate Slot Picks)
+      t.getRange(idx+1, 48).setValue(String(data.contact||''));                                     // col 48 = index 47 (Candidate Contact)
+    }
 
     return {success:true, slots:newSlots, schedulingToken:schedulingToken};
   }catch(e){

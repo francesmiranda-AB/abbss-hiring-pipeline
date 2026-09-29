@@ -208,9 +208,6 @@ select.inp{cursor:pointer}
   box-shadow:0 2px 10px rgba(67,97,238,.35);
 }
 .btn-primary:hover:not(:disabled){box-shadow:0 4px 20px rgba(67,97,238,.5);transform:translateY(-1px)}
-.btn-success{background:linear-gradient(135deg,#06d6a0,#00b894);color:#fff;box-shadow:0 2px 10px rgba(6,214,160,.3)}
-.btn-success:hover:not(:disabled){box-shadow:0 4px 20px rgba(6,214,160,.4);transform:translateY(-1px)}
-.btn-danger{background:linear-gradient(135deg,#ef476f,#d63361);color:#fff;box-shadow:0 2px 8px rgba(239,71,111,.3)}
 .btn-ghost{background:transparent;color:var(--gray600);border:1.5px solid var(--gray200)}
 .btn-ghost:hover{background:var(--gray50);border-color:var(--gray300);color:var(--gray900)}
 .btn-sm{padding:5px 12px;font-size:12px;border-radius:var(--radius-sm)}
@@ -558,7 +555,6 @@ tbody tr:last-child td{border-bottom:none}
   <button class="nav-item" id="nav-eod" onclick="showPage('eod',this)"><span class="nav-icon">&#127769;</span> Hiring Projects</button>
   <button class="nav-item" id="nav-board" onclick="showPage('board',this)"><span class="nav-icon">&#128203;</span> Board</button>
   <button class="nav-item" id="nav-sources" onclick="showPage('sources',this)"><span class="nav-icon">&#128205;</span> Sources</button>
-  <button class="nav-item" id="nav-analytics" onclick="showPage('analytics',this)"><span class="nav-icon">&#128200;</span> Analytics <span style="font-size:10px;font-weight:700;color:var(--gray400);margin-left:4px">SOON</span></button>
   <button class="nav-item" id="nav-settings" onclick="showPage('settings',this)"><span class="nav-icon">&#9881;&#65039;</span> Settings</button>
 </nav>
 
@@ -768,7 +764,7 @@ tbody tr:last-child td{border-bottom:none}
       <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)" id="eodDateLine"></p>
     </div>
     <div>
-      <button class="btn btn-success btn-sm" onclick="copyEodSummary()">&#128203; Copy Summary</button>
+      <button class="btn btn-green btn-sm" onclick="copyEodSummary()">&#128203; Copy Summary</button>
     </div>
   </div>
   <div id="eodContent"></div>
@@ -818,26 +814,6 @@ tbody tr:last-child td{border-bottom:none}
   <div id="offboardingListContent"></div>
 </div>
 
-<div id="page-analytics" class="page">
-  <div style="margin-bottom:var(--space-6)">
-    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Analytics</h1>
-    <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)">Coming soon</p>
-  </div>
-  <div class="card card-glass" style="max-width:640px">
-    <div class="card-header"><div class="card-title-lg">&#128200; Built on data the app already tracks</div></div>
-    <p style="font-size:13px;color:var(--gray500);margin-bottom:14px;line-height:1.7">Every stage change is already timestamped, so none of this needs new data collection to turn on later &mdash; just the reporting layer itself:</p>
-    <ul style="font-size:13px;color:var(--gray600);line-height:2;padding-left:20px">
-      <li>Time to Hire</li>
-      <li>Stage Conversion Rate</li>
-      <li>Assessment Pass Rate</li>
-      <li>Operations Pass Rate</li>
-      <li>Client Pass Rate</li>
-      <li>Source Performance</li>
-      <li>Recruiter Productivity</li>
-      <li>Average Days Per Stage (already on each Hiring Projects card, per role)</li>
-    </ul>
-  </div>
-</div>
 
 <div id="page-interviewcal" class="page">
   <div style="margin-bottom:var(--space-6)">
@@ -903,7 +879,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="card no-print" style="max-width:780px">
       <div class="card-header"><div class="card-title">Save &amp; Export</div></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-success btn-sm" onclick="saveGradeToRecord()">Save to Record</button>
+        <button class="btn btn-green btn-sm" onclick="saveGradeToRecord()">Save to Record</button>
         <button class="btn btn-ghost btn-sm" onclick="printGradeReport()">&#128424; Print / Save as PDF</button>
       </div>
     </div>
@@ -984,85 +960,11 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<div id="page-about" class="page">
-  <div style="margin-bottom:var(--space-6)">
-    <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Guide</h1>
-    <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)">How the hiring pipeline works and scoring reference</p>
-  </div>
-  <div class="card card-glass" style="margin-bottom:var(--space-3);border-left:4px solid var(--blue)">
-    <div class="card-header"><div class="card-title-lg">&#128640; Quick Start &mdash; 3 Steps</div></div>
-    <div class="g3">
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
-        <div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Add the applicant</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Click <strong>+ New Applicant</strong> in the sidebar and fill in their name, email, and position.</div></div>
-      </div>
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
-        <div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Send &amp; track</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Open <strong>Tracker</strong>, click their name &mdash; a "Next step" banner tells you exactly what to do at every stage.</div></div>
-      </div>
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
-        <div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Decide</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Once assessments, EMM, and interview are done, record the final decision on their <strong>Decision</strong> tab.</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:var(--space-3)">
-    <div class="card-header"><div class="card-title">Pipeline Stages</div></div>
-    <div style="font-size:12px;color:var(--gray500);margin:-6px 0 14px">Every stage is either "TO DO" (something for the team to do) or "WAITING" (nothing to do). Which list an applicant follows depends on their Department.</div>
-    <div class="g2">
-      <div>
-        <div style="font-size:12px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Track A: AP/AR (Operations)</div>
-        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system, already screened before entry.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Send Assessments</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR already interviewed them. Send GRIT + Values, plus EMM if the role requires it.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">WAITING: Assessments</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Test emails sent. Just wait for their answers.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Interview Them (Ops Manager)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">They passed their tests. The Operations Manager needs to interview them.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Finish Ops Manager Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Interview is happening. Write down pass or fail.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Send to Client</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">They passed the interview. Send this candidate to the external client now.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">WAITING: Client&#8217;s Decision</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Already sent. Just wait for the client to answer.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Client approved the candidate; ABBSS sends the formal offer.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue3));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">9</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
-      </div>
-      <div>
-        <div style="font-size:12px;font-weight:800;color:#6d28d9;text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Track B: Sales &amp; Marketing</div>
-        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Application Received</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Applicant added to the system, already screened before entry.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">WAITING: Assessments</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Test emails sent (GRIT + Values, no EMM on this track). Just wait for their answers.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Interview Them (HR)</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">They passed their tests. HR needs to interview them.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Finish HR Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">HR is interviewing them. Once done, send to Frances.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Finish PM Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Frances is interviewing them now.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">TO DO: Finish CEO Interview</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">The CEO is interviewing them now.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Job Offer Sent</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">CEO approved; ABBSS sends the offer directly, no external client on this track.</div></div></div><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)"><div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6d28d9,#9333ea);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:700;color:var(--gray900)">Hired</div><div style="font-size:12px;color:var(--gray500);margin-top:2px;line-height:1.5">Offer accepted.</div></div></div>
-      </div>
-    </div>
-  </div>
-  <div class="g2" style="margin-bottom:var(--space-3)">
-    <div class="card">
-      <div class="card-header"><div class="card-title">Assessment Thresholds</div></div>
-      <div class="table-wrap"><table><thead><tr><th>Assessment</th><th>Score</th><th>Rating</th></tr></thead><tbody>
-        <tr><td><strong>GRIT</strong></td><td>4.0+</td><td><span class="badge badge-pass">HIGH GRIT</span></td></tr>
-        <tr><td></td><td>3.0-3.9</td><td><span class="badge badge-warn">MODERATE</span></td></tr>
-        <tr><td></td><td>Below 3.0</td><td><span class="badge badge-fail">LOW GRIT</span></td></tr>
-        <tr><td><strong>Values</strong></td><td>221+</td><td><span class="badge badge-pass">STRONG FIT</span></td></tr>
-        <tr><td></td><td>126-220</td><td><span class="badge badge-warn">POTENTIAL FIT</span></td></tr>
-        <tr><td></td><td>Below 126</td><td><span class="badge badge-fail">NOT RECOMMENDED</span></td></tr>
-        <tr><td><strong>EMM</strong></td><td>75%+</td><td><span class="badge badge-pass">PASS</span></td></tr>
-        <tr><td></td><td>Below 75%</td><td><span class="badge badge-fail">FAIL</span></td></tr>
-      </tbody></table></div>
-      <div class="alert alert-warn" style="margin-top:12px"><span>&#9888;&#65039;</span><span><strong>Integrity Gate:</strong> Confidentiality or Integrity score of 2 or below is an automatic red flag regardless of total Values score.</span></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="card-title">EMM Grading Rules</div></div>
-    <div class="table-wrap"><table><thead><tr><th>Category</th><th>Condition</th><th>Balance</th></tr></thead><tbody>
-      <tr><td><strong>Match</strong></td><td>Lines fully matched, net = 0</td><td><span class="badge badge-gray">Zero</span></td></tr>
-      <tr><td><strong>Invoice &gt; Payment</strong></td><td>Invoice + Payment, balance positive</td><td><span class="badge badge-pass">Positive</span></td></tr>
-      <tr><td><strong>Missing Payment</strong></td><td>Invoice only, no Payment</td><td><span class="badge badge-pass">Positive</span></td></tr>
-      <tr><td><strong>Missing Invoice</strong></td><td>Payment only, no Invoice</td><td><span class="badge badge-fail">Negative</span></td></tr>
-      <tr><td><strong>Missing CM</strong></td><td>Refund exists, no Credit Memo</td><td><span class="badge badge-pass">Positive</span></td></tr>
-      <tr><td><strong>Missing Refund</strong></td><td>Credit Memo exists, no Refund</td><td><span class="badge badge-fail">Negative</span></td></tr>
-      <tr><td><strong>CM &gt; Refund</strong></td><td>CM + Refund, net negative</td><td><span class="badge badge-fail">Negative</span></td></tr>
-      <tr><td><strong>Partial Invoice</strong></td><td>Invoice + Payment, net negative</td><td><span class="badge badge-fail">Negative</span></td></tr>
-      <tr><td><strong>GJ Entry - Reversed</strong></td><td>GJ Entry lines, net = 0</td><td><span class="badge badge-gray">Zero</span></td></tr>
-    </tbody></table></div>
-  </div>
-</div>
 
 <div id="page-settings" class="page">
   <div style="margin-bottom:var(--space-6)">
     <h1 style="font-size:24px;font-weight:800;color:var(--gray900);letter-spacing:-.02em">Settings</h1>
     <p style="font-size:14px;color:var(--gray500);margin-top:var(--space-1)">Connect to Google Sheets for shared data across devices</p>
-  </div>
-  <div class="card" style="max-width:700px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-    <div>
-      <div style="font-weight:700;color:var(--gray900)">&#128214; New here, or need a refresher?</div>
-      <div style="font-size:12px;color:var(--gray500);margin-top:2px">The full feature guide (EMM, Interview Calendar, assessment tracking, and more) moved here from the main menu.</div>
-    </div>
-    <button class="btn btn-ghost" onclick="showPage('about')">Open the Guide &rarr;</button>
   </div>
   <div class="card card-accent-blue" style="max-width:700px">
     <div class="card-header">
@@ -1074,7 +976,7 @@ tbody tr:last-child td{border-bottom:none}
       <button class="btn btn-primary" onclick="saveScriptUrl()">Save &amp; Connect</button>
       <button class="btn btn-ghost" onclick="testConnection()">Test Connection</button>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;border-left:1.5px solid var(--gray200);padding-left:10px">
-        <button class="btn btn-danger" onclick="resetScriptUrlToDefault()">Reset to Default</button>
+        <button class="btn btn-red" onclick="resetScriptUrlToDefault()">Reset to Default</button>
       </div>
     </div>
   </div>
@@ -1525,10 +1427,7 @@ const JOB_OFFER_PDF_B64 = "JVBERi0xLjQKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZ
 
 function downloadEmmTemplate(){
   try{
-    const byteChars = atob(EMM_TEMPLATE_B64);
-    const byteNumbers = new Array(byteChars.length);
-    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
-    const byteArray = new Uint8Array(byteNumbers);
+    const byteArray = base64ToBytes(EMM_TEMPLATE_B64);
     const blob = new Blob([byteArray], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1542,10 +1441,7 @@ function downloadEmmTemplate(){
 
 function openNextStepsPdfTab(){
   try{
-    const byteChars = atob(JOB_OFFER_PDF_B64);
-    const byteNumbers = new Array(byteChars.length);
-    for(let i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
-    const byteArray = new Uint8Array(byteNumbers);
+    const byteArray = base64ToBytes(JOB_OFFER_PDF_B64);
     const blob = new Blob([byteArray], {type:'application/pdf'});
     window.open(URL.createObjectURL(blob), '_blank');
   }catch(e){
@@ -1711,7 +1607,7 @@ function buildNewApplicantRecord(fields, idOverride){
     grit:{score:'',outcome:'',notes:''},
     values:{score:'',confScore:'',intScore:'',outcome:'',notes:''},
     emm:{graded:false,overallPct:null,catPct:null,actPct:null,pass:null,gradedAt:'',notes:'',fullResult:''},
-    interview:{done:false,q1:null,q2:null,q3:null,q4:null,q5:null,notes:'',recommendation:''},
+    interview:{done:false,q1:null,q2:null,q3:null,q4:null,q5:null,notes:''},
     overallStatus:'In Progress'
   };
 }
@@ -2502,7 +2398,7 @@ async function saveInterviewInfo(id){
   var btn = document.getElementById('ivSaveBtn_'+id);
   if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
 
-  var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines}});
+  var res = await apiPost('saveInterviewSlots', {data:{id:id, labels:lines, contact:contact}});
   if(!res || !res.success){
     // Same class of issue as the calendar's Confirm button: the save may
     // have actually gone through on Google's side even though the response
@@ -2513,7 +2409,7 @@ async function saveInterviewInfo(id){
     await loadFromSheets();
     var recheck1 = getApplicant(id);
     var savedLabels = recheck1 ? (recheck1.interviewSlots||[]).map(function(s){return s.label;}) : [];
-    if(savedLabels.length===lines.length && lines.every(function(l,i){return savedLabels[i]===l;})){
+    if(savedLabels.length===lines.length && lines.every(function(l,i){return savedLabels[i]===l;}) && (recheck1.candidateContact||'')===contact){
       res = {success:true, slots:recheck1.interviewSlots, schedulingToken:recheck1.schedulingToken};
     } else {
       if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
@@ -2523,22 +2419,11 @@ async function saveInterviewInfo(id){
   }
 
   var allSlotIds = res.slots.map(function(s){ return s.id; });
-  var res2 = await apiPost('recordAvailability', {data:{id:id, token:res.schedulingToken, picks:allSlotIds, contact:contact}});
   if(btn){ btn.disabled=false; btn.innerHTML='💾 Save &amp; Add to Calendar'; }
-  if(!res2 || !res2.success){
-    // Same self-healing check for the phone-number save -- recordAvailability
-    // is a plain overwrite of the same fields, so a read-only re-check here
-    // is always safe (nothing gets duplicated by checking).
-    await loadFromSheets();
-    var recheck2 = getApplicant(id);
-    var actuallySaved = recheck2 && recheck2.candidateContact===contact;
-    if(!actuallySaved){
-      showToast('Time saved, but the phone number could not be saved (' + (res2 && res2.error || 'unknown error') + '). Try saving again.', 'error');
-    }
-  }
-
-  var apps=getApplicants();
-  var a=apps.find(function(x){return x.id===id;});
+  // The Sheet already has these, so this device's copy takes them as saved
+  // (the raw list, so Deleted records are kept).
+  var apps = getRawApplicants();
+  var a = apps.find(function(x){ return x.id===id; });
   if(a){
     a.interviewSlots = res.slots;
     a.schedulingToken = res.schedulingToken;
@@ -3175,11 +3060,13 @@ async function renderUnmatchedEmmCard(){
 // the applicant dropdown unset (since we don't know who this is) and
 // pre-fills the manual name field with whatever name they typed on the form,
 // so HR can link it to the right person once they've figured out who it is.
-function base64ToArrayBuffer(b64){
-  var bin = atob(b64);
-  var bytes = new Uint8Array(bin.length);
+function base64ToBytes(b64){
+  var bin = atob(b64), bytes = new Uint8Array(bin.length);
   for(var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  return bytes.buffer;
+  return bytes;
+}
+function base64ToArrayBuffer(b64){
+  return base64ToBytes(b64).buffer;
 }
 
 // Loads a submitted EMM file from Drive into the grader. opts.applicantId
@@ -4211,30 +4098,27 @@ function downloadCsv(filename, headers, rows){
   a.download=filename;a.click();
 }
 
+// The one candidate CSV: Candidates list (what's shown), bulk bar (what's
+// selected) and Board (its filters) all export these columns.
 function exportCSV(list){
   const apps=list||getApplicants();
-  if(!apps.length){alert('No records to export.');return;}
-  const hdrs=['Name','Email','Phone','Position','Source','Date Received','Stage','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Pass','Interview Result','Last Email Sent','Overall Status','Decision Notes'];
+  if(!apps.length){ showToast('No records to export.', 'error'); return; }
+  const hdrs=['Name','Email','Phone','Position','Department','Role','Source','Date Received','Candidate Stage','Status','Closed Reason','Next Action','GRIT Score','GRIT Outcome','Values Score','Values Outcome','EMM Score','EMM Result','Interview Result','Last Email Sent','Decision Notes'];
   const rows=apps.map(a=>[
-    a.name,a.email,a.phone||'',a.position||'',a.source||'',a.dateReceived||'',a.candidateStage||'',
+    a.name,a.email,a.phone||'',a.position||'',a.department||'',a.roleCategory||'',a.source||'',a.dateReceived||'',
+    a.candidateStage||'No stage set',a.overallStatus||'In Progress',a.closedReason||'',a.nextAction||'',
     a.grit&&a.grit.score||'',a.grit&&a.grit.score?gritOutcome(a.grit.score).label:'Pending',
     a.values&&a.values.score||'',a.values&&a.values.score?valuesOutcome(a.values.score,a.values.confScore||'',a.values.intScore||'').label:'Pending',
-    a.emm&&a.emm.graded?a.emm.overallPct:'',a.emm&&a.emm.graded?emmStatusLabel(a):'Pending',
+    a.emm&&a.emm.graded?a.emm.overallPct:'',emmStatusLabel(a),
     a.interview&&a.interview.result?(a.interview.result==='pass'?'Pass':'Fail'):'Not yet done',
     (()=>{const info=getLastEmailSentInfo(a);return info?(info.label+' on '+new Date(info.date).toLocaleDateString()):'Not sent';})(),
-    a.overallStatus||'In Progress',(a.decisionNotes||'').replace(/,/g,';')
+    a.decisionNotes||''
   ]);
   downloadCsv('ABBSS_Hiring_Pipeline_'+new Date().toISOString().slice(0,10)+'.csv', hdrs, rows);
 }
 
 function exportBoardCsv(){
-  var apps = sharedScopeApps();
-  if(!apps.length){ alert('No records to export.'); return; }
-  var headers = ['Name','Position','Department','Role Category','Candidate Stage','Next Action'];
-  var rows = apps.map(function(a){
-    return [a.name, a.position||'', a.department||'', a.roleCategory||'', a.candidateStage||'No stage set', a.nextAction||''];
-  });
-  downloadCsv('ABBSS_Board_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows);
+  exportCSV(sharedScopeApps());
 }
 
 function exportOffboardingCsv(){
@@ -4371,7 +4255,7 @@ function showPage(id, btn) {
   // switcher's own disclaimer), but it means the UI never itself opens a
   // door for a role it just told you doesn't have one.
   var role = getAppRole();
-  if (role && id !== 'about') {
+  if (role) {
     var visibleForRole = getAllowedRoutesForRole(role);
     if (visibleForRole.indexOf('nav-' + id) === -1) {
       var fallback = ((NAV_VISIBILITY_BY_ROLE[role] || [])[0] || 'nav-dashboard').replace('nav-', '');
@@ -4626,8 +4510,8 @@ function closeRoleSwitchModal(){
 var NAV_VISIBILITY_BY_ROLE = {
   'HR':         ['nav-dashboard','nav-new','nav-tracker','nav-board','nav-interviewcal','nav-grade','nav-email','nav-offboarding','nav-settings'],
   'Operations': ['nav-dashboard','nav-tracker','nav-board','nav-interviewcal'],
-  'PM':         ['nav-eod','nav-board','nav-sources','nav-analytics'],
-  'CEO':        ['nav-eod','nav-analytics']
+  'PM':         ['nav-eod','nav-board','nav-sources'],
+  'CEO':        ['nav-eod']
 };
 // Pages a role can land on via an intentional drill-through link even
 // though the page has no button of its own in that role's sidebar --
@@ -4636,6 +4520,11 @@ var NAV_VISIBILITY_BY_ROLE = {
 // NAV_VISIBILITY_BY_ROLE); the sidebar itself only ever reflects
 // NAV_VISIBILITY_BY_ROLE, so this doesn't add a permanent nav button.
 var NAV_ROUTE_ALLOW_BY_ROLE = {};
+// Whether this device's role can land on a page (no role picked yet: yes).
+function canOpenPage(page){
+  var role = getAppRole();
+  return !role || getAllowedRoutesForRole(role).indexOf('nav-' + page) >= 0;
+}
 function getAllowedRoutesForRole(role){
   var base = NAV_VISIBILITY_BY_ROLE[role] || [];
   var extra = NAV_ROUTE_ALLOW_BY_ROLE[role] || [];
@@ -4647,7 +4536,7 @@ function getAllowedRoutesForRole(role){
 var NAV_SECTIONS = {
   'navsec-main':      ['nav-dashboard','nav-new'],
   'navsec-pipeline':  ['nav-tracker','nav-interviewcal','nav-grade','nav-email','nav-offboarding'],
-  'navsec-reports':   ['nav-eod','nav-board','nav-sources','nav-analytics'],
+  'navsec-reports':   ['nav-eod','nav-board','nav-sources'],
   '':                 ['nav-settings']
 };
 function applyRoleNavVisibility(){
@@ -5860,8 +5749,9 @@ function renderSourcesReport(){
           '<div style="height:6px;border-radius:3px;background:#fdecea;width:120px;overflow:hidden;margin-top:4px">' +
           '<div style="height:100%;width:'+b.passRate+'%;background:#166534"></div></div>';
       }
-      return '<tr onclick="goToTrackerFilteredBySource(\''+b.source.replace(/'/g,"\\'")+'\')" style="cursor:pointer">' +
-        '<td style="font-weight:700">'+b.source+'</td>' +
+      var rowOpen = canOpenPage('tracker') ? ' onclick="goToTrackerFilteredBySource('+jsArg(b.source)+')" style="cursor:pointer"' : '';
+      return '<tr'+rowOpen+'>' +
+        '<td style="font-weight:700">'+escapeHtml(b.source)+'</td>' +
         '<td>'+b.total+'</td>' +
         '<td style="color:#166534;font-weight:700">'+b.hired+'</td>' +
         '<td style="color:#b52a2a;font-weight:700">'+b.rejectedOrNC+'</td>' +
@@ -5891,6 +5781,17 @@ function renderSourcesReport(){
 var interviewCalViewYear = new Date().getFullYear();
 var interviewCalViewMonth = new Date().getMonth(); // 0-11
 
+// The real interview date once David has confirmed one, else a best guess
+// from the label HR typed. Only a confirmation made with the date picker
+// (it also stores durationMin) carries a real date; older slots' startIso
+// is the backend's guess from the label and can land in the wrong year.
+function slotDateFor(slot, confirmedSlot){
+  if(confirmedSlot && confirmedSlot.startIso && confirmedSlot.durationMin){
+    var d = new Date(confirmedSlot.startIso);
+    if(!isNaN(d.getTime())) return d;
+  }
+  return clientParseSlotDate(slot.label);
+}
 function clientParseSlotDate(label){
   try{
     var cleaned = String(label).replace(/–|—/g,'-');
@@ -5941,7 +5842,7 @@ function getInterviewCalendarInstances(){
     var relevantSlots = confirmed ? slots.filter(function(s){ return String(s.id)===String(confirmed.id); }) : slots;
     relevantSlots.forEach(function(s){
       var isConfirmed = confirmed && String(confirmed.id)===String(s.id);
-      var date = clientParseSlotDate(s.label);
+      var date = slotDateFor(s, isConfirmed ? confirmed : null);
       out.push({
         applicantId: a.id, applicantName: a.name, position: a.position||'', contact: a.candidateContact||'',
         slotId: s.id, slotLabel: s.label, date: date, smsSentAt: a.smsSentAt||'',
@@ -6221,7 +6122,7 @@ function openInterviewCalDetail(applicantId, slotId){
   var confirmed = a.confirmedSlot && String(a.confirmedSlot.id)===String(slotId);
   var status = confirmed ? 'confirmed' : 'pending';
   var meta = INTERVIEW_CAL_STATUS_META[status];
-  var slotDate = clientParseSlotDate(slot.label);
+  var slotDate = slotDateFor(slot, confirmed ? a.confirmedSlot : null);
   if(slotDate) ensureDavidBusyLoaded(slotDate.getFullYear(), slotDate.getMonth()); // fire-and-forget; refreshes this overlay in place once (if ever) the data arrives
 
   var body = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">' +
