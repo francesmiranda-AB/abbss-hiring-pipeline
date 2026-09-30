@@ -2890,7 +2890,7 @@ function buildDecisionTab(a){
       <button class="btn btn-green${a.overallStatus==='Hired'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hired')">${a.overallStatus==='Hired'?'✓ ':''}✅ Mark as Hired</button>
       <button class="btn btn-red${a.overallStatus==='Rejected'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Rejected')">${a.overallStatus==='Rejected'?'✓ ':''}✗ Mark as Rejected</button>
       <button class="btn btn-amber${a.overallStatus==='Hold'?' btn-decision-active':''}" onclick="setDecision(${a.id},'Hold')">${a.overallStatus==='Hold'?'✓ ':''}⏸ Put on Hold</button>
-      <button class="btn btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying even after reminders. Sets automatically 48 hours after the assessment invite if nothing comes in; you can also set it yourself at any stage.">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Doesn&#39;t Respond</button>
+      <button class="btn btn-gray${a.overallStatus==='NonCompliant'?' btn-decision-active':''}" onclick="setDecision(${a.id},'NonCompliant')" title="They stopped replying even after reminders. Sets automatically 24 hours after the assessment invite if nothing comes in; you can also set it yourself at any stage.">${a.overallStatus==='NonCompliant'?'✓ ':''}⛔ Doesn&#39;t Respond</button>
     </div>
     ${a.overallStatus && a.overallStatus!=='In Progress' ? `
     <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--gray200);text-align:right">
@@ -3856,7 +3856,7 @@ const EMAIL_TEMPLATES={
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 48 hours of this invitation:
+Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
 Important: please use this same email address ({email}) when filling out each form below. That's how we match your results back to your application.
 
@@ -3873,7 +3873,7 @@ Important: please use this same email address ({email}) when filling out each fo
    Task: Please complete the reconciliation exercises within the file, following the instructions provided inside.
    Format: Save your completed file as AR_Assessment_{name}.xlsx.
    Submit here (do not reply to this email with the file): {emmlink}
-   Deadline: Please submit the completed file within 48 hours of this invitation, or as soon as possible.
+   Deadline: Please submit the completed file within 24 hours of this invitation.
 
 We will keep you posted on your status as soon as all assessments have been reviewed. If you have any questions in the meantime, feel free to reach out.
 
@@ -3891,10 +3891,9 @@ Important: please use this same email address ({email}) when filling out each fo
 
 As a reminder, please submit:
 • GRIT form: {gritlink}
-• Value-Integrity form: {valueslink}
-• Completed AR EMM Excel assessment, submit here: {emmlink}
+• Value-Integrity form: {valueslink}{emmreminderline}
 
-The deadline is 48 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
+The deadline is 24 hours from the original invitation. If we do not receive your completed assessments within this window, your application will unfortunately be marked as Non-Compliant. If you need help or have encountered any difficulties, please let us know right away.
 
 Warm regards,
 HR Team
@@ -3938,7 +3937,7 @@ ABBSS`
 
 Thank you for your interest in the {position} role at ABBSS. We are pleased to invite you to complete the next stage of our screening process.
 
-Please complete all of the following assessments and submit them within 48 hours of this invitation:
+Please complete all of the following assessments and submit them within 24 hours of this invitation:
 
 Important: please use this same email address ({email}) when filling out each form below. That's how we match your results back to your application.
 
@@ -3950,7 +3949,7 @@ Important: please use this same email address ({email}) when filling out each fo
    Link: {valueslink}
    → Your results will be recorded automatically.
 
-Please complete both forms within 48 hours of this invitation. Your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
+Please complete both forms within 24 hours of this invitation. Your results will be recorded automatically once submitted. If you have any questions, feel free to reach out.
 
 We look forward to reviewing your results.
 
@@ -4164,6 +4163,13 @@ async function sendEmailAutomatically(){
   }
 }
 
+// The assessment invite HR sends decides whether an EMM is expected,
+// whatever the job title suggested (the backend reads it the same way).
+function applyInviteEmmRule(a, templateKey){
+  if(templateKey==='assessment') a.requiresEmm=true;
+  else if(templateKey==='assessment_no_emm') a.requiresEmm=false;
+}
+
 function markEmailSent(){
   if(!currentEmailApplicantId){
     alert("This email isn't linked to a specific applicant. Open it from that applicant's Profile tab (Generate Assessment Email) so the send status can be tracked on their record.");
@@ -4174,6 +4180,7 @@ function markEmailSent(){
   if(!a){alert('Applicant record not found. It may have been deleted.');return;}
   if(!a.emailsSent) a.emailsSent={};
   a.emailsSent[currentTemplate]=new Date().toISOString();
+  applyInviteEmmRule(a, currentTemplate);
   saveApplicants(apps);
   syncApplicantToSheets(a);
   updateEmailSentStatus();
@@ -4255,7 +4262,10 @@ function updateEmail(){
   const emmLink = (SCRIPT_URL && currentEmailApplicantId!=null)
     ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(currentEmailApplicantId) + '&which=emm')
     : 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
-  const fill=(s)=>s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
+  // The reminder lists the EMM only when this candidate's invite included it.
+  const linkedApp=currentEmailApplicantId!=null ? getApplicant(currentEmailApplicantId) : null;
+  const emmReminderLine=(!linkedApp || linkedApp.requiresEmm) ? ('\n• Completed AR EMM Excel assessment, submit here: '+emmLink) : '';
+  const fill=(s)=>s.replace(/{emmreminderline}/g,emmReminderLine).replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,deadline)
     .replace(/{jd}/g,jd).replace(/{startdate}/g,startdate).replace(/{signatory}/g,signatory)
     .replace(/{contracttype}/g,contracttype).replace(/{rate}/g,rate).replace(/{schedulinglink}/g,schedulingLink)
     .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink)
@@ -4814,7 +4824,7 @@ function getAllApplicants(){
     if(r[57]){ try{ candidateStageDates=JSON.parse(r[57]); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
-      requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
+      requiresEmm:emmExpected_(r, emailsSent),stage:parseInt(r[8])||1,overallStatus:r[9],
       grit:{score:r[13]||'',perseverance:r[35]||'',consistency:r[36]||''},
       enteredBy:r[37]||'',
       values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||''},
@@ -6235,6 +6245,25 @@ function authorizeMailSending(){
   return 'Authorization test email sent to ' + me + '. Automatic sending should now work.';
 }
 
+// The assessment invite HR last sent decides whether an EMM is expected:
+// "Assessment Invite" includes it, "Assessment Invite (no EMM)" does not.
+// Before any invite, the Requires EMM column (guessed from the job title) applies.
+function latestAssessmentInvite_(emailsSent){
+  var withEmm = emailsSent && emailsSent.assessment ? new Date(emailsSent.assessment).getTime() : NaN;
+  var noEmm = emailsSent && emailsSent.assessment_no_emm ? new Date(emailsSent.assessment_no_emm).getTime() : NaN;
+  if(isNaN(withEmm) && isNaN(noEmm)) return null;
+  if(isNaN(noEmm) || (!isNaN(withEmm) && withEmm > noEmm)) return {key:'assessment', at:emailsSent.assessment};
+  return {key:'assessment_no_emm', at:emailsSent.assessment_no_emm};
+}
+function emmExpected_(r, emailsSent){
+  var invite = latestAssessmentInvite_(emailsSent);
+  if(invite) return invite.key === 'assessment';
+  return r[7]==='Yes';
+}
+function parseEmailsSent_(v){
+  try{ return v ? JSON.parse(v) : {}; }catch(e){ return {}; }
+}
+
 function checkAssessmentCompliance(){
   const ss=SpreadsheetApp.openById(MASTER_SHEET_ID);
   const t=ss.getSheetByName('Applicants');
@@ -6253,11 +6282,12 @@ function checkAssessmentCompliance(){
 
     let emailsSent={};
     try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
-    const inviteSentAt=emailsSent.assessment||emailsSent.assessment_no_emm;
+    const latestInvite=latestAssessmentInvite_(emailsSent);
+    const inviteSentAt=latestInvite ? latestInvite.at : '';
 
     let hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     let hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-    const requiresEmm=r[7]==='Yes';
+    const requiresEmm=emmExpected_(r, emailsSent);
     let emmReceived=!!r[38];
     const emmGradedAt=r[23];
     const emmGraded=!!emmGradedAt;
@@ -6373,7 +6403,7 @@ function checkAssessmentCompliance(){
     }
     if(hoursElapsed>=REMINDER_HOURS && !emailsSent.autoReminder && !emailsSent.reminder){
       try{
-        sendComplianceReminderEmail(r[2],r[1],r[4],r[37],r[0]);
+        sendComplianceReminderEmail(r[2],r[1],r[4],r[37],r[0],{grit:!hasGrit, values:!hasValues, emm:requiresEmm&&!emmReceived&&!emmGraded});
         emailsSent.autoReminder=now.toISOString();
         t.getRange(i+1,31).setValue(JSON.stringify(emailsSent));
         reminders++;
@@ -6381,6 +6411,48 @@ function checkAssessmentCompliance(){
     }
   }
   Logger.log('Compliance check complete. Scores auto-attached: '+attached+', EMM submissions detected: '+emmDetected+', Reminders sent: '+reminders+', Archived: '+archived+', Auto-healed back to In Progress: '+healed);
+}
+
+// One-time repair after the no-EMM fix. Rows whose latest assessment invite
+// was the no-EMM one get Requires EMM = No; those archived as Non-Compliant
+// only for a missing EMM (GRIT and Values present, not set by a person) go
+// back to In Progress. Run previewNoEmmRepair first, then applyNoEmmRepair.
+function noEmmRepairPlan_(){
+  const t=SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+  const data=t.getDataRange().getValues();
+  const plan=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i];
+    if(!r[0]) continue;
+    const invite=latestAssessmentInvite_(parseEmailsSent_(r[30]));
+    if(!invite || invite.key!=='assessment_no_emm' || r[7]!=='Yes') continue;
+    const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
+    const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
+    const setByPerson=String(r[42]||'').trim()!=='';
+    const restore=r[9]==='NonCompliant' && hasGrit && hasValues && !setByPerson;
+    plan.push({row:i+1, id:r[0], name:r[1], position:r[4], status:r[9], restore:restore});
+  }
+  return {sheet:t, plan:plan};
+}
+function previewNoEmmRepair(){
+  const p=noEmmRepairPlan_().plan;
+  const lines=p.map(function(x){ return x.name+' ('+x.position+'): Requires EMM -> No'+(x.restore?'; Non-Compliant -> In Progress':' (status stays '+x.status+')'); });
+  Logger.log(p.length+' row(s) to fix, '+p.filter(function(x){return x.restore;}).length+' to restore:\n'+lines.join('\n'));
+  return p;
+}
+function applyNoEmmRepair(){
+  const lock=LockService.getScriptLock();
+  lock.waitLock(30000);
+  let res;
+  try{
+    res=noEmmRepairPlan_();
+    res.plan.forEach(function(x){
+      res.sheet.getRange(x.row,8).setValue('No');
+      if(x.restore) res.sheet.getRange(x.row,10).setValue('In Progress');
+    });
+  } finally { lock.releaseLock(); }
+  Logger.log('Fixed '+res.plan.length+' row(s), restored '+res.plan.filter(function(x){return x.restore;}).length+'.');
+  return res.plan;
 }
 
 function restoreCompliantApplicants(){
@@ -6403,7 +6475,7 @@ function restoreCompliantApplicants(){
     // on its own a few minutes later.
     const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-    const requiresEmm=r[7]==='Yes';
+    const requiresEmm=emmExpected_(r, parseEmailsSent_(r[30]));
     const emmReceived=!!r[38];
     const emmGraded=!!r[23];
     const complete=hasGrit&&hasValues&&(requiresEmm?(emmReceived||emmGraded):true);
@@ -6417,7 +6489,7 @@ function restoreCompliantApplicants(){
   return 'Restored '+restored+' applicant(s): '+names.join(', ');
 }
 
-function sendComplianceReminderEmail(email,name,position,enteredBy,id){
+function sendComplianceReminderEmail(email,name,position,enteredBy,id,missing){
   if(!email) return;
   const subject='[ABBSS] Reminder: Assessment Deadline Approaching \u2014 '+(position||'Your Application');
   // Route each link through the tracking redirect (same one the manual
@@ -6429,12 +6501,18 @@ function sendComplianceReminderEmail(email,name,position,enteredBy,id){
   var gritLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'grit') : GRIT_FORM_LINK;
   var valuesLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'values') : VALUES_FORM_LINK;
   var emmLink = scriptUrl ? assessmentLinkFor(scriptUrl, id, 'emm') : EMM_RESPONDER_LINK;
+  // Only what is still missing is listed, and the EMM only when their
+  // invitation included it (a GRIT + Values invite never mentions it).
+  missing = missing || {grit:true, values:true, emm:false};
+  var items = [];
+  if(missing.grit) items.push('GRIT Assessment: '+gritLink);
+  if(missing.values) items.push('Value-Integrity Assessment: '+valuesLink);
+  if(missing.emm) items.push('AR EMM Cognitive Assessment: complete the Excel file from your invitation email, then submit it here: '+emmLink);
+  if(!items.length) return;
   const body='Dear '+(name||'Applicant')+',\n\n'
     +'This is a reminder that we have not yet received your completed assessments for the '+(position||'')+' role.\n\n'
     +'Please complete and submit the following within 24 hours of your original invitation:\n'
-    +'1. GRIT Assessment: '+gritLink+'\n'
-    +'2. Value-Integrity Assessment: '+valuesLink+'\n'
-    +'3. AR EMM Cognitive Assessment: complete the attached Excel file, then submit it here: '+emmLink+'\n\n'
+    +items.map(function(t, n){ return (n+1)+'. '+t; }).join('\n')+'\n\n'
     +'If we do not receive all of the above within the 24-hour window, your application will be marked as Non-Compliant and archived.\n\n'
     +'If you have already submitted these, please disregard this message.\n\n'
     +'Warm regards,\nHR Team\nABBSS';
@@ -7823,29 +7901,30 @@ function nextStepCell(a) {
 // SLA / 24-HOUR DEADLINE STATUS -- mirrors the server-side
 // checkAssessmentCompliance() 12h reminder / 24h archive logic
 // ============================================================
+const ASSESSMENT_REMINDER_HOURS = 12, ASSESSMENT_DEADLINE_HOURS = 24;
 function getSlaStatus(a){
   if(!a || (a.overallStatus && a.overallStatus!=='In Progress')) return null;
-  var invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  // The clock runs from the latest assessment invite, as on the server.
+  var es = a.emailsSent || {};
+  var invitedAt = [es.assessment, es.assessment_no_emm].filter(Boolean).sort(function(x, y){ return new Date(y) - new Date(x); })[0];
   if(!invitedAt) return null;
   var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
-  var emmDone = a.requiresEmm ? (a.emm && a.emm.graded) : true;
+  // Same "done" rule as the server: the EMM counts once the file arrived or was graded.
+  var emmDone = a.requiresEmm ? !!(a.emmReceivedAt || (a.emm && a.emm.graded)) : true;
   if(hasGrit && hasValues && emmDone) return null;
-  var reminderSent = a.emailsSent && (a.emailsSent.autoReminder || a.emailsSent.reminder);
-  // Mirrors the server-side checkAssessmentCompliance() 24h reminder / 48h
-  // archive timing -- keep these two numbers in sync if that ever changes
-  // again (this frontend copy won't update itself).
+  var reminderSent = es.autoReminder || es.reminder;
   var hoursElapsed = (Date.now() - new Date(invitedAt).getTime()) / 3600000;
-  if(hoursElapsed >= 48) return { label: '⛔ Overdue, will be archived soon', tone: '#b52a2a' };
+  if(hoursElapsed >= ASSESSMENT_DEADLINE_HOURS) return { label: '⛔ Overdue, will be archived soon', tone: '#b52a2a' };
   if(reminderSent){
-    var left = Math.max(0, Math.ceil(48 - hoursElapsed));
+    var left = Math.max(0, Math.ceil(ASSESSMENT_DEADLINE_HOURS - hoursElapsed));
     return { label: '✉️ Reminder sent · ' + left + 'h to deadline', tone: '#b45309' };
   }
-  if(hoursElapsed >= 24){
-    var left2 = Math.max(0, Math.ceil(48 - hoursElapsed));
+  if(hoursElapsed >= ASSESSMENT_REMINDER_HOURS){
+    var left2 = Math.max(0, Math.ceil(ASSESSMENT_DEADLINE_HOURS - hoursElapsed));
     return { label: '⏳ ' + left2 + 'h left, reminder due soon', tone: '#b45309' };
   }
-  var leftReminder = Math.max(0, Math.ceil(24 - hoursElapsed));
+  var leftReminder = Math.max(0, Math.ceil(ASSESSMENT_REMINDER_HOURS - hoursElapsed));
   return { label: '⏱️ ' + leftReminder + 'h until auto-reminder', tone: '#1e40af' };
 }
 
@@ -8219,7 +8298,8 @@ function buildEmailForApplicant(a, templateKey){
   var valuesLink = SCRIPT_URL ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(a.id) + '&which=values') : 'https://forms.gle/RH5HGDDvPL9H5YvRA';
   var emmLink = SCRIPT_URL ? (SCRIPT_URL + '?action=viewAssessment&id=' + encodeURIComponent(a.id) + '&which=emm') : 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform';
   var fill = function(s){
-    return s.replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,'[DEADLINE]')
+    return s.replace(/{emmreminderline}/g, a.requiresEmm ? ('\n• Completed AR EMM Excel assessment, submit here: '+emmLink) : '')
+      .replace(/{name}/g,name).replace(/{position}/g,pos).replace(/{deadline}/g,'[DEADLINE]')
       .replace(/{jd}/g,'[JOB DESCRIPTION]').replace(/{startdate}/g,'[START DATE]').replace(/{signatory}/g,'[SIGNATORY]')
       .replace(/{contracttype}/g,'[CONTRACT TYPE]').replace(/{rate}/g,'[RATE]').replace(/{schedulinglink}/g,'[SCHEDULING LINK]')
       .replace(/{gritlink}/g,gritLink).replace(/{valueslink}/g,valuesLink).replace(/{emmlink}/g,emmLink)
@@ -8261,6 +8341,7 @@ async function bulkSendEmail(){
       if(fa){
         if(!fa.emailsSent) fa.emailsSent={};
         fa.emailsSent[templateKey]=new Date().toISOString();
+        applyInviteEmmRule(fa, templateKey);
         saveApplicants(freshApps);
         syncApplicantToSheets(fa);
       }
