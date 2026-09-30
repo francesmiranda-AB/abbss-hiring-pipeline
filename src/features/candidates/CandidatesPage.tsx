@@ -4,7 +4,7 @@ import { useCandidates, useConfig } from '@/api/queries';
 import { useUser } from '@/auth/auth';
 import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
 import { DEPARTMENTS, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
-import { Button, Empty, ErrorAlert, PageHeader, Skeleton, cx } from '@/ui/kit';
+import { Button, Empty, ErrorAlert, PageHeader, Skeleton, cx, kpiToneClass } from '@/ui/kit';
 import { ADVANCED_KEYS, CHIPS, STAGE_FILTER_OPTIONS, applyFilters, chipMatch, roleScope, sortCandidates, useFilters } from './filters';
 import { CandidateTable } from './CandidateTable';
 import { CandidateBoard } from './CandidateBoard';
@@ -50,7 +50,7 @@ export default function CandidatesPage() {
 
       <div className="ab-kpis app-chips" role="tablist" aria-label="Quick views">
         {CHIPS.map((c) => (
-          <button key={c.key} type="button" role="tab" aria-selected={filters.chip === c.key} className={cx('ab-kpi app-kpi-button app-chip', filters.chip === c.key && 'is-active')} onClick={() => set({ chip: c.key })}>
+          <button key={c.key} type="button" role="tab" aria-selected={filters.chip === c.key} className={cx('ab-kpi app-kpi-button app-chip', kpiToneClass(c.tone, counts[c.key]), filters.chip === c.key && 'is-active')} onClick={() => set({ chip: c.key })}>
             <span className="ab-kpi__value">{counts[c.key]}</span>
             <span className="ab-kpi__label">{c.label}</span>
           </button>

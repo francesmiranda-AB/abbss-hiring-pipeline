@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="ab-toast-region" aria-live="polite" role="status">
         {toast && (
-          <div key={toast.key} className={`ab-toast ab-toast--${toast.tone === 'info' ? 'success' : toast.tone || 'success'}`}>
+          <div key={toast.key} className={`ab-toast ab-toast--${toast.tone || 'success'}`}>
             <Icon size={18} strokeWidth={2} aria-hidden />
             <div className="flex-1">{toast.message}</div>
             {toast.action && (

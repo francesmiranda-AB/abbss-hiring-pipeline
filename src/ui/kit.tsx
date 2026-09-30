@@ -45,14 +45,38 @@ export function SectionHead({ title, lead, className }: { title: string; lead?: 
   );
 }
 
-export function Kpis({ items }: { items: Array<{ value: ReactNode; label: string; onClick?: () => void }> }) {
+// A gray block with a header band: the main way screens group things. Items
+// inside (rows, tables, fields) sit on white, so the nesting reads at a glance.
+export function Section({ title, count, countTone = 'neutral', lead, actions, children, className, label }: {
+  title: ReactNode; count?: number; countTone?: BadgeTone; lead?: ReactNode; actions?: ReactNode; children?: ReactNode; className?: string; label?: string;
+}) {
   return (
-    <div className="ab-kpis">
+    <section className={cx('app-block', className)} aria-label={label}>
+      <div className="app-block__head">
+        <h2 className="app-block__title">{title}{count !== undefined && <Badge tone={count ? countTone : 'neutral'}>{count}</Badge>}</h2>
+        {actions && <div className="ab-cluster">{actions}</div>}
+      </div>
+      {lead && <p className="app-block__lead">{lead}</p>}
+      {children}
+    </section>
+  );
+}
+
+// tone colors the number (and the tile's top rule) only when it is above 0:
+// a zero "Overdue" is good news and stays plain.
+export type KpiTone = 'danger' | 'warning' | 'success' | 'primary';
+export function kpiToneClass(tone: KpiTone | undefined, value: ReactNode) {
+  return tone && typeof value === 'number' && value > 0 ? `app-kpi--${tone}` : '';
+}
+export function Kpis({ items }: { items: Array<{ value: ReactNode; label: string; onClick?: () => void; tone?: KpiTone }> }) {
+  return (
+    <div className="ab-kpis app-kpis">
       {items.map((k) => {
         const inner = (<><span className="ab-kpi__value">{k.value}</span><span className="ab-kpi__label">{k.label}</span></>);
+        const cls = cx('ab-kpi app-kpi', kpiToneClass(k.tone, k.value));
         return k.onClick
-          ? <button key={k.label} type="button" className="ab-kpi app-kpi-button" onClick={k.onClick}>{inner}</button>
-          : <div key={k.label} className="ab-kpi">{inner}</div>;
+          ? <button key={k.label} type="button" className={cx(cls, 'app-kpi-button')} onClick={k.onClick}>{inner}</button>
+          : <div key={k.label} className={cls}>{inner}</div>;
       })}
     </div>
   );

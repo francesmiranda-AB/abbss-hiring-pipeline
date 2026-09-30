@@ -10,7 +10,7 @@ import { CSV_IMPORT_FIELD_MAP, CSV_IMPORT_TEMPLATE, downloadText, parseCsv } fro
 import { DEPARTMENTS, SOURCES } from '@/domain/stages';
 import { useCandidateActions } from '../candidates/actions';
 import { fileToBase64 } from '../candidate/sections/common';
-import { Button, Field, PageHeader, SectionHead } from '@/ui/kit';
+import { Button, Field, PageHeader, Section } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -171,8 +171,7 @@ function ImportCsv() {
     toast.show({ message: added ? `Imported ${added} candidate${added === 1 ? '' : 's'}` : 'No new candidates imported', tone: added ? 'success' : 'info' });
   };
   return (
-    <section>
-      <SectionHead title="Import from CSV" lead="Name and email are required. Emails already in the list are skipped." />
+    <Section title="Import from CSV" lead="Name and email are required. Emails already in the list are skipped.">
       <div className="ab-cluster">
         <label className="ab-btn ab-btn--tonal ab-btn--sm" aria-busy={busy || undefined}>
           <Upload size={14} aria-hidden /> Choose CSV file
@@ -181,6 +180,6 @@ function ImportCsv() {
         <Button variant="ghost" size="sm" icon={Download} onClick={() => downloadText('ABBSS_Import_Template.csv', CSV_IMPORT_TEMPLATE)}>Download template</Button>
       </div>
       {result && <p className="mt-3" role="status">{result}</p>}
-    </section>
+    </Section>
   );
 }

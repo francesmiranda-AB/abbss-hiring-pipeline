@@ -1,3 +1,4 @@
+import type { KpiTone } from '@/ui/kit';
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { AppRole, Candidate, ServerConfig } from '@/domain/types';
@@ -9,11 +10,11 @@ import { gritOf, valuesOf } from '@/domain/assessments';
 // back button works, and a filtered view can be linked.
 
 export type Chip = 'active' | 'new' | 'attention' | 'overdue' | 'nonresponsive' | 'all';
-export const CHIPS: Array<{ key: Chip; label: string }> = [
+export const CHIPS: Array<{ key: Chip; label: string; tone?: KpiTone }> = [
   { key: 'active', label: 'Active' },
-  { key: 'attention', label: 'Needs action' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'new', label: 'New today' },
+  { key: 'attention', label: 'Needs action', tone: 'warning' },
+  { key: 'overdue', label: 'Overdue', tone: 'danger' },
+  { key: 'new', label: 'New today', tone: 'primary' },
   { key: 'nonresponsive', label: "Doesn't respond" },
   { key: 'all', label: 'Everyone' },
 ];

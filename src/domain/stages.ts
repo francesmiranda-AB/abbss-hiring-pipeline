@@ -66,7 +66,7 @@ export function stageLabel(a: Pick<Candidate, 'candidateStage' | 'department'>):
 export type BadgeTone = 'neutral' | 'primary' | 'info' | 'warning' | 'success' | 'danger';
 const STAGE_TONE: Record<string, BadgeTone> = {
   'New Application': 'neutral', 'CV Screening': 'neutral', 'HR Preliminary Interview': 'info', 'Assessment Sent': 'primary',
-  'Assessment Review': 'primary', 'Initial Interview': 'info', 'Operations Decision': 'warning', 'Endorsed to Client': 'info',
+  'Assessment Review': 'primary', 'Initial Interview': 'info', 'Operations Decision': 'warning', 'Endorsed to Client': 'primary',
   Offer: 'success', Hired: 'success', 'Closed - Rejected': 'danger', 'Closed - Withdrawn': 'neutral',
 };
 export function stageTone(stage: string): BadgeTone {

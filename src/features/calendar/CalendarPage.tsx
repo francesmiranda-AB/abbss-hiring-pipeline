@@ -7,7 +7,7 @@ import { useUser } from '@/auth/auth';
 import { calendarItems, DEFAULT_INTERVIEW_DURATION_MIN, findOverlap, slotDate, type CalendarItem } from '@/domain/calendar';
 import { roleScope } from '../candidates/filters';
 import { useCandidateActions } from '../candidates/actions';
-import { Badge, Button, Dialog, Empty, Field, Kpis, PageHeader, SectionHead, cx, fmtDateTime } from '@/ui/kit';
+import { Badge, Button, Dialog, Empty, Field, Kpis, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -39,7 +39,7 @@ export default function CalendarPage() {
   return (
     <div className="app-stack">
       <PageHeader title="Interview calendar" lead="HR saves the time the candidate gave. David confirms it here, which adds it to his calendar with a Meet link and emails the candidate." />
-      <Kpis items={[{ value: pending.length, label: 'Ready to confirm' }, { value: todayCount, label: 'Interviews today' }, { value: confirmed.filter((i) => i.date && i.date >= now).length, label: 'Coming up' }]} />
+      <Kpis items={[{ value: pending.length, label: 'Ready to confirm', tone: 'warning' }, { value: todayCount, label: 'Interviews today' }, { value: confirmed.filter((i) => i.date && i.date >= now).length, label: 'Coming up' }]} />
       {!items.length ? (
         <Empty icon={CalendarDays} title="No interview times yet">Times appear here once HR saves them on a candidate's Interview tab.</Empty>
       ) : (
@@ -64,14 +64,12 @@ export default function CalendarPage() {
             {busy && <p className="app-meta mt-2">Grey times are David's existing calendar (busy or free only; no event details).</p>}
           </section>
           <aside className="grid gap-6 content-start">
-            <div>
-              <SectionHead title="Ready to confirm" />
+            <Section title="Ready to confirm">
               {!pending.length ? <p className="ab-muted m-0">Nothing waiting.</p> : <ItemRows items={pending} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />}
-            </div>
-            <div>
-              <SectionHead title="Confirmed" />
+            </Section>
+            <Section title="Confirmed">
               {!confirmed.length ? <p className="ab-muted m-0">None yet.</p> : <ItemRows items={confirmed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} showContact />}
-            </div>
+            </Section>
           </aside>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { Candidate } from '@/domain/types';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronRight } from 'lucide-react';
@@ -8,10 +9,10 @@ import { useUser } from '@/auth/auth';
 import { isNewApplicant, needsAttention, OWNER_TO_ROLE } from '@/domain/attention';
 import { calendarItems } from '@/domain/calendar';
 import { isOffboardingDue } from '@/domain/offboarding';
-import { stageLabel } from '@/domain/stages';
+import { stageLabel, stageTone } from '@/domain/stages';
 import { roleScope } from '../candidates/filters';
 import { CandidatePanel, useOpenCandidate } from '../candidate/CandidatePanel';
-import { Badge, Empty, Kpis, PageHeader, SectionHead } from '@/ui/kit';
+import { Badge, Empty, Kpis, PageHeader, Section } from '@/ui/kit';
 
 // What needs doing now, for the signed-in person's role.
 export default function TodayPage() {
@@ -31,51 +32,74 @@ export default function TodayPage() {
   const today = new Date();
   const interviewsToday = calendarItems(scope).filter((i) => i.status === 'confirmed' && i.date && i.date.toDateString() === today.toDateString()).length;
   const dueOffboarding = (offboarding.data || []).filter((c) => isOffboardingDue(c));
-  const overdue = tasks.filter((t) => t.n.overdue).length;
+  const overdueTasks = tasks.filter((t) => t.n.overdue);
+  const onTimeTasks = tasks.filter((t) => !t.n.overdue);
+  const overdue = overdueTasks.length;
 
   return (
     <div className="app-stack">
       <PageHeader title={`Good ${today.getHours() < 12 ? 'morning' : today.getHours() < 18 ? 'afternoon' : 'evening'}, ${user.name.split(' ')[0]}`}
         lead={today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} />
       <Kpis items={[
-        { value: tasks.length, label: 'Need your action', onClick: () => navigate('/candidates?chip=attention') },
-        { value: overdue, label: 'Overdue', onClick: () => navigate('/candidates?chip=overdue') },
-        { value: scope.filter((a) => isNewApplicant(a)).length, label: 'New today', onClick: () => navigate('/candidates?chip=new') },
-        { value: interviewsToday, label: 'Interviews today', onClick: () => navigate('/calendar') },
+        { value: tasks.length, label: 'Need your action', tone: 'warning', onClick: () => navigate('/candidates?chip=attention') },
+        { value: overdue, label: 'Overdue', tone: 'danger', onClick: () => navigate('/candidates?chip=overdue') },
+        { value: scope.filter((a) => isNewApplicant(a)).length, label: 'New today', tone: 'primary', onClick: () => navigate('/candidates?chip=new') },
+        { value: interviewsToday, label: 'Interviews today', tone: 'success', onClick: () => navigate('/calendar') },
       ]} />
 
-      <section>
-        <SectionHead title="Your tasks" lead="Overdue first, then oldest." />
-        {!tasks.length && !dueOffboarding.length ? (
+      {!tasks.length && !dueOffboarding.length ? (
+        <Section title="Your tasks" count={0}>
           <Empty icon={CheckCircle2} title="Nothing needs you right now">New tasks show up here as candidates move.</Empty>
-        ) : (
-          <ul className="ab-rows">
-            {dueOffboarding.map((c) => {
-              const items = Object.keys(c.checklist || {});
-              const done = items.filter((k) => c.checklist?.[k]).length;
-              return (
-                <li key={`off-${c.id}`}>
-                  <button type="button" className="ab-row app-row-button" onClick={() => navigate('/offboarding')}>
-                    <span className="ab-row__title">{c.name} <Badge tone="warning">Offboarding</Badge></span>
-                    <span className="ab-row__body">Clearance {done} of {items.length} done. Last working day {c.lastWorkingDay}.</span>
-                    <span className="ab-row__meta"><ChevronRight size={16} aria-hidden /></span>
-                  </button>
-                </li>
-              );
-            })}
-            {tasks.map(({ a, n }) => (
-              <li key={a.id}>
-                <button type="button" className="ab-row app-row-button" onClick={() => open(a.id)}>
-                  <span className="ab-row__title">{a.name} {n.overdue && <Badge tone="danger">Overdue</Badge>}</span>
-                  <span className="ab-row__body">{n.reason}</span>
-                  <span className="ab-row__meta">{stageLabel(a)} <ChevronRight size={16} aria-hidden /></span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        </Section>
+      ) : (<>
+        {overdueTasks.length > 0 && (
+          <Section title="Overdue" count={overdueTasks.length} countTone="danger" lead="Past their deadline, oldest first.">
+            <TaskRows tasks={overdueTasks} onOpen={open} />
+          </Section>
         )}
-      </section>
+        {onTimeTasks.length > 0 && (
+          <Section title="Needs your action" count={onTimeTasks.length} countTone="warning" lead="Oldest first.">
+            <TaskRows tasks={onTimeTasks} onOpen={open} />
+          </Section>
+        )}
+        {dueOffboarding.length > 0 && (
+          <Section title="Offboarding due" count={dueOffboarding.length} countTone="warning">
+            <ul className="ab-rows">
+              {dueOffboarding.map((c) => {
+                const items = Object.keys(c.checklist || {});
+                const done = items.filter((k) => c.checklist?.[k]).length;
+                return (
+                  <li key={`off-${c.id}`}>
+                    <button type="button" className="ab-row app-row-button" onClick={() => navigate('/offboarding')}>
+                      <span className="ab-row__title">{c.name}</span>
+                      <span className="ab-row__body">Clearance {done} of {items.length} done. Last working day {c.lastWorkingDay}.</span>
+                      <span className="ab-row__meta"><Badge tone="warning">Offboarding</Badge><ChevronRight size={16} aria-hidden /></span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        )}
+      </>)}
       <CandidatePanel id={openId} readOnly={false} />
     </div>
+  );
+}
+
+type Task = { a: Candidate; n: NonNullable<ReturnType<typeof needsAttention>> };
+function TaskRows({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: number) => void }) {
+  return (
+    <ul className="ab-rows">
+      {tasks.map(({ a, n }) => (
+        <li key={a.id}>
+          <button type="button" className="ab-row app-row-button" onClick={() => onOpen(a.id)}>
+            <span className="ab-row__title">{a.name}</span>
+            <span className="ab-row__body">{n.reason}</span>
+            <span className="ab-row__meta"><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge><ChevronRight size={16} aria-hidden /></span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

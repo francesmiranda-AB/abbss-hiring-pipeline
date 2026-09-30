@@ -88,7 +88,7 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 .app-link-button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; border-radius: var(--ab-radius-xs); }
 .app-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ab-space-3); }
 .app-toolbar .ab-field { min-width: 10rem; }
-.app-card-plain { padding: var(--ab-card-padding); border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); background: var(--ab-bg); }
+.app-card-plain { padding: var(--ab-card-padding); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
 
 /* Inputs stay white inside the navy block, so their text must stay dark. */
 .ab-feature .ab-input, .ab-feature .ab-select, .ab-feature .ab-textarea { color: var(--ab-navy-900); background-color: var(--ab-white); }
@@ -96,3 +96,55 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 
 /* Icon + label tabs (Table | Board) stay on one line. */
 .ab-tabs--pills .ab-tab { display: inline-flex; align-items: center; gap: 0.375rem; }
+
+/* ── Separation: white canvas, gray blocks, white items ────────────────────
+   Three surface modes only (white, gray, navy). Blocks group things; the rows,
+   tables and fields inside them sit on white. Status color goes on data
+   (badges, counts, KPI numbers), never on panels. */
+.ab-main { background: var(--ab-bg); }
+.ab-topbar { border-bottom: 1px solid var(--ab-border); }
+
+.app-block { display: grid; gap: var(--ab-space-3); padding: var(--ab-space-4); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
+.app-block__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--ab-space-2) var(--ab-space-4); }
+.app-block__title {
+  display: inline-flex; align-items: center; gap: var(--ab-space-2); margin: 0;
+  font-size: var(--ab-font-size-sm); font-weight: var(--ab-font-weight-bold); letter-spacing: var(--ab-tracking-wide); text-transform: uppercase; color: var(--ab-heading);
+}
+.app-block__lead { margin: calc(var(--ab-space-2) * -1) 0 0; color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); max-width: 46rem; }
+
+/* Lists inside a gray surface go white. */
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .app-template-list, .app-checklist) {
+  border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); overflow: hidden;
+}
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows > li:last-child .ab-row, .ab-rows > .ab-row:last-child, .app-checklist li:last-child, .app-template-list li:last-child .app-template) { border-bottom: 0; }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-row { padding-inline: var(--ab-space-4); }
+:is(.app-block, .app-card-plain, .app-panel-section) .app-checklist li { padding-inline: var(--ab-space-3); }
+:is(.app-block, .app-card-plain) .ab-empty { border-radius: var(--ab-radius-md); background: var(--ab-bg); }
+/* Neutral badges and tonal buttons are the same gray as the block; lift them. */
+:is(.app-block, .app-card-plain, .app-board__col, .app-panel-section) .ab-badge--neutral { --_bg: var(--ab-bg); --_border: var(--ab-border); }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-btn--tonal { background: var(--ab-bg); }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
+
+/* Row hover: soft blue, the selected-state family. */
+.app-row-button:hover, .app-template:hover { background: var(--ab-tonal-hover); }
+
+/* KPI tiles: gray, with the top rule and number in the tile's status tone. */
+.app-kpis { gap: var(--ab-space-3); }
+.app-kpi { padding: var(--ab-space-3) var(--ab-space-4) var(--ab-space-4); border-radius: 0 0 var(--ab-radius-md) var(--ab-radius-md); background: var(--ab-surface); border-top-color: var(--ab-border-strong); }
+.app-kpi.app-kpi-button:hover { background: var(--ab-tonal-hover); }
+.ab-kpi.app-kpi--danger { border-top-color: var(--ab-danger); }
+.ab-kpi.app-kpi--danger .ab-kpi__value { color: var(--ab-danger-text); }
+.ab-kpi.app-kpi--warning { border-top-color: var(--ab-warning); }
+.ab-kpi.app-kpi--warning .ab-kpi__value { color: var(--ab-warning-text); }
+.ab-kpi.app-kpi--success { border-top-color: var(--ab-success); }
+.ab-kpi.app-kpi--success .ab-kpi__value { color: var(--ab-success-text); }
+.ab-kpi.app-kpi--primary { border-top-color: var(--ab-primary); }
+.ab-kpi.app-kpi--primary .ab-kpi__value { color: var(--ab-link); }
+.ab-feature .app-kpi { background: transparent; padding-inline: 0; border-radius: 0; border-top-color: var(--ab-feature-border); }
+.ab-feature .app-kpi .ab-kpi__value { color: inherit; }
+
+/* Dev sign-in flag in the topbar. */
+.app-dev-flag { display: inline-flex; align-items: center; gap: 0.375rem; }
+
+/* AB ships success/warning/danger toasts; info uses the info text color. */
+.ab-toast--info { --_accent: var(--ab-info-text); }

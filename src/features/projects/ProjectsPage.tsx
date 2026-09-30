@@ -7,7 +7,7 @@ import { setRoleHealthOverride, type Snapshot } from '@/api/actions';
 import { useUser } from '@/auth/auth';
 import { buildRoleSummary, HEALTH_LABEL, sourceBreakdown, type HealthStatus, type RoleSummary } from '@/domain/reports';
 import { CANDIDATE_STAGES, SOURCES } from '@/domain/stages';
-import { Badge, Button, Empty, Field, Kpis, PageHeader, SectionHead } from '@/ui/kit';
+import { Badge, Button, Empty, Field, Kpis, PageHeader, Section } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const RANK: Record<HealthStatus, number> = { red: 0, yellow: 1, green: 2 };
@@ -74,12 +74,11 @@ export default function ProjectsPage() {
             ]} />
           </section>
 
-          <section>
-            <SectionHead title="Role health" lead={`${roles.length - atRisk.length - attention.length} on track, ${attention.length} need attention, ${atRisk.length} at risk.`} />
+          <Section title="Role health" lead={`${roles.length - atRisk.length - attention.length} on track, ${attention.length} need attention, ${atRisk.length} at risk.`}>
             <ul className="ab-rows">
               {roles.map((r) => <RoleRow key={r} role={r} b={summary[r]} detail={isPm} />)}
             </ul>
-          </section>
+          </Section>
 
           {isPm && <Sources />}
         </>
@@ -181,8 +180,7 @@ function Sources() {
   const navigate = useNavigate();
   const rows = useMemo(() => sourceBreakdown(candidates), [candidates]);
   return (
-    <section>
-      <SectionHead title="Where hires come from" lead="Pass rate is hired divided by hired plus rejected or not responding. Still deciding means no final outcome yet." />
+    <Section title="Where hires come from" lead="Pass rate is hired divided by hired plus rejected or not responding. Still deciding means no final outcome yet.">
       <div className="ab-table-wrap">
         <table className="ab-table">
           <thead><tr><th>Source</th><th className="ab-num">Total</th><th className="ab-num">Hired</th><th className="ab-num">Rejected or no reply</th><th className="ab-num">Still deciding</th><th className="ab-num">Pass rate</th></tr></thead>
@@ -197,6 +195,6 @@ function Sources() {
           </tbody>
         </table>
       </div>
-    </section>
+    </Section>
   );
 }

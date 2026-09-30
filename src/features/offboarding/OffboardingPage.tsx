@@ -6,7 +6,7 @@ import type { OffboardingCase } from '@/domain/types';
 import { checklistProgress, isOffboardingDue, offboardingCsv, sortOffboarding, trackLabel } from '@/domain/offboarding';
 import { downloadText, todayStamp } from '@/domain/csv';
 import { DEPARTMENTS } from '@/domain/stages';
-import { Badge, Button, Dialog, Empty, ErrorAlert, Field, PageHeader, SectionHead, Skeleton } from '@/ui/kit';
+import { Badge, Button, Dialog, Empty, ErrorAlert, Field, PageHeader, Section, Skeleton } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const KEY = ['offboarding'];
@@ -20,12 +20,11 @@ export default function OffboardingPage() {
       <PageHeader title="Offboarding" lead="Clearance for anyone leaving, from their last working day. Asking Ethel about final pay stays a manual step on the checklist."
         actions={<Button variant="outline" size="sm" icon={Download} disabled={!cases.length} onClick={() => downloadText(`ABBSS_Offboarding_${todayStamp()}.csv`, offboardingCsv(cases))}>Export CSV</Button>} />
       <NewCase />
-      <section>
-        <SectionHead title="Cases" lead={`${open.length} open, ${cases.length - open.length} completed.`} />
+      <Section title="Cases" lead={`${open.length} open, ${cases.length - open.length} completed.`}>
         {q.isLoading ? <Skeleton lines={4} /> : q.error ? <ErrorAlert title="Couldn't load offboarding cases">{(q.error as Error).message}</ErrorAlert>
           : !cases.length ? <Empty icon={DoorOpen} title="No offboarding cases">Add one when someone resigns or their contract ends.</Empty>
           : <div className="grid gap-4">{cases.map((c) => <CaseCard key={c.id} c={c} />)}</div>}
-      </section>
+      </Section>
     </div>
   );
 }

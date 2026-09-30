@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
 import { useCandidate, useUpdateCandidate } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, REASON_STAGES, ROLE_CONFIG, ROLE_OPTIONS, interviewRoundLabel, interviewerFor, stageLabel, stageTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, REASON_STAGES, ROLE_CONFIG, ROLE_OPTIONS, interviewRoundLabel, interviewerFor, stageLabel, stageTone, type BadgeTone } from '@/domain/stages';
 import { getStageTask } from '@/domain/attention';
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } from '@/domain/emailTemplates';
 import { useCandidateActions } from '../candidates/actions';
@@ -29,6 +29,8 @@ const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: 'overview', label: 'Overview' }, { key: 'assessments', label: 'Assessments' }, { key: 'interview', label: 'Interview' },
   { key: 'outcome', label: 'Outcome' }, { key: 'activity', label: 'Activity' },
 ];
+
+const STATUS_TONE: Record<string, BadgeTone> = { Hired: 'success', Rejected: 'danger', Hold: 'warning', Departed: 'neutral', NonCompliant: 'danger' };
 
 export function CandidatePanel({ id, readOnly }: { id: number | null; readOnly: boolean }) {
   const a = useCandidate(id);
@@ -87,6 +89,10 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
         <div className="grid gap-1 min-w-0">
           <h2 className="ab-title app-truncate">{a.name}</h2>
           <p className="app-meta m-0">{[a.position || 'No position', a.department, a.email, a.phone].filter(Boolean).join(', ')}</p>
+          <span className="flex flex-wrap gap-1 mt-1">
+            <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge>
+            {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
+          </span>
         </div>
         <div className="ab-cluster flex-none">
           {!readOnly && <EmailMenu a={a} />}

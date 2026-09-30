@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Candidate } from '@/domain/types';
-import { assessmentDeadline } from '@/domain/attention';
+import { assessmentDeadline, needsAttention } from '@/domain/attention';
 import { emmBadge } from '@/domain/assessments';
 import { stageLabel, stageTone } from '@/domain/stages';
 import { useConfig, useUpdateCandidate } from '@/api/queries';
@@ -58,7 +58,11 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
                 <td>{a.department || <span className="ab-subtle">None</span>}</td>
                 <td>
                   <div className="grid gap-1 justify-items-start">
-                    <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge>
+                    <span className="flex flex-wrap gap-1">
+                      <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge>
+                      {needsAttention(a, config)?.overdue && <Badge tone="danger">Overdue</Badge>}
+                      {a.overallStatus === 'Hold' && <Badge tone="neutral">On hold</Badge>}
+                    </span>
                     {a.nextAction && a.nextAction !== 'None' && <span className="app-meta">Next: {a.nextAction}</span>}
                     {deadline && <span className={`app-meta app-tone-${deadline.tone}`}>{deadline.label}</span>}
                   </div>

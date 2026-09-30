@@ -10,7 +10,7 @@ import type { Candidate } from '@/domain/types';
 import { useCandidateActions } from '../candidates/actions';
 import { printEmmReport } from './report';
 import { GradeResults } from './GradeResults';
-import { Button, ErrorAlert, Field, PageHeader, SectionHead, fmtDateTime } from '@/ui/kit';
+import { Button, ErrorAlert, Field, PageHeader, Section, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const driveId = (url?: string) => (String(url || '').match(/[-\w]{25,}/) || [''])[0];
@@ -35,6 +35,7 @@ export default function GraderPage() {
   const [loading, setLoading] = useState('');
   const [outcome, setOutcome] = useState<GradeOutcome | null>(null);
   const [saving, setSaving] = useState(false);
+  const [driveBlocked, setDriveBlocked] = useState('');
   const queue = useMemo(() => candidates.filter((a) => a.requiresEmm && a.emmFileUrl && !a.emm?.graded), [candidates]);
   const setLinked = (id: number | null) => setParams((p) => { const n = new URLSearchParams(p); if (id) n.set('candidate', String(id)); else n.delete('candidate'); return n; }, { replace: true });
 
@@ -42,6 +43,7 @@ export default function GraderPage() {
     const id = driveId(url);
     if (!id) { toast.error("Couldn't read the Drive file ID from that link."); return; }
     setLoading(label);
+    setDriveBlocked('');
     setOutcome(null);
     setFile(null);
     try {
@@ -50,7 +52,11 @@ export default function GraderPage() {
       setLinked(candidateId);
       if (candidateId == null) setManualName(label);
     } catch (e) {
-      toast.error(`Couldn't load the file from Drive: ${(e as Error).message}`);
+      const message = (e as Error).message;
+      // The form's upload folder isn't shared with the backend account yet, so
+      // this is the common case: say what to do instead of a raw Drive error.
+      if (/no item|permission|not found|access/i.test(message)) setDriveBlocked(label);
+      else toast.error(`Couldn't load the file from Drive: ${message}`);
     } finally {
       setLoading('');
     }
@@ -90,14 +96,12 @@ export default function GraderPage() {
       <PageHeader title="EMM grader" lead="Grades a submitted EMM workbook in seconds, with the same scoring as before." />
 
       {queue.length > 0 && (
-        <section>
-          <SectionHead title="Waiting to be graded" lead={`${queue.length} submitted through the form.`} />
+        <Section title="Waiting to be graded" lead={`${queue.length} submitted through the form.`}>
           <ul className="ab-rows">{queue.map((a) => <QueueRow key={a.id} a={a} busy={loading === a.name} onGrade={() => loadFromDrive(a.emmFileUrl!, a.name, a.id)} />)}</ul>
-        </section>
+        </Section>
       )}
       {!!unmatched.data?.length && (
-        <section>
-          <SectionHead title="Submissions that match no candidate" lead="Usually a typo, or a different email than the one on file. Fix the email on the right candidate and they attach on their own." />
+        <Section title="Submissions that match no candidate" lead="Usually a typo, or a different email than the one on file. Fix the email on the right candidate and they attach on their own.">
           <ul className="ab-rows">
             {unmatched.data.map((u) => (
               <li key={`${u.email}-${u.timestamp}`} className="ab-row">
@@ -107,11 +111,17 @@ export default function GraderPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
       )}
 
-      <section className="app-card-plain grid gap-4">
-        <h2 className="ab-card__title">Grade a workbook</h2>
+      <Section title="Grade a workbook">
+        {driveBlocked && (
+          <div className="ab-alert ab-alert--warning" role="alert">
+            <span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span>
+            <p className="ab-alert__title">Can't open {driveBlocked}'s upload in Drive</p>
+            <div>The app doesn't have access to the folder where the form keeps uploads yet. Download the workbook from the form's response folder, then choose it below.</div>
+          </div>
+        )}
         <div className="app-form-grid">
           <Field label="Candidate" htmlFor="gr-cand" hint="Link the result to their record to save it.">
             <select id="gr-cand" className="ab-select" value={linked?.id ?? ''} onChange={(e) => setLinked(e.target.value ? Number(e.target.value) : null)}>
@@ -142,7 +152,7 @@ export default function GraderPage() {
           {outcome?.result && <Button variant="secondary" busy={saving} disabled={!linked} onClick={save}>Save to {linked ? linked.name : 'record'}</Button>}
           {outcome?.result && <Button variant="ghost" icon={Printer} onClick={printIt}>Print report</Button>}
         </div>
-      </section>
+      </Section>
 
       {outcome?.error && <ErrorAlert title="Couldn't grade this file">{outcome.error}</ErrorAlert>}
       {outcome?.result?.highRiskFlag && (
