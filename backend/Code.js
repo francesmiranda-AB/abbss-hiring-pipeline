@@ -1275,6 +1275,121 @@ function getAllOffboarding(){
     });
 }
 
+
+// ============================================================
+// STAFF SIGN-IN. Every staff action carries the signed-in person's Google ID
+// token; candidate-facing links (trackOpen, pickSlot, viewAssessment) stay
+// public. AUTH_MODE (Script Property) switches it without a redeploy:
+//   off     = no check (the old app keeps working)
+//   log     = check, record failures in the "Auth Log" tab, still allow
+//   enforce = reject anything that isn't a listed staff member
+// STAFF_ROLES (Script Property) is the allowlist, e.g.
+//   {"person@ab-businesssupport.com": {"name": "Full Name", "role": "HR"}}
+// with role one of HR, Operations, PM, CEO. OAUTH_CLIENT_ID is the web
+// client the app signs in with.
+// ============================================================
+const PUBLIC_GET_ACTIONS_ = ['trackOpen', 'pickSlot', 'viewAssessment'];
+const STAFF_ROLE_NAMES_ = ['HR', 'Operations', 'PM', 'CEO'];
+
+function authMode_(){
+  var m = String(envProp_('AUTH_MODE', 'off')).trim().toLowerCase();
+  return ['off', 'log', 'enforce'].indexOf(m) >= 0 ? m : 'off';
+}
+function staffRoles_(){
+  try{
+    var parsed = JSON.parse(envProp_('STAFF_ROLES', '{}')) || {};
+    var out = {};
+    Object.keys(parsed).forEach(function(k){ out[String(k).trim().toLowerCase()] = parsed[k] || {}; });
+    return out;
+  }catch(e){ return {}; }
+}
+function featureFlags_(){
+  try{ return JSON.parse(envProp_('FEATURE_FLAGS', '{}')) || {}; }catch(e){ return {}; }
+}
+function sha256Hex_(text){
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(text)).map(function(b){
+    var v = (b < 0 ? b + 256 : b).toString(16); return v.length === 1 ? '0' + v : v;
+  }).join('');
+}
+
+// Checks an ID token with Google. Returns {email, name} or {error}.
+function verifyIdToken_(idToken){
+  if(!idToken || typeof idToken !== 'string' || idToken.length < 20) return {error: 'Not signed in.'};
+  var cache = CacheService.getScriptCache();
+  var key = 'idtok_' + sha256Hex_(idToken);
+  var hit = cache.get(key);
+  if(hit){ try{ return JSON.parse(hit); }catch(e){} }
+  var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), {muteHttpExceptions: true});
+  if(res.getResponseCode() !== 200) return {error: 'Sign-in expired or invalid.'};
+  var info = JSON.parse(res.getContentText());
+  var clientId = envProp_('OAUTH_CLIENT_ID', '');
+  if(!clientId || info.aud !== clientId) return {error: 'Signed in to a different app.'};
+  if(String(info.email_verified) !== 'true') return {error: 'Google account email is not verified.'};
+  var expSec = Number(info.exp) - Math.floor(Date.now() / 1000);
+  if(!(expSec > 0)) return {error: 'Sign-in expired.'};
+  var who = {email: String(info.email || '').toLowerCase(), name: String(info.name || '')};
+  cache.put(key, JSON.stringify(who), Math.max(1, Math.min(expSec, 3600)));
+  return who;
+}
+
+// The person behind this request, from the allowlist. Never throws.
+function identify_(idToken){
+  var who = verifyIdToken_(idToken);
+  if(who.error) return who;
+  var entry = staffRoles_()[who.email];
+  if(!entry) return {error: who.email + ' is not on the staff list.', email: who.email};
+  var role = STAFF_ROLE_NAMES_.indexOf(entry.role) >= 0 ? entry.role : null;
+  return {email: who.email, name: entry.name || who.name || who.email, role: role};
+}
+
+function logAuthFailure_(action, reason, email){
+  try{
+    var ss = SpreadsheetApp.openById(MASTER_SHEET_ID);
+    var t = ss.getSheetByName('Auth Log') || ss.insertSheet('Auth Log');
+    if(t.getLastRow() === 0) t.appendRow(['At', 'Action', 'Reason', 'Email', 'Mode']);
+    t.appendRow([new Date().toISOString(), action, reason, email || '', authMode_()]);
+  }catch(e){}
+}
+
+// Returns {ok:true, who} or {ok:false, error} for a staff action.
+function requireStaff_(idToken, action){
+  var mode = authMode_();
+  if(mode === 'off') return {ok: true, who: null};
+  var who = identify_(idToken);
+  if(!who.error) return {ok: true, who: who};
+  logAuthFailure_(action, who.error, who.email);
+  if(mode === 'log') return {ok: true, who: null};
+  return {ok: false, error: who.error};
+}
+
+function jsonOut_(obj){
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Drive files the app may open: CVs and EMM submissions it knows about.
+function driveIdsIn_(text){
+  var out = [];
+  String(text || '').replace(/[-\w]{25,}/g, function(m){ out.push(m); return m; });
+  return out;
+}
+function isKnownDriveFile_(fileId){
+  var ss = SpreadsheetApp.openById(MASTER_SHEET_ID);
+  var t = ss.getSheetByName('Applicants');
+  var rows = t ? t.getDataRange().getValues() : [];
+  for(var i = 1; i < rows.length; i++){
+    var r = rows[i];
+    if(String(r[32]) === fileId) return true;
+    if(driveIdsIn_(r[31]).indexOf(fileId) >= 0 || driveIdsIn_(r[40]).indexOf(fileId) >= 0) return true;
+  }
+  try{
+    var form = SpreadsheetApp.openById(EMM_FORM_SHEET_ID).getSheets()[0].getDataRange().getValues();
+    for(var j = 1; j < form.length; j++){
+      if(form[j].some(function(c){ return driveIdsIn_(c).indexOf(fileId) >= 0; })) return true;
+    }
+  }catch(e){}
+  return false;
+}
+
 function doGet(e){
   // trackOpen (tracking-pixel image) and pickSlot (candidate scheduling page)
   // return non-JSON responses (binary image / HTML), so they must bypass
@@ -1283,11 +1398,13 @@ function doGet(e){
   if(a0==='trackOpen') return trackEmailOpen(e.parameter.id, e.parameter.t);
   if(a0==='pickSlot') return renderSchedulingPage(e.parameter.id, e.parameter.token);
   if(a0==='viewAssessment') return handleViewAssessment(e.parameter.id, e.parameter.which);
+  // Staff reads by GET are only for the old app, and only while sign-in is off.
+  if(authMode_()!=='off') return jsonOut_({success:false, authError:true, error:'Sign in to continue.'});
   try{
     const a=e.parameter.action;let out={};
     if(a==='setup')out={success:true,message:setupSheet()};
     else if(a==='previewNormalize')out=previewNormalize();
-    else if(a==='getAll')out={success:true,data:getAllApplicants(),config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS,reminderTemplate:REMINDER_TEMPLATE},minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
+    else if(a==='getAll')out=getAllResponse_();
     else if(a==='lookupGrit')out={success:true,data:lookupGrit(e.parameter.email)};
     else if(a==='lookupValues')out={success:true,data:lookupValues(e.parameter.email)};
     else if(a==='lookupEmm')out={success:true,data:lookupEmmSubmission(e.parameter.email)};
@@ -1303,6 +1420,16 @@ function doGet(e){
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
 }
 
+function getAllResponse_(){
+  return {success:true,data:getAllApplicants(),
+    config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS,reminderTemplate:REMINDER_TEMPLATE,features:featureFlags_()},
+    minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
+}
+// whoami while sign-in is off: best effort, never blocks.
+function identifyQuiet_(idToken){
+  try{ var who=identify_(idToken); return who.error ? null : who; }catch(e){ return null; }
+}
+
 function doPost(e){
   // The candidate scheduling page submits a plain HTML <form> (not JSON),
   // so it arrives as e.parameter.formAction rather than JSON postData.
@@ -1312,12 +1439,22 @@ function doPost(e){
   }
   try{
     const p=JSON.parse(e.postData.contents);let out={};
-    if(p.action==='saveApplicant')out=saveApplicant(p.data);
+    const auth=requireStaff_(p.idToken, p.action);
+    if(!auth.ok) return jsonOut_({success:false, authError:true, error:auth.error});
+    if(p.action==='whoami'){
+      const who=auth.who || (authMode_()==='off' ? identifyQuiet_(p.idToken) : null);
+      out={success:true, email:who?who.email:'', name:who?who.name:'', role:who?who.role:null, authMode:authMode_()};
+    }
+    else if(p.action==='getAll')out=getAllResponse_();
+    else if(p.action==='getAllOffboarding')out={success:true,data:getAllOffboarding()};
+    else if(p.action==='getDavidBusy')out=getDavidBusyBlocks(p.start, p.end);
+    else if(p.action==='getUnmatchedEmm')out=getUnmatchedEmmSubmissions();
+    else if(p.action==='saveApplicant')out=saveApplicant(p.data);
     else if(p.action==='applyNormalize')out=applyNormalize();
     else if(p.action==='refreshAssessments')out=refreshAssessments(p.data);
     else if(p.action==='uploadCV')out=uploadCV(p.data);
     else if(p.action==='sendEmail')out=sendApplicantEmail(p.data);
-    else if(p.action==='fetchDriveFile')out=fetchDriveFile(p.data.fileId);
+    else if(p.action==='fetchDriveFile')out=(authMode_()==='off'||isKnownDriveFile_(String(p.data.fileId||'')))?fetchDriveFile(p.data.fileId):{success:false,error:'That file is not a CV or assessment in this app.'};
     else if(p.action==='confirmInterview')out=confirmInterview(p.data);
     else if(p.action==='unconfirmInterview')out=unconfirmInterview(p.data);
     else if(p.action==='removeInterviewSlot')out=removeInterviewSlot(p.data);
