@@ -4017,8 +4017,15 @@ async function sendTemplatedEmail(id, key, msg){
   return {ok:true};
 }
 
+// The assessment invite HR sends decides whether an EMM is expected,
+// whatever the job title suggested (the backend reads it the same way).
+function applyInviteEmmRule(a, key){
+  if(key==='assessment') a.requiresEmm=true;
+  else if(key==='assessment_no_emm') a.requiresEmm=false;
+}
+
 function recordEmailSent(id, key){
-  return mutateApplicant(id, function(x){ if(!x.emailsSent) x.emailsSent={}; x.emailsSent[key]=new Date().toISOString(); }, {sync:'now'});
+  return mutateApplicant(id, function(x){ if(!x.emailsSent) x.emailsSent={}; x.emailsSent[key]=new Date().toISOString(); applyInviteEmmRule(x, key); }, {sync:'now'});
 }
 function unrecordEmailSent(id, key){
   if(!confirm('Undo "marked as sent"? This only clears the tracking flag, it does not un-send an email already delivered.')) return false;
@@ -5126,7 +5133,9 @@ function assessmentsAnyFailed(a){
 function getSlaStatus(a){
   if(!a || isClosed(a) || isPaused(a)) return null;
   if(a.candidateStage && a.candidateStage!=='Assessment Sent') return null;
-  var invitedAt = a.emailsSent && (a.emailsSent.assessment || a.emailsSent.assessment_no_emm);
+  // The clock runs from the latest assessment invite, as on the server.
+  var es = a.emailsSent || {};
+  var invitedAt = [es.assessment, es.assessment_no_emm].filter(Boolean).sort(function(x, y){ return new Date(y) - new Date(x); })[0];
   if(!invitedAt) return null;
   var hasGrit = a.grit && a.grit.score !== '' && a.grit.score != null;
   var hasValues = a.values && a.values.score !== '' && a.values.score != null;
