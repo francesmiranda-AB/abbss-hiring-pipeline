@@ -89,3 +89,10 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 .app-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ab-space-3); }
 .app-toolbar .ab-field { min-width: 10rem; }
 .app-card-plain { padding: var(--ab-card-padding); border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); background: var(--ab-bg); }
+
+/* Inputs stay white inside the navy block, so their text must stay dark. */
+.ab-feature .ab-input, .ab-feature .ab-select, .ab-feature .ab-textarea { color: var(--ab-navy-900); background-color: var(--ab-white); }
+.ab-feature .ab-select option { color: var(--ab-navy-900); }
+
+/* Icon + label tabs (Table | Board) stay on one line. */
+.ab-tabs--pills .ab-tab { display: inline-flex; align-items: center; gap: 0.375rem; }

@@ -125,6 +125,14 @@ describe('calendar, reports, csv', () => {
     expect(parseSlotLabel('Mon, Oct 5 - 2:00 PM', now)?.getFullYear()).toBe(2026);
     expect(parseSlotLabel('Thu, Jan 7 - 10:00 AM', new Date('2026-12-20'))?.getFullYear()).toBe(2027);
   });
+  it('reads the way HR types times', () => {
+    const at = (label: string) => parseSlotLabel(label, now)?.toString().slice(4, 21);
+    expect(at('Sept 3 9pm onwards')).toBe('Sep 03 2026 21:00'); // under a month ago: this year
+    expect(at('Aug 11 - 8pm')).toBe('Aug 11 2027 20:00'); // over a month ago with no year: next year
+    expect(at('Aug 26 2026 - 2pm')).toBe('Aug 26 2026 14:00');
+    expect(at('Mon, Oct 5 - 2:00 PM')).toBe('Oct 05 2026 14:00');
+    expect(at('Tuesday 10am')).toBeUndefined();
+  });
   it('uses the confirmed date only when it came from the date picker', () => {
     const s = { id: 's', label: 'Mon, Oct 5 - 2:00 PM' };
     expect(slotDate(s, { ...s, startIso: '2026-10-05T06:30:00.000Z', durationMin: 60 })?.toISOString()).toBe('2026-10-05T06:30:00.000Z');
