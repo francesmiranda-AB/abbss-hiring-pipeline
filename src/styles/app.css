@@ -14,7 +14,7 @@ body {
 :focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
-.ab-sidebar { position: sticky; top: 0; height: 100dvh; overflow-y: auto; }
+@media (min-width: 768px) { .ab-sidebar { position: sticky; top: 0; height: 100dvh; overflow-y: auto; } }
 .app-brand-mark {
   display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem;
   border-radius: var(--ab-radius-sm); background: var(--ab-white); color: var(--ab-navy-900);
@@ -31,7 +31,7 @@ body {
 .app-backdrop { position: fixed; inset: 0; z-index: calc(var(--ab-z-overlay) - 1); background: var(--ab-scrim, rgba(8, 23, 49, 0.6)); }
 @media (max-width: 767px) {
   .app-menu-button { display: inline-flex; }
-  .ab-sidebar { height: 100dvh; }
+  .ab-sidebar { overflow-y: auto; }
 }
 
 .app-sync {
