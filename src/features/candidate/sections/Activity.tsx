@@ -51,7 +51,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
             <li key={stage} className="ab-row app-row-compact">
               <span>{stage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : stage}</span>
               <span />
-              <span className="ab-row__meta">{fmtDateTime(at)}</span>
+              <span className="ab-row__meta app-nowrap">{fmtDateTime(at)}</span>
             </li>
           ))}
         </ol>

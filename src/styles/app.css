@@ -24,7 +24,7 @@ body {
 .app-sidebar-rule { height: 1px; margin: var(--ab-space-3) 0.75rem; border: 0; background: var(--ab-sidebar-border); }
 .app-nav-count {
   min-width: 1.5rem; padding: 0 0.375rem; border-radius: var(--ab-radius-pill);
-  background: var(--ab-primary); color: var(--ab-primary-fg);
+  background: var(--ab-white); color: var(--ab-navy-900);
   font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-bold); text-align: center; line-height: 1.5rem;
 }
 .app-menu-button { display: none; }
@@ -107,7 +107,7 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 .app-block__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--ab-space-2) var(--ab-space-4); }
 .app-block__title {
   display: inline-flex; align-items: center; gap: var(--ab-space-2); margin: 0;
-  font-size: var(--ab-font-size-sm); font-weight: var(--ab-font-weight-bold); letter-spacing: var(--ab-tracking-wide); text-transform: uppercase; color: var(--ab-heading);
+  font-size: var(--ab-font-size-lg); font-weight: var(--ab-font-weight-semibold); line-height: var(--ab-leading-tight); color: var(--ab-heading);
 }
 .app-block__lead { margin: calc(var(--ab-space-2) * -1) 0 0; color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); max-width: 46rem; }
 
@@ -144,3 +144,92 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 
 /* AB ships success/warning/danger toasts; info uses the info text color. */
 .ab-toast--info { --_accent: var(--ab-info-text); }
+
+/* ── Pass 2: hierarchy, compact tiles, one-line rows, phone cards ───────── */
+
+/* App titles are sentence case (AB). Uppercase stays on buttons, badges, tabs, table heads. */
+.app-card-plain .ab-card__title, .app-panel-section .ab-card__title {
+  text-transform: none; letter-spacing: normal; font-size: var(--ab-font-size-lg); font-weight: var(--ab-font-weight-semibold);
+}
+
+/* Compact KPI tiles (the navy feature block keeps AB's big numbers). */
+.app-kpi, .app-chip { padding: var(--ab-space-2) var(--ab-space-4) var(--ab-space-3); gap: 0; }
+.app-kpi .ab-kpi__value, .app-chip .ab-kpi__value { font-size: var(--ab-font-size-3xl); }
+.ab-feature .app-kpi { padding: var(--ab-space-3) 0 0; }
+.ab-feature .app-kpi .ab-kpi__value { font-size: var(--ab-font-size-kpi); }
+.app-kpi-button { position: relative; }
+.app-kpi__go { position: absolute; top: var(--ab-space-3); right: var(--ab-space-3); color: var(--ab-text-subtle); }
+.app-kpi-button:hover .app-kpi__go { color: var(--ab-link); }
+.app-chip.is-active .app-kpi__go { color: var(--ab-secondary-fg); }
+
+/* Tonal buttons are gray; inside a white list in a gray block they must stay visible. */
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .ab-table-wrap) .ab-btn--tonal { background: var(--ab-tonal); }
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .ab-table-wrap) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
+
+.app-btn-danger-text { color: var(--ab-danger-text); border-color: var(--ab-danger-border); }
+.app-nowrap { white-space: nowrap; }
+.app-filepick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3); }
+.app-filepick > label:focus-within { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+
+.app-cal-layout .ab-card__title { text-transform: none; letter-spacing: normal; font-size: var(--ab-font-size-lg); font-weight: var(--ab-font-weight-semibold); }
+
+/* Forms: fields align to the top of the row, whatever their hint length. */
+.app-form-grid { align-items: start; }
+
+/* Hiring projects rows: title, badge, reason, count. */
+.app-role-row { grid-template-columns: minmax(0, 4fr) 9.5rem minmax(0, 6fr) 5rem; align-items: baseline; }
+.app-role-row__badge { display: inline-flex; }
+
+/* Candidates: one line per person. */
+.app-table-compact td { padding-block: 0.375rem; line-height: 1.3; }
+.app-table-compact .app-row-open { gap: 0; }
+.app-table-compact .app-note-add { padding-block: 0.125rem; }
+.app-row-clickable { cursor: pointer; }
+.ab-table tbody tr.app-row-clickable:hover { background: var(--ab-tonal-hover); }
+.app-next-cell { display: grid; gap: 0.125rem; white-space: nowrap; }
+.app-next-cell__main { display: inline-flex; align-items: center; gap: 0.375rem; }
+.app-note-cell { width: 13rem; max-width: 13rem; }
+.app-note-text {
+  all: unset; display: block; max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); cursor: pointer;
+}
+.app-note-text:hover { color: var(--ab-link); text-decoration: underline; }
+.app-note-add { all: unset; display: inline-grid; place-items: center; padding: 0.375rem; border-radius: var(--ab-radius-sm); color: var(--ab-text-subtle); cursor: pointer; }
+.app-note-add:hover { background: var(--ab-tonal); color: var(--ab-link); }
+.app-note-text:focus-visible, .app-note-add:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+
+.app-cand-cards { display: none; margin: 0; padding: 0; list-style: none; }
+.app-cand-card { display: flex; align-items: stretch; border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); }
+.app-cand-card[aria-selected='true'] { background: var(--ab-primary-soft); }
+.app-cand-card__check { display: grid; place-items: center; padding: 0 var(--ab-space-3); }
+.app-cand-card__body { all: unset; flex: 1; display: grid; gap: 0.25rem; justify-items: start; box-sizing: border-box; min-width: 0; padding: var(--ab-space-3); cursor: pointer; }
+.app-cand-card__body:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; border-radius: var(--ab-radius-md); }
+
+@media (max-width: 767px) {
+  .app-cand-table { display: none; }
+  .app-cand-cards { display: grid; gap: var(--ab-space-2); }
+  .app-chips { display: flex; overflow-x: auto; padding-bottom: var(--ab-space-1); }
+  .app-chips > .app-chip { flex: 0 0 8rem; }
+  .app-role-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Touch screens: lists and small buttons need a finger-sized target. */
+@media (pointer: coarse) {
+  .ab-btn--sm, .ab-tab, .app-note-add { min-height: 2.75rem; }
+  .app-note-add { min-width: 2.75rem; }
+  .app-row-button, .app-template { min-height: 2.75rem; }
+}
+
+/* Tabular figures draw a slashed zero in Mona Sans, which reads as code. */
+.ab-kpi__value { font-variant-numeric: normal; }
+
+/* Tab strips and table wrappers only scroll sideways. Without this the 1px
+   overlap of the active tab (and any rounding) draws a vertical scrollbar on
+   Windows, where scrollbars take space. */
+.ab-tabs, .ab-table-wrap { overflow-y: hidden; }
+
+/* A modal covers the page, so the page behind must not scroll or show its own scrollbar. */
+html:has(dialog[open]) { overflow: hidden; }
+
+/* AB's subtle gray is 4.2:1 on white; text that carries meaning uses the muted gray (passes AA). */
+.ab-subtle { color: var(--ab-text-muted); }

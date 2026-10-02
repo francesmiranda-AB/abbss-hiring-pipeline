@@ -10,7 +10,7 @@ import { CSV_IMPORT_FIELD_MAP, CSV_IMPORT_TEMPLATE, downloadText, parseCsv } fro
 import { DEPARTMENTS, SOURCES } from '@/domain/stages';
 import { useCandidateActions } from '../candidates/actions';
 import { fileToBase64 } from '../candidate/sections/common';
-import { Button, Field, PageHeader, Section } from '@/ui/kit';
+import { Button, Field, FilePicker, PageHeader, Section } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -118,11 +118,10 @@ function NewForm() {
         <textarea id="na-notes" className="ab-textarea" value={f.resumeNotes} onChange={set('resumeNotes')} placeholder="Relevant experience and skills from the CV" />
       </Field>
       <Field label="CV (optional)" hint="PDF or Word, up to 10 MB." htmlFor="na-cv">
-        <input id="na-cv" type="file" accept=".pdf,.doc,.docx" className="ab-input" onChange={(e) => {
-          const file = e.target.files?.[0] || null;
-          if (file && file.size > 10 * 1024 * 1024) { toast.error('That file is over 10 MB. Choose a smaller CV.'); e.target.value = ''; return; }
+        <FilePicker id="na-cv" accept=".pdf,.doc,.docx" fileName={cv?.name} onFile={(file) => {
+          if (file && file.size > 10 * 1024 * 1024) { toast.error('That file is over 10 MB. Choose a smaller CV.'); return; }
           setCv(file);
-        }} />
+        }}>Choose CV</FilePicker>
       </Field>
       {dupe && (
         <div className="ab-alert ab-alert--warning" role="alert">

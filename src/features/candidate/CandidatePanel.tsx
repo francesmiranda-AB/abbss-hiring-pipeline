@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
 import { useCandidate, useUpdateCandidate } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, REASON_STAGES, ROLE_CONFIG, ROLE_OPTIONS, interviewRoundLabel, interviewerFor, stageLabel, stageTone, type BadgeTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, REASON_STAGES, interviewRoundLabel, interviewerFor, stageLabel, stageTone, type BadgeTone } from '@/domain/stages';
 import { getStageTask } from '@/domain/attention';
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } from '@/domain/emailTemplates';
 import { useCandidateActions } from '../candidates/actions';
@@ -89,10 +89,9 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
         <div className="grid gap-1 min-w-0">
           <h2 className="ab-title app-truncate">{a.name}</h2>
           <p className="app-meta m-0">{[a.position || 'No position', a.department, a.email, a.phone].filter(Boolean).join(', ')}</p>
-          <span className="flex flex-wrap gap-1 mt-1">
-            <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge>
-            {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
-          </span>
+          {a.overallStatus && a.overallStatus !== 'In Progress' && (
+            <span className="flex flex-wrap gap-1"><Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge></span>
+          )}
         </div>
         <div className="ab-cluster flex-none">
           {!readOnly && <EmailMenu a={a} />}
@@ -110,9 +109,6 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
         </Field>
         <OtherSelect label="Next action" id={`next-${a.id}`} value={a.nextAction || ''} options={NEXT_ACTION_OPTIONS} empty="None" disabled={readOnly}
           onChange={(v) => update(a.id, { nextAction: v })} />
-        <OtherSelect label="Role" id={`role-${a.id}`} value={a.roleCategory || ''} options={ROLE_OPTIONS} empty="Select role" disabled={readOnly}
-          hint={a.roleCategory && ROLE_CONFIG[a.roleCategory]?.requiresClientFinal === false ? 'This role skips the client stages: the offer follows the Operations decision.' : undefined}
-          onChange={(v) => update(a.id, { roleCategory: v })} />
       </div>
       {task && <p className="app-next m-0"><strong>{task.label}.</strong> {task.hint}</p>}
     </header>

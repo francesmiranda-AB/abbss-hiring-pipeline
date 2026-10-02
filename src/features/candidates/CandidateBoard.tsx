@@ -29,12 +29,12 @@ export function CandidateBoard({ candidates, readOnly, onOpen }: { candidates: C
   const noStage = candidates.filter((a) => !a.candidateStage);
   const columns = [...(noStage.length ? [{ key: '', label: 'No stage set' }] : []), ...CANDIDATE_STAGES.map((s) => ({ key: s as string, label: s === 'Initial Interview' ? 'Initial interview' : s }))];
   return (
-    <div className="app-board" role="list" aria-label="Pipeline board">
+    <ul className="app-board" aria-label="Pipeline board">
       {columns.map((col) => {
         const items = col.key ? candidates.filter((a) => a.candidateStage === col.key) : noStage;
         const isCollapsed = !!collapsed[col.key];
         return (
-          <section key={col.key || 'none'} role="listitem" className={cx('app-board__col', isCollapsed && 'is-collapsed', !items.length && 'is-empty')} aria-label={`${col.label}, ${items.length}`}>
+          <li key={col.key || 'none'} className={cx('app-board__col', isCollapsed && 'is-collapsed', !items.length && 'is-empty')} aria-label={`${col.label}, ${items.length}`}>
             <button type="button" className="app-board__head" aria-expanded={!isCollapsed} onClick={() => toggle(col.key)}>
               <span className="app-board__title">{col.label}</span>
               <Badge tone={items.length ? stageTone(col.key) : 'neutral'}>{items.length}</Badge>
@@ -62,10 +62,10 @@ export function CandidateBoard({ candidates, readOnly, onOpen }: { candidates: C
                 })}
               </ul>
             )}
-          </section>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 

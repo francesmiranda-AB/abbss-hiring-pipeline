@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText, Trash2, Upload } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
-import { DEPARTMENTS, SOURCES } from '@/domain/stages';
+import { DEPARTMENTS, ROLE_CONFIG, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
 import { uploadCv } from '@/api/actions';
 import { useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
@@ -30,6 +30,11 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
           <Field label="Date received" htmlFor={`recv-${a.id}`}>
             <input id={`recv-${a.id}`} className="ab-input" type="date" value={(a.dateReceived || '').slice(0, 10)} onChange={(e) => update(a.id, { dateReceived: e.target.value })} />
           </Field>
+          <OtherSelect id={`role-${a.id}`} label="Hiring role" value={a.roleCategory || ''} options={ROLE_OPTIONS} empty="Not set"
+            hint={a.roleCategory && ROLE_CONFIG[a.roleCategory]?.requiresClientFinal === false
+              ? 'This role skips the client stages: the offer follows the Operations decision.'
+              : 'Counts them under this role in Hiring projects.'}
+            onChange={(v) => update(a.id, { roleCategory: v })} />
           <Field label="Entered by"><span className="app-static">{a.enteredBy || 'Not recorded'}</span></Field>
         </div>
       </Section>

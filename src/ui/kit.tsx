@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { AlertTriangle, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Upload, X, type LucideIcon } from 'lucide-react';
 import type { BadgeTone } from '@/domain/stages';
 
 // Thin React wrappers over the AB Design System classes (components.css).
@@ -72,13 +72,29 @@ export function Kpis({ items }: { items: Array<{ value: ReactNode; label: string
   return (
     <div className="ab-kpis app-kpis">
       {items.map((k) => {
-        const inner = (<><span className="ab-kpi__value">{k.value}</span><span className="ab-kpi__label">{k.label}</span></>);
+        const inner = (<><span className="ab-kpi__value">{k.value}</span><span className="ab-kpi__label">{k.label}</span>{k.onClick && <ChevronRight className="app-kpi__go" size={16} aria-hidden />}</>);
         const cls = cx('ab-kpi app-kpi', kpiToneClass(k.tone, k.value));
         return k.onClick
           ? <button key={k.label} type="button" className={cx(cls, 'app-kpi-button')} onClick={k.onClick}>{inner}</button>
           : <div key={k.label} className={cls}>{inner}</div>;
       })}
     </div>
+  );
+}
+
+// A file chooser styled like a button (the raw browser control is out of place).
+export function FilePicker({ id, accept, onFile, children, fileName, busy }: {
+  id?: string; accept?: string; onFile: (file: File | null) => void; children: ReactNode; fileName?: string; busy?: boolean;
+}) {
+  return (
+    <span className="app-filepick">
+      <label className="ab-btn ab-btn--tonal ab-btn--sm" aria-busy={busy || undefined}>
+        <Upload size={14} aria-hidden /> {children}
+        <input id={id} type="file" accept={accept} className="ab-visually-hidden"
+          onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; onFile(f); }} />
+      </label>
+      {fileName && <span className="app-meta">{fileName}</span>}
+    </span>
   );
 }
 

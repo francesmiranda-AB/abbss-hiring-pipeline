@@ -66,7 +66,8 @@ export function chipMatch(a: Candidate, chip: Chip, role: AppRole, config: Serve
     case 'active': return hasStageFilter || !isClosed(a);
     case 'new': return isNewApplicant(a);
     case 'attention': return needsAttentionFrom(a, role, config);
-    case 'overdue': return !!needsAttention(a, config)?.overdue;
+    // Same tasks Today counts for your role: overdue among the ones that are yours.
+    case 'overdue': return needsAttentionFrom(a, role, config) && !!needsAttention(a, config)?.overdue;
     case 'nonresponsive': return a.overallStatus === 'NonCompliant';
     default: return true;
   }

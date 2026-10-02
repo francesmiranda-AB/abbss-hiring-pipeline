@@ -91,14 +91,15 @@ function RoleRow({ role, b, detail }: { role: string; b: RoleSummary; detail: bo
   const h = b.health;
   const head = (<>
     <span className="ab-row__title">{role}</span>
-    <span className="ab-row__body"><Badge tone={TONE[h.status]}>{HEALTH_LABEL[h.status]}</Badge> {h.reason}{h.source === 'PM override' && <span className="app-meta">, set by {h.setBy || 'PM'}</span>}</span>
+    <span className="app-role-row__badge"><Badge tone={TONE[h.status]}>{HEALTH_LABEL[h.status]}</Badge></span>
+    <span className="ab-row__body">{h.reason}{h.source === 'PM override' && <span className="app-meta">, set by {h.setBy || 'PM'}</span>}</span>
     <span className="ab-row__meta">{b.activeCandidates} active</span>
   </>);
-  if (!detail) return <li className="ab-row">{head}</li>;
+  if (!detail) return <li className="ab-row app-role-row">{head}</li>;
   return (
     <li>
       <details className="app-role">
-        <summary className="ab-row app-role__summary">{head}</summary>
+        <summary className="ab-row app-role-row app-role__summary">{head}</summary>
         <div className="app-role__body">
           <div className="app-role__cols">
             <div>

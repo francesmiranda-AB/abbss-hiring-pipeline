@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ExternalLink, FileCheck2, Printer, Upload } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileCheck2, Printer } from 'lucide-react';
 import { fetchDriveFile, getUnmatchedEmm } from '@/api/actions';
 import { useCandidates, useUpdateCandidate } from '@/api/queries';
 import { assessmentsSubmitted } from '@/domain/assessments';
@@ -10,7 +10,7 @@ import type { Candidate } from '@/domain/types';
 import { useCandidateActions } from '../candidates/actions';
 import { printEmmReport } from './report';
 import { GradeResults } from './GradeResults';
-import { Button, ErrorAlert, Field, PageHeader, Section, fmtDateTime } from '@/ui/kit';
+import { Button, ErrorAlert, Field, FilePicker, PageHeader, Section, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const driveId = (url?: string) => (String(url || '').match(/[-\w]{25,}/) || [''])[0];
@@ -93,7 +93,7 @@ export default function GraderPage() {
 
   return (
     <div className="app-stack">
-      <PageHeader title="EMM grader" lead="Grades a submitted EMM workbook in seconds, with the same scoring as before." />
+      <PageHeader title="EMM grader" lead="Grade an EMM workbook in seconds." />
 
       {queue.length > 0 && (
         <Section title="Waiting to be graded" lead={`${queue.length} submitted through the form.`}>
@@ -134,17 +134,12 @@ export default function GraderPage() {
               <input id="gr-name" className="ab-input" value={manualName} onChange={(e) => setManualName(e.target.value)} />
             </Field>
           )}
-          <Field label="Workbook (.xlsx)" htmlFor="gr-file" hint={file ? `Ready: ${file.name}` : loading ? `Loading ${loading}'s file from Drive` : undefined}>
-            <label className="ab-btn ab-btn--tonal ab-btn--sm justify-self-start" aria-busy={!!loading || undefined}>
-              <Upload size={14} aria-hidden /> Choose file
-              <input id="gr-file" type="file" accept=".xlsx" className="ab-visually-hidden" onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (!f) return;
-                setOutcome(null);
-                setFile({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
-              }} />
-            </label>
+          <Field label="Workbook (.xlsx)" htmlFor="gr-file" hint={loading ? `Loading ${loading}'s file from Drive` : undefined}>
+            <FilePicker id="gr-file" accept=".xlsx" busy={!!loading} fileName={file?.name} onFile={async (f) => {
+              if (!f) return;
+              setOutcome(null);
+              setFile({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+            }}>Choose file</FilePicker>
           </Field>
         </div>
         <div className="ab-cluster">

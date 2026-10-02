@@ -7,7 +7,7 @@ import { useUser } from '@/auth/auth';
 import { calendarItems, DEFAULT_INTERVIEW_DURATION_MIN, findOverlap, slotDate, type CalendarItem } from '@/domain/calendar';
 import { roleScope } from '../candidates/filters';
 import { useCandidateActions } from '../candidates/actions';
-import { Badge, Button, Dialog, Empty, Field, Kpis, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
+import { Badge, Button, Dialog, Empty, Field, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -33,13 +33,20 @@ export default function CalendarPage() {
   const pending = items.filter((i) => i.status === 'pending');
   const confirmed = items.filter((i) => i.status === 'confirmed').sort((x, y) => (x.date?.getTime() ?? Infinity) - (y.date?.getTime() ?? Infinity));
   const undated = items.filter((i) => !i.date);
+  const upcoming = confirmed.filter((i) => i.date && i.date >= now).length;
+  // An empty month while times exist elsewhere: say so and offer the nearest one.
+  const dated = items.filter((i): i is typeof i & { date: Date } => !!i.date);
+  const inView = dated.filter((i) => i.date.getFullYear() === view.year && i.date.getMonth() === view.month);
+  const nearest = dated.length && !inView.length
+    ? dated.reduce((best, i) => (Math.abs(i.date.getTime() - now.getTime()) < Math.abs(best.date.getTime() - now.getTime()) ? i : best))
+    : null;
+  const monthName = (y: number, m: number) => new Date(y, m, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const todayCount = confirmed.filter((i) => i.date?.toDateString() === now.toDateString()).length;
   const move = (d: number) => setView(({ year, month }) => { const m = new Date(year, month + d, 1); return { year: m.getFullYear(), month: m.getMonth() }; });
 
   return (
     <div className="app-stack">
-      <PageHeader title="Interview calendar" lead="HR saves the time the candidate gave. David confirms it here, which adds it to his calendar with a Meet link and emails the candidate." />
-      <Kpis items={[{ value: pending.length, label: 'Ready to confirm', tone: 'warning' }, { value: todayCount, label: 'Interviews today' }, { value: confirmed.filter((i) => i.date && i.date >= now).length, label: 'Coming up' }]} />
+      <PageHeader title="Interview calendar" lead={`${pending.length} ready to confirm, ${todayCount} today, ${upcoming} coming up`} />
       {!items.length ? (
         <Empty icon={CalendarDays} title="No interview times yet">Times appear here once HR saves them on a candidate's Interview tab.</Empty>
       ) : (
@@ -60,14 +67,22 @@ export default function CalendarPage() {
                 <div className="ab-cluster mt-1">{undated.map((i) => <button key={i.slot.id} type="button" className="app-link-button" onClick={() => setOpen({ id: i.candidateId, slotId: i.slot.id })}>{i.name}: {i.slot.label}</button>)}</div>
               </div>
             )}
+            {nearest && (
+              <div className="ab-alert mb-3">
+                <p className="ab-alert__title">Nothing in {monthName(view.year, view.month)}</p>
+                <div>{dated.length} time{dated.length === 1 ? ' is' : 's are'} in other months.
+                  {' '}<button type="button" className="app-link-button" onClick={() => setView({ year: nearest.date.getFullYear(), month: nearest.date.getMonth() })}>Go to {monthName(nearest.date.getFullYear(), nearest.date.getMonth())}</button>
+                </div>
+              </div>
+            )}
             <MonthGrid year={view.year} month={view.month} items={items} busy={busy} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />
             {busy && <p className="app-meta mt-2">Grey times are David's existing calendar (busy or free only; no event details).</p>}
           </section>
           <aside className="grid gap-6 content-start">
-            <Section title="Ready to confirm">
+            <Section title="Ready to confirm" count={pending.length} countTone="warning" lead="HR saves the time on the candidate's Interview tab. Confirming adds it to David's calendar and emails the candidate.">
               {!pending.length ? <p className="ab-muted m-0">Nothing waiting.</p> : <ItemRows items={pending} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />}
             </Section>
-            <Section title="Confirmed">
+            <Section title="Confirmed" count={confirmed.length} countTone="success">
               {!confirmed.length ? <p className="ab-muted m-0">None yet.</p> : <ItemRows items={confirmed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} showContact />}
             </Section>
           </aside>
@@ -88,15 +103,15 @@ function MonthGrid({ year, month, items, busy, onOpen }: { year: number; month: 
   Object.values(byDay).forEach((l) => l.sort((x, y) => x.date!.getTime() - y.date!.getTime()));
   return (
     <div className="app-cal-scroll">
-      <div className="app-cal" role="grid" aria-label="Interviews by day">
-        {DAYS.map((d) => <div key={d} className="app-cal__dow" role="columnheader">{d}</div>)}
+      <div className="app-cal" aria-label="Interviews by day">
+        {DAYS.map((d) => <div key={d} className="app-cal__dow">{d}</div>)}
         {Array.from({ length: cells }, (_, c) => {
           const day = c - first + 1;
           if (day < 1 || day > days) return <div key={c} className="app-cal__cell is-out" aria-hidden />;
           const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
           const dayBusy = (busy || []).filter((b) => b.start.getFullYear() === year && b.start.getMonth() === month && b.start.getDate() === day);
           return (
-            <div key={c} role="gridcell" className={cx('app-cal__cell', isToday && 'is-today')}>
+            <div key={c} className={cx('app-cal__cell', isToday && 'is-today')}>
               <span className="app-cal__day">{day}{isToday && <span className="ab-visually-hidden"> (today)</span>}</span>
               {(byDay[day] || []).map((i) => (
                 <button key={`${i.candidateId}-${i.slot.id}`} type="button" className={cx('app-cal__chip', i.status === 'confirmed' ? 'is-confirmed' : 'is-pending')} onClick={() => onOpen(i)}>

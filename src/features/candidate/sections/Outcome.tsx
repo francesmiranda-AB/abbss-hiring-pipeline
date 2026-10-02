@@ -52,7 +52,8 @@ export function OutcomeSection({ a }: { a: Candidate }) {
         <p className="app-outcome-now">{outcomeText(a)}</p>
         <div className="ab-cluster">
           {decisions.map((d) => (
-            <Button key={d} size="sm" variant={d === 'Close' ? 'danger' : d === 'Hired' ? 'secondary' : 'tonal'}
+            <Button key={d} size="sm" variant={d === 'Close' ? 'outline' : d === 'Hired' ? 'secondary' : 'tonal'}
+              className={d === 'Close' ? 'app-btn-danger-text' : undefined}
               title={d === 'NonCompliant' ? `They stopped replying. Also set automatically ${config.deadlineHours} hours after the assessment invite if nothing comes back.` : undefined}
               onClick={() => (d === 'Close' ? actions.openClose({ ids: [a.id] }) : actions.decide(a.id, d))}>
               {DECISION_BUTTON[d]}

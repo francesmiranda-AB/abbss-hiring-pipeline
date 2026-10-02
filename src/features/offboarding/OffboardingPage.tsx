@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DoorOpen, Download, Trash2 } from 'lucide-react';
+import { DoorOpen, Download, Plus, Trash2 } from 'lucide-react';
 import { deleteOffboarding, getAllOffboarding, saveOffboarding } from '@/api/actions';
 import type { OffboardingCase } from '@/domain/types';
 import { checklistProgress, isOffboardingDue, offboardingCsv, sortOffboarding, trackLabel } from '@/domain/offboarding';
@@ -17,9 +17,9 @@ export default function OffboardingPage() {
   const open = cases.filter((c) => c.status !== 'Completed');
   return (
     <div className="app-stack">
-      <PageHeader title="Offboarding" lead="Clearance for anyone leaving, from their last working day. Asking Ethel about final pay stays a manual step on the checklist."
+      <PageHeader title="Offboarding" lead="Clearance for anyone leaving, from their last working day."
         actions={<Button variant="outline" size="sm" icon={Download} disabled={!cases.length} onClick={() => downloadText(`ABBSS_Offboarding_${todayStamp()}.csv`, offboardingCsv(cases))}>Export CSV</Button>} />
-      <NewCase />
+      <NewCase alwaysOpen={!q.isLoading && !cases.length} />
       <Section title="Cases" lead={`${open.length} open, ${cases.length - open.length} completed.`}>
         {q.isLoading ? <Skeleton lines={4} /> : q.error ? <ErrorAlert title="Couldn't load offboarding cases">{(q.error as Error).message}</ErrorAlert>
           : !cases.length ? <Empty icon={DoorOpen} title="No offboarding cases">Add one when someone resigns or their contract ends.</Empty>
@@ -29,7 +29,8 @@ export default function OffboardingPage() {
   );
 }
 
-function NewCase() {
+function NewCase({ alwaysOpen }: { alwaysOpen: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
   const empty = { name: '', track: 'employee', position: '', department: '', dateHired: '', noticeDate: '', lastWorkingDay: '', supervisor: '' };
@@ -46,6 +47,7 @@ function NewCase() {
       toast.show({ message: `Offboarding case added for ${f.name.trim()}` });
       setF(empty);
       setTried(false);
+      setExpanded(false);
       await qc.invalidateQueries({ queryKey: KEY });
     } catch (e) {
       toast.error(`Couldn't add the case: ${(e as Error).message}`);
@@ -53,6 +55,9 @@ function NewCase() {
       setBusy(false);
     }
   };
+  if (!expanded && !alwaysOpen) {
+    return <div><Button variant="secondary" icon={Plus} onClick={() => setExpanded(true)}>Add someone leaving</Button></div>;
+  }
   return (
     <form className="app-card-plain grid gap-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       <h2 className="ab-card__title">Add someone leaving</h2>
