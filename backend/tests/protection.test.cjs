@@ -6,7 +6,7 @@ const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
 // An applicant who was sent the assessment invite `h` hours ago and has no scores yet.
 function invited(id, h, over = {}) {
   return row(Object.assign({0: id, 1: 'Cand ' + id, 2: id + '@example.com', 4: 'AR', 7: 'No', 9: 'In Progress',
-    30: JSON.stringify({assessment: hoursAgo(h)}), 53: 'Assessment Sent'}, over));
+    30: JSON.stringify({[over[7] === 'Yes' ? 'assessment' : 'assessment_no_emm']: hoursAgo(h)}), 53: 'Assessment Sent'}, over));
 }
 const cellsOf = (e, n) => e.book.Applicants.rows[n];
 
@@ -51,7 +51,7 @@ test('compliance: reminder sent once, stamp kept', () => {
   e.checkAssessmentCompliance();
   assert.strictEqual(e.log.mail.length, 1);
   assert.ok(JSON.parse(cellsOf(e, 1)[30]).autoReminder);
-  assert.ok(JSON.parse(cellsOf(e, 1)[30]).assessment, 'other emailsSent keys survive');
+  assert.ok(JSON.parse(cellsOf(e, 1)[30]).assessment_no_emm, 'other emailsSent keys survive');
 });
 
 // A save from a copy of the record that is older than the sheet.

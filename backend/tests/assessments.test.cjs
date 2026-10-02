@@ -7,7 +7,7 @@ const {load, row, test} = require('./harness.cjs');
 
 const iso = h => new Date(Date.now() - h * 3600000).toISOString();
 const invitedRow = (id, email, over = {}) => row(Object.assign({0: id, 1: 'C ' + id, 2: email, 7: 'No', 9: 'In Progress', 53: 'Assessment Sent',
-  30: JSON.stringify({assessment: iso(10)})}, over));
+  30: JSON.stringify({[over[7] === 'Yes' ? 'assessment' : 'assessment_no_emm']: iso(10)})}, over));
 // Form response rows in each form's own layout.
 const gritRow = (email, h, answer = 4) => { const r = [iso(h), email, 'Name']; r[3] = ''; for (let i = 0; i < 10; i++) r[4 + i] = answer; return r; };
 const valuesRow = (email, h, total, conf, int_) => { const r = new Array(17).fill(''); r[0] = iso(h); r[1] = email; r[2] = 'Name'; r[4] = total; r[14] = conf; r[16] = int_; return r; };
@@ -52,7 +52,7 @@ test('assessments: unmatched EMM submissions use the same row parsing', () => {
 });
 
 test('assessments: job does not archive a candidate whose results just arrived', () => {
-  const e = load({applicants: [invitedRow('A', 'a@x', {30: JSON.stringify({assessment: iso(30)})})], forms: {grit: [gritRow('a@x', 10)], values: [valuesRow('a@x', 10, 250, 8, 9)]}});
+  const e = load({applicants: [invitedRow('A', 'a@x', {30: JSON.stringify({assessment_no_emm: iso(30)})})], forms: {grit: [gritRow('a@x', 10)], values: [valuesRow('a@x', 10, 250, 8, 9)]}});
   e.checkAssessmentCompliance();
   assert.strictEqual(cells(e, 1)[9], 'In Progress');
   assert.ok(cells(e, 1)[13] !== '');

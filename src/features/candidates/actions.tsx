@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { requiresEmmAfterSending } from '@/domain/assessments';
 import { useQueryClient } from '@tanstack/react-query';
 import { SNAPSHOT_KEY, useConfig, useUpdateCandidate } from '@/api/queries';
 import { saveCandidate, sendEmail, type EmailPayload, type Snapshot } from '@/api/actions';
@@ -110,7 +111,9 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
   const recordEmailSent = useCallback((id: number, key: string) => {
     const a = get(id);
     if (!a) return Promise.resolve(false);
-    return update(id, { emailsSent: { ...(a.emailsSent || {}), [key]: new Date().toISOString() } });
+    const emailsSent = { ...(a.emailsSent || {}), [key]: new Date().toISOString() };
+    const requiresEmm = requiresEmmAfterSending(key);
+    return update(id, requiresEmm === undefined || requiresEmm === a.requiresEmm ? { emailsSent } : { emailsSent, requiresEmm });
   }, [get, update]);
 
   const unrecordEmailSent = useCallback(async (id: number, key: string) => {

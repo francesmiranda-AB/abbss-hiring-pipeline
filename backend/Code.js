@@ -488,7 +488,7 @@ function applicantFromRow_(r){
     if(r[57]){ try{ candidateStageDates=canonicalStageDates_(JSON.parse(r[57])); }catch(e){} }
     return{
       id:r[0],name:r[1],email:r[2],phone:r[3],position:r[4],source:r[5],dateReceived:r[6],
-      requiresEmm:r[7]==='Yes',stage:parseInt(r[8])||1,overallStatus:r[9],
+      requiresEmm:emmExpected_(r, emailsSent),stage:parseInt(r[8])||1,overallStatus:r[9],
       grit:{score:r[13]||'',perseverance:r[35]||'',consistency:r[36]||'',label:r[14]||''},
       enteredBy:r[37]||'',
       values:{score:r[15]||'',confScore:r[16]||'',intScore:r[17]||'',label:r[18]||''},
@@ -2134,6 +2134,25 @@ function assessmentsSubmitted_(hasGrit, hasValues, requiresEmm, emmReceived, emm
   return !!(hasGrit && hasValues && (!requiresEmm || emmReceived || emmGraded));
 }
 
+// The assessment invite HR last sent decides whether an EMM is expected:
+// "Assessment Invite" includes it, "Assessment Invite (no EMM)" does not.
+// Before any invite, the Requires EMM column (guessed from the job title) applies.
+function latestAssessmentInvite_(emailsSent){
+  var withEmm = emailsSent && emailsSent.assessment ? new Date(emailsSent.assessment).getTime() : NaN;
+  var noEmm = emailsSent && emailsSent.assessment_no_emm ? new Date(emailsSent.assessment_no_emm).getTime() : NaN;
+  if(isNaN(withEmm) && isNaN(noEmm)) return null;
+  if(isNaN(noEmm) || (!isNaN(withEmm) && withEmm > noEmm)) return {key:'assessment', at:emailsSent.assessment};
+  return {key:'assessment_no_emm', at:emailsSent.assessment_no_emm};
+}
+function emmExpected_(r, emailsSent){
+  var invite = latestAssessmentInvite_(emailsSent);
+  if(invite) return invite.key === 'assessment';
+  return r[7]==='Yes';
+}
+function parseEmailsSent_(v){
+  try{ return v ? JSON.parse(v) : {}; }catch(e){ return {}; }
+}
+
 // The one place form results get attached to a candidate row: GRIT/Values
 // scores submitted after the invite, the EMM file from the form, and the
 // "received" flag for an EMM graded through another path. Used by the
@@ -2142,11 +2161,12 @@ function attachAssessmentsForRow_(t, i, r, now){
   var out = {attached:0, emmDetected:0};
   var emailsSent = {};
   try{ emailsSent = r[30] ? JSON.parse(r[30]) : {}; }catch(e){ emailsSent = {}; }
-  var inviteSentAt = emailsSent.assessment || emailsSent.assessment_no_emm;
+  var latestInvite = latestAssessmentInvite_(emailsSent);
+  var inviteSentAt = latestInvite ? latestInvite.at : '';
   var inviteTime = inviteSentAt ? new Date(inviteSentAt).getTime() : null;
   out.hasGrit = !isBlankCell_(r[13]);
   out.hasValues = !isBlankCell_(r[15]);
-  out.requiresEmm = r[7]==='Yes';
+  out.requiresEmm = emmExpected_(r, emailsSent);
   out.emmReceived = !!r[38];
   out.emmGraded = !!r[23];
   if(out.requiresEmm && out.emmGraded && !out.emmReceived){
@@ -2240,7 +2260,8 @@ function checkAssessmentCompliance(){
 
     let emailsSent={};
     try{ emailsSent=r[30]?JSON.parse(r[30]):{}; }catch(e){ emailsSent={}; }
-    const inviteSentAt=emailsSent.assessment||emailsSent.assessment_no_emm;
+    const latestInvite=latestAssessmentInvite_(emailsSent);
+    const inviteSentAt=latestInvite ? latestInvite.at : '';
     const found=attachAssessmentsForRow_(t, i, r, now);
     attached+=found.attached; emmDetected+=found.emmDetected;
     const hasGrit=found.hasGrit, hasValues=found.hasValues, requiresEmm=found.requiresEmm;
@@ -2313,7 +2334,7 @@ function restoreCompliantApplicants(){
     // on its own a few minutes later.
     const hasGrit=r[13]!==''&&r[13]!==null&&r[13]!==undefined;
     const hasValues=r[15]!==''&&r[15]!==null&&r[15]!==undefined;
-    const requiresEmm=r[7]==='Yes';
+    const requiresEmm=emmExpected_(r, parseEmailsSent_(r[30]));
     const emmReceived=!!r[38];
     const emmGraded=!!r[23];
     const complete=hasGrit&&hasValues&&(requiresEmm?(emmReceived||emmGraded):true);

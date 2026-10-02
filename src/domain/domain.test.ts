@@ -1,7 +1,7 @@
 import { applyOutcome, decisionChange, statusForStage } from './outcome';
 import { autoAdvanceTarget, emailEventFor } from './autoAdvance';
 import { assessmentDeadline, getStageTask, needsAttention, needsAttentionFrom } from './attention';
-import { emmBadge, inferRequiresEmm } from './assessments';
+import { emmBadge, inferRequiresEmm, latestAssessmentInvite, requiresEmmAfterSending } from './assessments';
 import { fillTemplate, suggestedTemplateFor } from './emailTemplates';
 import { parseSlotLabel, slotDate } from './calendar';
 import { buildRoleSummary, sourceBreakdown } from './reports';
@@ -101,6 +101,20 @@ describe('assessments and email', () => {
     expect(inferRequiresEmm('AR Specialist')).toBe(true);
     expect(inferRequiresEmm('AP Specialist')).toBe(false);
     expect(inferRequiresEmm('Refunds Specialist')).toBe(true);
+  });
+  it('the latest assessment invite decides whether an EMM is expected', () => {
+    expect(latestAssessmentInvite({})).toBeNull();
+    expect(latestAssessmentInvite({ assessment: '2026-09-01T00:00:00Z', assessment_no_emm: '2026-09-02T00:00:00Z' })?.key).toBe('assessment_no_emm');
+    expect(latestAssessmentInvite({ assessment: '2026-09-03T00:00:00Z', assessment_no_emm: '2026-09-02T00:00:00Z' })?.key).toBe('assessment');
+    expect(requiresEmmAfterSending('assessment_no_emm')).toBe(false);
+    expect(requiresEmmAfterSending('assessment')).toBe(true);
+    expect(requiresEmmAfterSending('regret')).toBeUndefined();
+  });
+  it('the assessment deadline counts from the latest invite', () => {
+    const old = new Date(now.getTime() - 30 * HOUR).toISOString();
+    const recent = new Date(now.getTime() - 2 * HOUR).toISOString();
+    const a = cand({ candidateStage: 'Assessment Sent', emailsSent: { assessment: old, assessment_no_emm: recent } });
+    expect(assessmentDeadline(a, undefined, now.getTime())?.pastDeadline).toBe(false);
   });
   it('EMM badge text has no emoji', () => {
     const a = cand({ requiresEmm: true, emm: { graded: true, overallPct: 81, pass: true, highRiskFlag: false } });

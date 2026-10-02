@@ -1,4 +1,5 @@
 import type { AppRole, Candidate, ServerConfig } from './types';
+import { latestAssessmentInvite } from './assessments';
 import { CLOSED_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, interviewerFor, isClosed, isPaused, stageLabel, type BadgeTone } from './stages';
 
 export const DEFAULT_CONFIG: ServerConfig = { deadlineHours: 24, reminderHours: 12 };
@@ -72,7 +73,8 @@ export interface SlaStatus { label: string; tone: BadgeTone; pastDeadline: boole
 export function assessmentDeadline(a: Candidate, config: ServerConfig = DEFAULT_CONFIG, now = Date.now()): SlaStatus | null {
   if (isClosed(a) || isPaused(a)) return null;
   if (a.candidateStage && a.candidateStage !== 'Assessment Sent') return null;
-  const invitedAt = a.emailsSent?.assessment || a.emailsSent?.assessment_no_emm;
+  // The clock runs from the latest assessment invite, as on the server.
+  const invitedAt = latestAssessmentInvite(a.emailsSent)?.at;
   if (!invitedAt) return null;
   const hasGrit = a.grit?.score !== '' && a.grit?.score != null;
   const hasValues = a.values?.score !== '' && a.values?.score != null;

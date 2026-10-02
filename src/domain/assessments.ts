@@ -5,6 +5,24 @@ export interface AssessmentOutcome { label: string; tone: BadgeTone; pass: boole
 
 const blank = (v: unknown) => v === null || v === undefined || v === '';
 
+// The assessment invite HR last sent decides whether an EMM is expected:
+// "Assessment Invite" includes it, "Assessment Invite (no EMM)" does not. Same
+// rule as the backend (latestAssessmentInvite_ / emmExpected_).
+export function latestAssessmentInvite(emailsSent: Record<string, string> | undefined): { key: 'assessment' | 'assessment_no_emm'; at: string } | null {
+  const withEmm = emailsSent?.assessment ? new Date(emailsSent.assessment).getTime() : NaN;
+  const noEmm = emailsSent?.assessment_no_emm ? new Date(emailsSent.assessment_no_emm).getTime() : NaN;
+  if (isNaN(withEmm) && isNaN(noEmm)) return null;
+  if (isNaN(noEmm) || (!isNaN(withEmm) && withEmm > noEmm)) return { key: 'assessment', at: emailsSent!.assessment };
+  return { key: 'assessment_no_emm', at: emailsSent!.assessment_no_emm };
+}
+
+// Sending an invite sets Requires EMM to match it; other emails leave it alone.
+export function requiresEmmAfterSending(key: string): boolean | undefined {
+  if (key === 'assessment') return true;
+  if (key === 'assessment_no_emm') return false;
+  return undefined;
+}
+
 // GRIT: 1-5 scale.
 export function gritOutcome(score: unknown): AssessmentOutcome {
   if (blank(score)) return { label: 'Not yet scored', tone: 'neutral', pass: null };
