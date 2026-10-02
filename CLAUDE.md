@@ -16,7 +16,8 @@ Internal hiring app for AB Business Support (at most 5 staff users). Vite + Reac
 ## Rules
 - Never point a local dev server at the production backend (`VITE_API_URL` must be staging locally).
 - Sheet columns never move; the backend decides which columns a save may change (`_changed`).
-- Candidate-facing links (`trackOpen`, `pickSlot`, `viewAssessment`) stay public; every staff action needs a signed-in staff member.
+- No login, by decision: people pick their name and role (`src/auth/auth.tsx`), and the backend runs with `AUTH_MODE=off`. Its Google sign-in check (`requireStaff_`) stays in `backend/Code.js`, inert.
+- Candidate-facing links (`trackOpen`, `pickSlot`, `viewAssessment`) stay public.
 
 ## Design system
 This app uses the AB Design System (synced into `src/styles/ab/`; source: D:\Codebases\ui-ux-capture).

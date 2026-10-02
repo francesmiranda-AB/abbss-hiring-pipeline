@@ -1,13 +1,13 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { AlertTriangle, ChevronDown, LogOut, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, ChevronDown, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { DEV_SIGN_IN, useAuth, useUser } from '@/auth/auth';
+import { useAuth, useUser } from '@/auth/auth';
 import { SNAPSHOT_KEY, useCandidates, useConfig, useFailedSave, useSnapshot } from '@/api/queries';
 import { needsAttentionFrom } from '@/domain/attention';
 import { isEndorsedToOperations } from '@/domain/stages';
 import { ROLE_LABEL, visibleFeatures } from '@/features/registry';
-import { Badge, Button, Skeleton, cx } from '@/ui/kit';
+import { Button, Skeleton, cx } from '@/ui/kit';
 import { ReportProblemDialog } from './ReportProblem';
 
 export const APP_VERSION = 2;
@@ -52,11 +52,6 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="ab-cluster">
             <Button variant="ghost" size="sm" icon={Menu} aria-label="Open menu" className="app-menu-button" onClick={() => setNavOpen(true)} />
             <SyncStatus />
-            {DEV_SIGN_IN && (
-              <span className="app-dev-flag" title="Anyone who opens this local build can pick any name and role. Real Google sign-in is not switched on yet.">
-                <Badge tone="warning">Dev sign-in, not secure</Badge>
-              </span>
-            )}
           </div>
           <UserMenu />
         </header>
@@ -108,7 +103,7 @@ function SyncStatus() {
 
 function UserMenu() {
   const user = useUser();
-  const { signOut } = useAuth();
+  const { switchPerson } = useAuth();
   const [open, setOpen] = useState(false);
   const [report, setReport] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -136,8 +131,8 @@ function UserMenu() {
             <MessageSquareWarning size={16} aria-hidden /> Report a problem
           </button>
           <hr className="ab-menu__sep" />
-          <button type="button" role="menuitem" className="ab-menu__item ab-menu__item--danger" onClick={signOut}>
-            <LogOut size={16} aria-hidden /> Sign out
+          <button type="button" role="menuitem" className="ab-menu__item" onClick={switchPerson}>
+            <ArrowLeftRight size={16} aria-hidden /> Switch person or role
           </button>
         </div>
       )}

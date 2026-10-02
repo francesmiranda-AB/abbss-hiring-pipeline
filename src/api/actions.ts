@@ -1,5 +1,5 @@
 import { call } from './client';
-import type { AppRole, Candidate, OffboardingCase, RoleHealthOverride, ServerConfig } from '@/domain/types';
+import type { Candidate, OffboardingCase, RoleHealthOverride, ServerConfig } from '@/domain/types';
 
 // Typed wrappers for every backend action the app uses. Nothing else in the
 // app talks to the backend, so moving to a new server later changes only
@@ -38,8 +38,6 @@ function normalizeCandidate(raw: Candidate): Candidate {
   };
 }
 
-export interface Me { email: string; name: string; role: AppRole | null }
-export const whoami = () => call<Me & { success: boolean }>('whoami');
 
 // Saves the whole record; `changed` names the fields this save changed, so the
 // backend keeps newer values of fields owned by its jobs or other people.

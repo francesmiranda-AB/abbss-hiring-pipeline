@@ -20,7 +20,6 @@ export function App() {
       </div>
     );
   }
-  if (status === 'loading') return <div className="app-centered"><Skeleton lines={3} /></div>;
   if (status !== 'signed-in') return <SignIn />;
   return <CandidateActionsProvider><SignedIn /></CandidateActionsProvider>;
 }
