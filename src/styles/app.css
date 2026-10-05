@@ -233,3 +233,6 @@ html:has(dialog[open]) { overflow: hidden; }
 
 /* AB's subtle gray is 4.2:1 on white; text that carries meaning uses the muted gray (passes AA). */
 .ab-subtle { color: var(--ab-text-muted); }
+
+/* Tailwind's reset zeroes the margins that center a modal dialog; put them back. */
+.ab-modal { margin: auto; }
