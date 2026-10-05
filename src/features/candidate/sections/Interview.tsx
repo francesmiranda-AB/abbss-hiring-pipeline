@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarClock, Check, ClipboardCheck, MessagesSquare, X } from 'lucide-react';
+import { CalendarClock, Check, ClipboardCheck, X } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { saveInterviewSlots } from '@/api/actions';
 import { parseSlotLabel } from '@/domain/calendar';
@@ -8,20 +8,8 @@ import { useCandidateActions } from '../../candidates/actions';
 import { Badge, Button, Field } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { SavingTextarea, PanelSection } from './common';
+import { QuestionSets } from './Questions';
 import { useCaps } from '../useCaps';
-
-// Interview questions for the EMM follow-up, plus optional resilience probes.
-const GUIDE = [
-  { num: 'Q1', skill: 'Formula comprehension: SUMIF', ask: 'Open your Matching sheet. Pick any row and explain: what does your SUMIF formula calculate, and what does the result tell you about that account?', pass: 'Explains what SUMIF does and connects the number to a business meaning.', fail: 'Cannot explain the formula or describe what the output means.', note: 'Applicants who copied formulas may be unable to explain why they reference specific columns.' },
-  { num: 'Q2', skill: 'Formula construction: COUNTIFS', ask: 'In a blank column, write a COUNTIFS formula that counts rows with the same Order Ref as this row AND Doc Type of "Payment". Show me as you type it.', pass: 'Writes a working COUNTIFS with correct column references and both criteria.', fail: 'Cannot construct the formula from scratch without copying.', note: 'Struggling to write it from scratch suggests the original formulas may not have been written by the applicant.' },
-  { num: 'Q3', skill: 'Classification judgment: similar categories', ask: 'Two scenarios: A) 1 Credit Memo, 1 Invoice, 1 Payment, 0 Refunds, SUMIF=-958. B) 1 Credit Memo, 0 Invoices, 0 Payments, 0 Refunds, SUMIF=-75. What category is each and why?', pass: 'Correctly identifies both as Missing Refund and explains the CM-Refund pairing.', fail: "Calls Scenario A 'Match', the most common error in sample files.", note: 'This is drawn from actual errors in the sample applicant files.' },
-  { num: 'Q4', skill: 'Edge case: rounding boundary', ask: 'A group has 1 Invoice, 1 Payment, SUMIF = 0.01. Is this Match or Invoice > Payment? What would you do with this in a real reconciliation?', pass: 'Recognises the rounding issue and classifies as Match with a real-world explanation.', fail: 'Insists on Invoice > Payment because the number is technically positive.', note: 'This pattern caused about 250 errors for one sample applicant.' },
-  { num: 'Q5', skill: 'Real-world AR understanding', ask: 'You found 266 Missing Invoice entries totalling -$207,720. What would you do next and who would you involve?', pass: 'Understands the financial implication and describes a logical next step with the right stakeholders.', fail: 'Treats it as a data entry issue only.', note: 'Separates candidates with real AR experience from those who only completed the exercise.' },
-];
-const RESILIENCE = [
-  { num: 'R1', skill: 'Perseverance under pressure', ask: 'Tell me about a specific time, at this job or another, when you seriously considered giving up on a task or role. Walk me through exactly what happened and what you did next.', pass: 'Gives a specific, real example with concrete detail, and describes what got them through it or what they honestly learned from stepping back.', fail: "Can't recall a specific instance, gives a vague or hypothetical answer, or blames external factors entirely with no self-reflection.", note: 'Vague or rehearsed-sounding answers are worth a live follow-up.' },
-  { num: 'R2', skill: 'Adapting to sudden change', ask: "A client changes the process on you in the middle of a task with no warning. Walk me through what you'd actually do, step by step.", pass: 'Describes a calm, concrete process (clarify what changed, adjust the work, confirm with the client or supervisor if unsure).', fail: 'Reacts with frustration or resistance, or gives a vague answer that avoids the scenario.', note: "Watch for answers that amount to \"I'd just figure it out\" with no process." },
-];
 
 export function InterviewSection({ a }: { a: Candidate }) {
   const update = useUpdateCandidate();
@@ -36,16 +24,8 @@ export function InterviewSection({ a }: { a: Candidate }) {
   return (
     <div className="app-stack">
       <fieldset disabled={!caps.schedule} className="app-fieldset"><Scheduling a={a} /></fieldset>
+      <QuestionSets a={a} />
       <fieldset disabled={!caps.interview} className="app-fieldset app-stack">
-      {a.requiresEmm && (
-        <PanelSection title="Interview questions" icon={MessagesSquare} tone="blue">
-          <Guide items={GUIDE} group="interview-guide" />
-          <details>
-            <summary className="app-meta">Optional: resilience and adaptability probes</summary>
-            <Guide items={RESILIENCE} group="interview-resilience" />
-          </details>
-        </PanelSection>
-      )}
       <PanelSection title="Notes and result" kind="action" icon={ClipboardCheck} tone="blue">
         <SavingTextarea id={`ivn-${a.id}`} label="Interview notes" value={iv.notes} rows={6} placeholder="Answers, observations, concerns"
           onSave={(x) => update(a.id, { interview: { ...iv, notes: x } })} />
@@ -57,23 +37,6 @@ export function InterviewSection({ a }: { a: Candidate }) {
         </div>
       </PanelSection>
       </fieldset>
-    </div>
-  );
-}
-
-// One question per row; opening one closes the others (details with a shared name).
-function Guide({ items, group }: { items: typeof GUIDE; group: string }) {
-  return (
-    <div className="app-qa-list">
-      {items.map((q) => (
-        <details key={q.num} name={group} className="app-qa">
-          <summary><span className="app-qa__num">{q.num}</span> {q.skill}</summary>
-          <div className="app-qa__body">
-            <p className="m-0">{q.ask}</p>
-            <p className="app-meta m-0"><strong>Look for:</strong> {q.pass} <strong>Watch out for:</strong> {q.fail} {q.note}</p>
-          </div>
-        </details>
-      ))}
     </div>
   );
 }

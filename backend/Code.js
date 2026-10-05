@@ -1277,6 +1277,240 @@ function getAllOffboarding(){
 
 
 // ============================================================
+// INTERVIEW QUESTIONS. A shared collection in its own tab ("Interview Questions"):
+// role-specific questions (each lists the hiring roles it applies to) and
+// behavioral questions (asked of everyone), each with a model answer. The tab is
+// created and filled once, the first time it is used; after that the Sheet owns it.
+// The seed below must equal src/domain/interviewQuestions.seed.json (a test checks it).
+// ============================================================
+const INTERVIEW_QUESTIONS_SHEET = 'Interview Questions';
+const INTERVIEW_QUESTION_HEADERS = ['ID','Set','Roles JSON','Skill','Question','Look For','Watch Out For','Note','Sort','Deleted','Created By','Created At','Updated By','Updated At'];
+const INTERVIEW_QUESTION_SEED_ = [
+  {
+    "id": "q_seed_role_1",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Formula comprehension: SUMIF",
+    "question": "Open your Matching sheet. Pick any row and explain: what does your SUMIF formula calculate, and what does the result tell you about that account?",
+    "lookFor": "Explains what SUMIF does and connects the number to a business meaning.",
+    "watchOut": "Cannot explain the formula or describe what the output means.",
+    "note": "Applicants who copied formulas may be unable to explain why they reference specific columns.",
+    "sort": 1
+  },
+  {
+    "id": "q_seed_role_2",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Formula construction: COUNTIFS",
+    "question": "In a blank column, write a COUNTIFS formula that counts rows with the same Order Ref as this row AND Doc Type of \"Payment\". Show me as you type it.",
+    "lookFor": "Writes a working COUNTIFS with correct column references and both criteria.",
+    "watchOut": "Cannot construct the formula from scratch without copying.",
+    "note": "Struggling to write it from scratch suggests the original formulas may not have been written by the applicant.",
+    "sort": 2
+  },
+  {
+    "id": "q_seed_role_3",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Classification judgment: similar categories",
+    "question": "Two scenarios: A) 1 Credit Memo, 1 Invoice, 1 Payment, 0 Refunds, SUMIF=-958. B) 1 Credit Memo, 0 Invoices, 0 Payments, 0 Refunds, SUMIF=-75. What category is each and why?",
+    "lookFor": "Correctly identifies both as Missing Refund and explains the CM-Refund pairing.",
+    "watchOut": "Calls Scenario A 'Match', the most common error in sample files.",
+    "note": "This is drawn from actual errors in the sample applicant files.",
+    "sort": 3
+  },
+  {
+    "id": "q_seed_role_4",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Edge case: rounding boundary",
+    "question": "A group has 1 Invoice, 1 Payment, SUMIF = 0.01. Is this Match or Invoice > Payment? What would you do with this in a real reconciliation?",
+    "lookFor": "Recognises the rounding issue and classifies as Match with a real-world explanation.",
+    "watchOut": "Insists on Invoice > Payment because the number is technically positive.",
+    "note": "This pattern caused about 250 errors for one sample applicant.",
+    "sort": 4
+  },
+  {
+    "id": "q_seed_role_5",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Real-world AR understanding",
+    "question": "You found 266 Missing Invoice entries totalling -$207,720. What would you do next and who would you involve?",
+    "lookFor": "Understands the financial implication and describes a logical next step with the right stakeholders.",
+    "watchOut": "Treats it as a data entry issue only.",
+    "note": "Separates candidates with real AR experience from those who only completed the exercise.",
+    "sort": 5
+  },
+  {
+    "id": "q_seed_beh_1",
+    "set": "behavioral",
+    "roles": [],
+    "skill": "Perseverance under pressure",
+    "question": "Tell me about a specific time, at this job or another, when you seriously considered giving up on a task or role. Walk me through exactly what happened and what you did next.",
+    "lookFor": "Gives a specific, real example with concrete detail, and describes what got them through it or what they honestly learned from stepping back.",
+    "watchOut": "Can't recall a specific instance, gives a vague or hypothetical answer, or blames external factors entirely with no self-reflection.",
+    "note": "Vague or rehearsed-sounding answers are worth a live follow-up.",
+    "sort": 1
+  },
+  {
+    "id": "q_seed_beh_2",
+    "set": "behavioral",
+    "roles": [],
+    "skill": "Adapting to sudden change",
+    "question": "A client changes the process on you in the middle of a task with no warning. Walk me through what you'd actually do, step by step.",
+    "lookFor": "Describes a calm, concrete process (clarify what changed, adjust the work, confirm with the client or supervisor if unsure).",
+    "watchOut": "Reacts with frustration or resistance, or gives a vague answer that avoids the scenario.",
+    "note": "Watch for answers that amount to \"I'd just figure it out\" with no process.",
+    "sort": 2
+  }
+];
+const IQ_LIMITS_ = {skill:120, question:1000, lookFor:2000, watchOut:2000, note:2000, role:60, roles:10};
+
+function interviewQuestionsSheet_(){
+  const ss = SpreadsheetApp.openById(MASTER_SHEET_ID);
+  let t = ss.getSheetByName(INTERVIEW_QUESTIONS_SHEET);
+  if(t && t.getLastRow() > 0) return t;
+  // First use: create and seed once, under the lock so two people cannot seed twice.
+  const made = withScriptLock_(function(){
+    let s = ss.getSheetByName(INTERVIEW_QUESTIONS_SHEET);
+    if(!s) s = ss.insertSheet(INTERVIEW_QUESTIONS_SHEET);
+    if(s.getLastRow() === 0){
+      s.appendRow(INTERVIEW_QUESTION_HEADERS);
+      s.getRange(1,1,1,INTERVIEW_QUESTION_HEADERS.length).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+      s.setFrozenRows(1);
+      const now = new Date().toISOString();
+      INTERVIEW_QUESTION_SEED_.forEach(function(q){
+        s.appendRow([q.id, q.set, JSON.stringify(q.roles), q.skill, q.question, q.lookFor, q.watchOut, q.note, q.sort, '', 'seed', now, 'seed', now]);
+      });
+    }
+    return s;
+  });
+  if(!made) throw new Error('The sheet is busy. Try again in a moment.');
+  return made;
+}
+function interviewQuestionFromRow_(r){
+  var roles = [];
+  try{ var parsed = JSON.parse(r[2] || '[]'); if(Array.isArray(parsed)) roles = parsed.map(String); }catch(e){}
+  return {
+    id: String(r[0]), set: String(r[1]), roles: roles, skill: String(r[3] || ''), question: String(r[4] || ''),
+    lookFor: String(r[5] || ''), watchOut: String(r[6] || ''), note: String(r[7] || ''), sort: Number(r[8]) || 0,
+    deleted: r[9] === true || String(r[9]).toUpperCase() === 'TRUE',
+    createdBy: String(r[10] || ''), createdAt: String(r[11] || ''), updatedBy: String(r[12] || ''), updatedAt: String(r[13] || '')
+  };
+}
+function readInterviewQuestions_(t){
+  var data = t.getDataRange().getValues();
+  return data.slice(1).filter(function(r){ return String(r[0]).trim() !== ''; }).map(interviewQuestionFromRow_);
+}
+function getInterviewQuestions(){
+  var t = interviewQuestionsSheet_();
+  var list = readInterviewQuestions_(t).filter(function(q){ return !q.deleted; });
+  list.sort(function(a, b){ return a.sort - b.sort || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0); });
+  return {success:true, data:{questions:list}};
+}
+function cleanInterviewQuestion_(d){
+  var s = function(v, max){ return String(v == null ? '' : v).trim().slice(0, max); };
+  var set = String(d.set || '');
+  if(set !== 'role' && set !== 'behavioral') return {error:'The set must be "role" or "behavioral".'};
+  var question = String(d.question == null ? '' : d.question).trim();
+  if(!question) return {error:'Write the question.'};
+  if(question.length > IQ_LIMITS_.question) return {error:'The question is too long (most ' + IQ_LIMITS_.question + ' characters).'};
+  var over = ['skill','lookFor','watchOut','note'].filter(function(k){ return String(d[k] == null ? '' : d[k]).trim().length > IQ_LIMITS_[k]; });
+  if(over.length) return {error:'Too long: ' + over.join(', ') + ' (most ' + IQ_LIMITS_[over[0]] + ' characters).'};
+  var roles = [];
+  if(set === 'role'){
+    if(!Array.isArray(d.roles)) return {error:'Choose at least one hiring role for a role-specific question.'};
+    d.roles.forEach(function(r){ var x = String(r == null ? '' : r).trim(); if(x && roles.indexOf(x) < 0) roles.push(x); });
+    if(!roles.length) return {error:'Choose at least one hiring role for a role-specific question.'};
+    if(roles.length > IQ_LIMITS_.roles) return {error:'Too many roles (most ' + IQ_LIMITS_.roles + ').'};
+    if(roles.some(function(r){ return r.length > IQ_LIMITS_.role; })) return {error:'A role name is too long.'};
+  }
+  return {value:{set:set, roles:roles, skill:s(d.skill, IQ_LIMITS_.skill), question:question, lookFor:s(d.lookFor, IQ_LIMITS_.lookFor), watchOut:s(d.watchOut, IQ_LIMITS_.watchOut), note:s(d.note, IQ_LIMITS_.note)}};
+}
+function saveInterviewQuestion(d){
+  d = d || {};
+  var clean = cleanInterviewQuestion_(d);
+  if(clean.error) return {success:false, error:clean.error};
+  var q = clean.value, by = String(d.by || '').trim().slice(0, 80), now = new Date().toISOString();
+  var t = interviewQuestionsSheet_();
+  var out = withScriptLock_(function(){
+    var rows = t.getDataRange().getValues();
+    var idx = d.id ? rows.findIndex(function(r, i){ return i > 0 && String(r[0]) === String(d.id); }) : -1;
+    if(d.id && idx < 1) return {success:false, error:'That question no longer exists. Reload and try again.'};
+    var existing = idx > 0 ? rows[idx] : null;
+    var sort;
+    if(existing && existing[1] === q.set) sort = Number(existing[8]) || 0;
+    else {
+      sort = 0;
+      rows.forEach(function(r, i){ if(i > 0 && r[1] === q.set) sort = Math.max(sort, Number(r[8]) || 0); });
+      sort += 1;
+    }
+    var id = existing ? String(existing[0]) : 'q_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    var row = [id, q.set, JSON.stringify(q.roles), q.skill, q.question, q.lookFor, q.watchOut, q.note, sort,
+      existing ? existing[9] : '', existing ? existing[10] : by, existing ? existing[11] : now, by, now];
+    if(existing) t.getRange(idx + 1, 1, 1, row.length).setValues([row]); else t.appendRow(row);
+    return {success:true, data:{question:interviewQuestionFromRow_(row)}};
+  });
+  return out || {success:false, error:'The sheet is busy. Try again in a moment.'};
+}
+// Soft delete, so "Undo" can bring the question back.
+function deleteInterviewQuestion(d){
+  d = d || {};
+  if(!d.id) return {success:false, error:'Which question?'};
+  var deleted = d.deleted !== false, by = String(d.by || '').trim().slice(0, 80), now = new Date().toISOString();
+  var t = interviewQuestionsSheet_();
+  var out = withScriptLock_(function(){
+    var rows = t.getDataRange().getValues();
+    var idx = rows.findIndex(function(r, i){ return i > 0 && String(r[0]) === String(d.id); });
+    if(idx < 1) return {success:false, error:'That question no longer exists. Reload and try again.'};
+    t.getRange(idx + 1, 10, 1, 1).setValues([[deleted ? 'TRUE' : '']]);
+    t.getRange(idx + 1, 13, 1, 2).setValues([[by, now]]);
+    return {success:true};
+  });
+  return out || {success:false, error:'The sheet is busy. Try again in a moment.'};
+}
+// ids = the questions of ONE set, in the order they should appear.
+function reorderInterviewQuestions(d){
+  d = d || {};
+  var ids = Array.isArray(d.ids) ? d.ids.map(String) : [];
+  if(!ids.length) return {success:false, error:'Nothing to reorder.'};
+  if(ids.some(function(id, i){ return ids.indexOf(id) !== i; })) return {success:false, error:'A question is listed twice.'};
+  var by = String(d.by || '').trim().slice(0, 80), now = new Date().toISOString();
+  var t = interviewQuestionsSheet_();
+  var out = withScriptLock_(function(){
+    var rows = t.getDataRange().getValues();
+    var at = {};
+    rows.forEach(function(r, i){ if(i > 0) at[String(r[0])] = i; });
+    if(ids.some(function(id){ return !(id in at); })) return {success:false, error:'That question no longer exists. Reload and try again.'};
+    var sets = {};
+    ids.forEach(function(id){ sets[rows[at[id]][1]] = true; });
+    if(Object.keys(sets).length !== 1) return {success:false, error:'Reorder one set at a time.'};
+    ids.forEach(function(id, n){
+      t.getRange(at[id] + 1, 9, 1, 1).setValues([[n + 1]]);
+      t.getRange(at[id] + 1, 13, 1, 2).setValues([[by, now]]);
+    });
+    return {success:true};
+  });
+  return out || {success:false, error:'The sheet is busy. Try again in a moment.'};
+}
+
+
+// ============================================================
 // STAFF SIGN-IN. Every staff action carries the signed-in person's Google ID
 // token; candidate-facing links (trackOpen, pickSlot, viewAssessment) stay
 // public. AUTH_MODE (Script Property) switches it without a redeploy:
@@ -1466,6 +1700,10 @@ function doPost(e){
     else if(p.action==='setRoleHealthOverride')out=setRoleHealthOverride(p.data.role, p.data.status, p.data.reason, p.data.setBy, p.data.pmNote);
     else if(p.action==='saveOffboarding')out=saveOffboarding(p.data);
     else if(p.action==='deleteOffboarding')out=deleteOffboarding(p.data.id);
+    else if(p.action==='getInterviewQuestions')out=getInterviewQuestions();
+    else if(p.action==='saveInterviewQuestion')out=saveInterviewQuestion(p.data);
+    else if(p.action==='deleteInterviewQuestion')out=deleteInterviewQuestion(p.data);
+    else if(p.action==='reorderInterviewQuestions')out=reorderInterviewQuestions(p.data);
     else if(p.action==='reportError')out=reportError(p.data);
     else out={success:false,error:'Unknown: '+p.action};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);

@@ -8,6 +8,7 @@ import { buildRoleSummary, sourceBreakdown } from './reports';
 import { candidatesCsv, parseCsv } from './csv';
 import { CANDIDATE_STAGES, isClosed, isEndorsedToOperations, stageLabel, stageLabelFor, stageName, stagePhase } from './stages';
 import { can, capabilities, ownsStage } from './permissions';
+import { DEFAULT_QUESTIONS, movedIds, questionProblem, questionsFor, rolesInUse, type InterviewQuestion } from './interviewQuestions';
 import type { Candidate } from './types';
 
 const HOUR = 3600000;
@@ -193,6 +194,65 @@ describe('what each role may do', () => {
     expect(can('PM', 'outcome', ops)).toBe(false);
     expect(can('PM', 'export', sales)).toBe(false);
     expect(can('CEO', 'stage', sales)).toBe(false);
+  });
+  it('only HR and Operations change the interview question collections, whatever the candidate', () => {
+    expect(can('HR', 'questions')).toBe(true);
+    expect(can('Operations', 'questions')).toBe(true);
+    expect(can('PM', 'questions', sales)).toBe(false);
+    expect(can('CEO', 'questions', sales)).toBe(false);
+  });
+});
+
+describe('interview questions', () => {
+  const q = (over: Partial<InterviewQuestion>): InterviewQuestion => ({ id: 'x', set: 'role', roles: ['AR Specialist'], skill: '', question: 'Q', lookFor: '', watchOut: '', note: '', sort: 1, ...over });
+  it('the built-in questions are five AR role questions and two behavioral ones', () => {
+    expect(DEFAULT_QUESTIONS.filter((x) => x.set === 'role')).toHaveLength(5);
+    expect(DEFAULT_QUESTIONS.filter((x) => x.set === 'behavioral')).toHaveLength(2);
+    expect(DEFAULT_QUESTIONS.every((x) => x.set === 'behavioral' ? x.roles.length === 0 : x.roles.length > 0)).toBe(true);
+  });
+  it('an AR candidate gets the AR questions and the behavioral ones; an AP candidate only the behavioral ones', () => {
+    const ar = questionsFor(DEFAULT_QUESTIONS, 'AR Specialist');
+    expect(ar.role).toHaveLength(5);
+    expect(ar.behavioral).toHaveLength(2);
+    const ap = questionsFor(DEFAULT_QUESTIONS, 'AP Specialist');
+    expect(ap.role).toHaveLength(0);
+    expect(ap.behavioral).toHaveLength(2);
+  });
+  it('a question listing several roles shows for each; matching ignores case and spaces', () => {
+    const all = [q({ id: 'a', roles: ['AR Specialist', 'Refunds Specialist'] })];
+    expect(questionsFor(all, ' refunds specialist ').role.map((x) => x.id)).toEqual(['a']);
+    expect(questionsFor(all, 'AP Specialist').role).toEqual([]);
+  });
+  it('no hiring role means no role questions, and deleted ones never show', () => {
+    expect(questionsFor(DEFAULT_QUESTIONS, undefined).role).toEqual([]);
+    expect(questionsFor(DEFAULT_QUESTIONS, '').behavioral).toHaveLength(2);
+    expect(questionsFor([q({ id: 'gone', deleted: true })], 'AR Specialist').role).toEqual([]);
+  });
+  it('questions come back in their saved order', () => {
+    const all = [q({ id: 'b', sort: 2 }), q({ id: 'a', sort: 1 }), q({ id: 'c', sort: 3 })];
+    expect(questionsFor(all, 'AR Specialist').role.map((x) => x.id)).toEqual(['a', 'b', 'c']);
+  });
+  it('the roles to pick from are the known roles plus custom ones in use', () => {
+    const roles = rolesInUse([{ roleCategory: 'Payroll Specialist' }, { roleCategory: 'ar specialist' }, { roleCategory: undefined }], [q({ roles: ['Billing Clerk'] })]);
+    expect(roles).toContain('AR Specialist');
+    expect(roles).toContain('Payroll Specialist');
+    expect(roles).toContain('Billing Clerk');
+    expect(roles.filter((r) => r.toLowerCase() === 'ar specialist')).toHaveLength(1);
+  });
+  it('the form refuses an empty question, a role question without roles, and too much text', () => {
+    const ok = { set: 'role' as const, roles: ['AR Specialist'], skill: '', question: 'Why?', lookFor: '', watchOut: '', note: '' };
+    expect(questionProblem(ok)).toBe('');
+    expect(questionProblem({ ...ok, question: '  ' })).toMatch(/Write the question/);
+    expect(questionProblem({ ...ok, roles: [] })).toMatch(/hiring role/);
+    expect(questionProblem({ ...ok, set: 'behavioral', roles: [] })).toBe('');
+    expect(questionProblem({ ...ok, question: 'x'.repeat(1001) })).toMatch(/too long/);
+  });
+  it('moving a question swaps it with its neighbour and stops at the ends', () => {
+    expect(movedIds(['a', 'b', 'c'], 'b', -1)).toEqual(['b', 'a', 'c']);
+    expect(movedIds(['a', 'b', 'c'], 'b', 1)).toEqual(['a', 'c', 'b']);
+    expect(movedIds(['a', 'b', 'c'], 'a', -1)).toBeNull();
+    expect(movedIds(['a', 'b', 'c'], 'c', 1)).toBeNull();
+    expect(movedIds(['a'], 'zzz', 1)).toBeNull();
   });
 });
 

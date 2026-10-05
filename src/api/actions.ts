@@ -1,5 +1,6 @@
 import { call } from './client';
 import type { Candidate, OffboardingCase, RoleHealthOverride, ServerConfig } from '@/domain/types';
+import type { InterviewQuestion, QuestionDraft } from '@/domain/interviewQuestions';
 
 // Typed wrappers for every backend action the app uses. Nothing else in the
 // app talks to the backend, so moving to a new server later changes only
@@ -83,6 +84,12 @@ export const setRoleHealthOverride = (data: { role: string; status?: string; rea
 export const getAllOffboarding = () => call<{ data: OffboardingCase[] }>('getAllOffboarding').then((r) => r.data || []);
 export const saveOffboarding = (data: Partial<OffboardingCase>) => call<{ data?: OffboardingCase }>('saveOffboarding', { data });
 export const deleteOffboarding = (id: string) => call('deleteOffboarding', { data: { id } });
+
+export const getInterviewQuestions = () => call<{ data?: { questions?: InterviewQuestion[] } }>('getInterviewQuestions').then((r) => r.data?.questions || []);
+export const saveInterviewQuestion = (data: QuestionDraft & { by: string }) =>
+  call<{ data: { question: InterviewQuestion } }>('saveInterviewQuestion', { data }).then((r) => r.data.question);
+export const deleteInterviewQuestion = (id: string, deleted: boolean, by: string) => call('deleteInterviewQuestion', { data: { id, deleted, by } });
+export const reorderInterviewQuestions = (ids: string[], by: string) => call('reorderInterviewQuestions', { data: { ids, by } });
 
 export const reportError = (data: { source: string; userNote: string; message: string; stack: string; page: string; role: string; url: string; userAgent: string }) =>
   call('reportError', { data });
