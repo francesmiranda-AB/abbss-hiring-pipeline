@@ -20,6 +20,7 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
   const actions = useCandidateActions();
   const toast = useToast();
   const [checking, setChecking] = useState(false);
+  const [manual, setManual] = useState(false);
   const setNested = async (section: 'grit' | 'values', field: string, value: string): Promise<boolean> => {
     const next = { ...a, [section]: { ...a[section], [field]: value } };
     if (!(await update(a.id, { [section]: next[section] }))) return false;
@@ -45,36 +46,35 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
   return (
     <div className="app-stack">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="ab-muted m-0">Form results attach on their own every 15 minutes.</p>
-        <Button variant="tonal" size="sm" icon={RefreshCw} busy={checking} onClick={check}>Check for results</Button>
+        <p className="ab-muted m-0">{manual ? 'Editing scores by hand. Save by leaving each box.' : 'Scores arrive from the forms by themselves.'}</p>
+        <div className="ab-cluster">
+          <Button variant="tonal" size="sm" icon={RefreshCw} busy={checking} onClick={check}>Check for results</Button>
+          <Button variant="ghost" size="sm" aria-pressed={manual} onClick={() => setManual((m) => !m)}>{manual ? 'Done editing' : 'Correct a score'}</Button>
+        </div>
       </div>
 
       <div className="app-assess-pair">
       <Section title="GRIT" aside={<a className="app-ext" href="https://forms.gle/JwGGt8UWnR6NgFga8" target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
         <div className="app-form-grid">
-          <SavingInput id={`grit-${a.id}`} label="Score (1 to 5)" inputMode="decimal" value={a.grit?.score} onSave={(x) => setNested('grit', 'score', x)} />
-          <SavingInput id={`gritp-${a.id}`} label="Perseverance" inputMode="decimal" value={a.grit?.perseverance} onSave={(x) => setNested('grit', 'perseverance', x)} />
-          <SavingInput id={`gritc-${a.id}`} label="Consistency" inputMode="decimal" value={a.grit?.consistency} onSave={(x) => setNested('grit', 'consistency', x)} />
+          <SavingInput id={`grit-${a.id}`} label="Score (1 to 5)" inputMode="decimal" value={a.grit?.score} readOnly={!manual} onSave={(x) => setNested('grit', 'score', x)} />
+          <SavingInput id={`gritp-${a.id}`} label="Perseverance" inputMode="decimal" value={a.grit?.perseverance} readOnly={!manual} onSave={(x) => setNested('grit', 'perseverance', x)} />
+          <SavingInput id={`gritc-${a.id}`} label="Consistency" inputMode="decimal" value={a.grit?.consistency} readOnly={!manual} onSave={(x) => setNested('grit', 'consistency', x)} />
         </div>
         <OutcomeNote o={g} />
       </Section>
 
       <Section title="Values and integrity" aside={<a className="app-ext" href="https://forms.gle/RH5HGDDvPL9H5YvRA" target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
         <div className="app-form-grid">
-          <SavingInput id={`val-${a.id}`} label="Total (out of 315)" inputMode="numeric" value={a.values?.score} onSave={(x) => setNested('values', 'score', x)} />
-          <SavingInput id={`valc-${a.id}`} label="Confidentiality" inputMode="decimal" value={a.values?.confScore} onSave={(x) => setNested('values', 'confScore', x)} />
-          <SavingInput id={`vali-${a.id}`} label="Integrity" inputMode="decimal" value={a.values?.intScore} onSave={(x) => setNested('values', 'intScore', x)} />
+          <SavingInput id={`val-${a.id}`} label="Total (out of 315)" inputMode="numeric" value={a.values?.score} readOnly={!manual} onSave={(x) => setNested('values', 'score', x)} />
+          <SavingInput id={`valc-${a.id}`} label="Confidentiality" inputMode="decimal" value={a.values?.confScore} readOnly={!manual} onSave={(x) => setNested('values', 'confScore', x)} />
+          <SavingInput id={`vali-${a.id}`} label="Integrity" inputMode="decimal" value={a.values?.intScore} readOnly={!manual} onSave={(x) => setNested('values', 'intScore', x)} />
         </div>
         <OutcomeNote o={v} />
       </Section>
       </div>
 
-      <Section title="EMM cognitive test" aside={
-        <label className="ab-switch">
-          <input type="checkbox" checked={!!a.requiresEmm} onChange={(e) => update(a.id, { requiresEmm: e.target.checked })} />
-          {a.requiresEmm ? 'Required for this role' : 'Not required'}
-        </label>}>
-        {a.requiresEmm ? <EmmBlock a={a} /> : <p className="ab-muted m-0">The EMM test is only for AR-type roles. Switch it on if this role needs it.</p>}
+      <Section title="EMM cognitive test">
+        {a.requiresEmm ? <EmmBlock a={a} manual={manual} /> : <p className="ab-muted m-0">Not asked for. Sending the assessment invite with EMM adds it.</p>}
       </Section>
     </div>
   );
@@ -95,7 +95,7 @@ function OutcomeNote({ o }: { o: AssessmentOutcome }) {
   );
 }
 
-function EmmBlock({ a }: { a: Candidate }) {
+function EmmBlock({ a, manual }: { a: Candidate; manual: boolean }) {
   const caps = useCaps(a);
   const update = useUpdateCandidate();
   const actions = useCandidateActions();
@@ -114,10 +114,12 @@ function EmmBlock({ a }: { a: Candidate }) {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Badge tone={badge.tone}>{badge.label}</Badge>
-        <label className="ab-check">
-          <input type="checkbox" checked={!!a.emmReceivedAt} onChange={toggleReceived} />
-          File received{a.emmReceivedAt ? ` ${fmtDateTime(a.emmReceivedAt)}` : ''}
-        </label>
+        {manual ? (
+          <label className="ab-check">
+            <input type="checkbox" checked={!!a.emmReceivedAt} onChange={toggleReceived} />
+            File received{a.emmReceivedAt ? ` ${fmtDateTime(a.emmReceivedAt)}` : ''}
+          </label>
+        ) : <span className="app-meta">{a.emmReceivedAt ? `File received ${fmtDateTime(a.emmReceivedAt)}` : 'File not received yet'}</span>}
         {a.emmFileUrl && /^https?:/.test(a.emmFileUrl) && <a className="app-ext" href={a.emmFileUrl} target="_blank" rel="noopener noreferrer">Submitted file <ExternalLink size={14} aria-hidden /></a>}
       </div>
       {!a.emm?.graded ? (

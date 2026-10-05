@@ -46,7 +46,6 @@ function NewForm() {
   const toast = useToast();
   const blank = { name: '', email: '', phone: '', position: '', department: '', dateReceived: '', source: '', sourceOther: '', resumeNotes: '' };
   const [f, setF] = useState(blank);
-  const [emm, setEmm] = useState<boolean | null>(null);
   const [cv, setCv] = useState<File | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
@@ -55,7 +54,8 @@ function NewForm() {
   const emailRef = useRef<HTMLInputElement>(null);
   const errors = { name: f.name.trim() ? '' : 'Enter the full name.', email: !f.email.trim() ? 'Enter an email address.' : EMAIL_RE.test(f.email.trim()) ? '' : 'Enter a valid email address.' };
   const set = (k: keyof typeof blank) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
-  const requiresEmm = emm ?? inferRequiresEmm(f.position);
+  // A starting guess from the job title; the assessment invite sent later decides.
+  const requiresEmm = inferRequiresEmm(f.position);
 
   const submit = async (force = false) => {
     setTouched({ name: true, email: true });
@@ -74,7 +74,7 @@ function NewForm() {
     if (!ok) return;
     toast.show({ message: `Added ${record.name}`, action: { label: 'Open', onClick: () => navigate(`/candidates?candidate=${record.id}`) } });
     const file = cv;
-    setF(blank); setEmm(null); setCv(null); setTouched({});
+    setF(blank); setCv(null); setTouched({});
     if (file) {
       try {
         const res = await uploadCv({ data: await fileToBase64(file), filename: file.name, mimeType: file.type || 'application/octet-stream' });
@@ -109,9 +109,6 @@ function NewForm() {
             <option value="">Select source</option>{SOURCES.map((s) => <option key={s}>{s}</option>)}
           </select>
           {f.source === 'Other' && <input className="ab-input" aria-label="Source: please specify" placeholder="Please specify, e.g. Kalibrr" value={f.sourceOther} onChange={set('sourceOther')} />}
-        </Field>
-        <Field label="EMM test" hint="Set from the position (AR roles need it). Change it if this role is an exception.">
-          <label className="ab-switch"><input type="checkbox" checked={requiresEmm} onChange={(e) => setEmm(e.target.checked)} />{requiresEmm ? 'Required' : 'Not required'}</label>
         </Field>
       </div>
       <Field label="Resume notes" htmlFor="na-notes">

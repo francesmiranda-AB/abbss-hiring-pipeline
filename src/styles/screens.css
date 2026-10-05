@@ -296,3 +296,12 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .app-sheet__actions { margin-left: 0; }
 
 .app-viewonly { margin: 0 0 var(--ab-space-3); padding: var(--ab-space-1) var(--ab-space-3); border-radius: var(--ab-radius-md); background: var(--ab-surface); color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); }
+
+.ab-input[readonly] { background: var(--ab-bg-subtle); }
+
+/* Email composer "More" menu and the interview time pickers. */
+.app-more { position: relative; }
+.app-more > summary { list-style: none; cursor: pointer; }
+.app-more > summary::-webkit-details-marker { display: none; }
+.app-more__menu { position: absolute; bottom: calc(100% + 0.25rem); left: 0; min-width: 16rem; z-index: 2; }
+.app-slot-grid { display: grid; gap: var(--ab-space-3); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); align-items: start; }

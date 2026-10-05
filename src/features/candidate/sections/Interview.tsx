@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { saveInterviewSlots } from '@/api/actions';
+import { parseSlotLabel } from '@/domain/calendar';
 import { useReplaceCandidate, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
 import { Badge, Button, Field } from '@/ui/kit';
@@ -36,14 +37,15 @@ export function InterviewSection({ a }: { a: Candidate }) {
     <div className="app-stack">
       <fieldset disabled={!caps.schedule} className="app-fieldset"><Scheduling a={a} /></fieldset>
       <fieldset disabled={!caps.interview} className="app-fieldset app-stack">
-      <Section title="Interview questions">
-        <p className="ab-muted m-0">A guide for the conversation, not a score sheet. Open a question to see what to look for.</p>
-        <Guide items={GUIDE} group="interview-guide" />
-        <details>
-          <summary className="app-meta">Optional: resilience and adaptability probes</summary>
-          <Guide items={RESILIENCE} group="interview-resilience" />
-        </details>
-      </Section>
+      {a.requiresEmm && (
+        <Section title="Interview questions">
+          <Guide items={GUIDE} group="interview-guide" />
+          <details>
+            <summary className="app-meta">Optional: resilience and adaptability probes</summary>
+            <Guide items={RESILIENCE} group="interview-resilience" />
+          </details>
+        </Section>
+      )}
       <Section title="Notes and result">
         <SavingTextarea id={`ivn-${a.id}`} label="Interview notes" value={iv.notes} rows={6} placeholder="Answers, observations, concerns"
           onSave={(x) => update(a.id, { interview: { ...iv, notes: x } })} />
@@ -76,26 +78,40 @@ function Guide({ items, group }: { items: typeof GUIDE; group: string }) {
   );
 }
 
-// HR records what the candidate said on the call: their preferred time(s)
-// and their Viber/WhatsApp number, in one save. David confirms on the calendar.
+// HR records what the candidate said on the call: their preferred time and up
+// to two backups (real dates, from pickers) plus their Viber/WhatsApp number,
+// in one save. Operations confirms on the calendar, with the time already filled in.
+const SLOT_FIELDS = ['Preferred time', 'Backup time', 'Second backup'] as const;
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toInput = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+// "Mon, Oct 5, 2026 - 2:00 PM": year included, so the calendar never has to guess it.
+function slotLabel(d: Date, i: number): string {
+  const day = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${day} - ${time}${i > 0 ? ' (backup)' : ''}`;
+}
+
 function Scheduling({ a }: { a: Candidate }) {
   const replace = useReplaceCandidate();
   const toast = useToast();
   const slots = a.interviewSlots || [];
   const confirmed = a.confirmedSlot || null;
-  const [times, setTimes] = useState(slots.map((s) => s.label).join('\n'));
+  // Saved times come back into the pickers; one that can't be read is shown so it can be picked again.
+  const parsed = slots.slice(0, 3).map((s) => ({ label: s.label, date: parseSlotLabel(s.label) }));
+  const [values, setValues] = useState<string[]>(() => [0, 1, 2].map((i) => (parsed[i]?.date ? toInput(parsed[i].date!) : '')));
+  const unreadable = parsed.filter((p) => !p.date).map((p) => p.label);
   const [contact, setContact] = useState(a.candidateContact || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const save = async () => {
-    const labels = times.split('\n').map((s) => s.trim()).filter(Boolean);
-    if (!labels.length) { setError('Enter at least the time the candidate prefers.'); return; }
+    const dates = values.map((v) => (v ? new Date(v) : null)).filter((d): d is Date => !!d && !isNaN(d.getTime()));
+    if (!dates.length) { setError('Pick at least the time the candidate prefers.'); return; }
     setBusy(true);
     setError('');
     try {
-      const res = await saveInterviewSlots(a.id, labels, contact.trim());
+      const res = await saveInterviewSlots(a.id, dates.map(slotLabel), contact.trim());
       replace({ ...a, interviewSlots: res.slots, schedulingToken: res.schedulingToken, candidateSlotPicks: res.slots.map((s) => s.id), candidateContact: contact.trim() });
-      toast.show({ message: 'Saved. It is on the interview calendar for David.' });
+      toast.show({ message: 'Saved. It is on the interview calendar.' });
     } catch (e) {
       setError(`Couldn't save: ${(e as Error).message}`);
     } finally {
@@ -108,22 +124,25 @@ function Scheduling({ a }: { a: Candidate }) {
         <div className="ab-alert ab-alert--success">
           <span className="ab-alert__icon" aria-hidden><Check size={18} /></span>
           <p className="ab-alert__title">Confirmed for {confirmed.label}</p>
-          <div>The confirmation email went to the candidate.{a.candidateContact ? ` Their number: ${a.candidateContact}.` : ''} To change it, undo the confirmation on the interview calendar.</div>
+          <div>The candidate has the confirmation email.{a.candidateContact ? ` Their number: ${a.candidateContact}.` : ''} To change it, undo the confirmation on the interview calendar.</div>
         </div>
       ) : (
         <>
-          <p className="ab-muted m-0">Call the candidate, get their preferred time (and a backup) plus their Viber or WhatsApp number, and save both.</p>
-          <div className="app-form-grid">
-            <Field label="Times they're available (preferred first, one per line)" htmlFor={`slots-${a.id}`} error={error}>
-              <textarea id={`slots-${a.id}`} className="ab-textarea" rows={3} value={times} aria-invalid={!!error} placeholder={'Mon, Oct 5 - 2:00 PM\nTue, Oct 6 - 10:00 AM (backup)'} onChange={(e) => setTimes(e.target.value)} />
-            </Field>
+          {unreadable.length > 0 && <p className="ab-error m-0" role="alert">Couldn't read the saved time{unreadable.length > 1 ? 's' : ''} "{unreadable.join('", "')}". Pick {unreadable.length > 1 ? 'them' : 'it'} again below.</p>}
+          <div className="app-slot-grid">
+            {SLOT_FIELDS.map((label, i) => (
+              <Field key={label} label={label} htmlFor={`slot-${a.id}-${i}`} error={i === 0 ? error : undefined}>
+                <input id={`slot-${a.id}-${i}`} type="datetime-local" className="ab-input" value={values[i]} aria-invalid={i === 0 && !!error}
+                  onChange={(e) => setValues((cur) => cur.map((v, j) => (j === i ? e.target.value : v)))} />
+              </Field>
+            ))}
             <Field label="Viber or WhatsApp number" htmlFor={`contact-${a.id}`}>
               <input id={`contact-${a.id}`} className="ab-input" value={contact} placeholder="+63 900 000 0000" onChange={(e) => setContact(e.target.value)} />
             </Field>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="primary" size="sm" busy={busy} onClick={save}>Save and add to calendar</Button>
-            {slots.length > 0 && <span className="app-meta">Waiting for David to confirm a time on the interview calendar.</span>}
+            {slots.length > 0 && <span className="app-meta">Waiting for Operations to confirm a time.</span>}
           </div>
         </>
       )}

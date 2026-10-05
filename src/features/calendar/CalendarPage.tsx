@@ -26,11 +26,20 @@ export default function CalendarPage() {
   const user = useUser();
   const { candidates } = useCandidates();
   const now = new Date();
-  const [view, setView] = useState({ year: now.getFullYear(), month: now.getMonth() });
-  const [open, setOpen] = useState<{ id: number; slotId: string } | null>(null);
   const items = useMemo(() => calendarItems(roleScope(candidates, user.role)), [candidates, user.role]);
+  // Open on the next month with something in it (or the latest one), not an empty current month.
+  const [view, setView] = useState(() => {
+    const dated = items.filter((i): i is typeof i & { date: Date } => !!i.date);
+    const ahead = dated.filter((i) => i.date >= now).sort((x, y) => x.date.getTime() - y.date.getTime())[0];
+    const pick = ahead || dated.sort((x, y) => y.date.getTime() - x.date.getTime())[0];
+    return pick ? { year: pick.date.getFullYear(), month: pick.date.getMonth() } : { year: now.getFullYear(), month: now.getMonth() };
+  });
+  const [open, setOpen] = useState<{ id: number; slotId: string } | null>(null);
   const busy = useBusy(view.year, view.month).data;
-  const pending = items.filter((i) => i.status === 'pending');
+  const allPending = items.filter((i) => i.status === 'pending');
+  // A time that has gone by without being confirmed is not "ready to confirm" any more.
+  const pending = allPending.filter((i) => !i.date || i.date >= now);
+  const passed = allPending.filter((i) => i.date && i.date < now);
   const confirmed = items.filter((i) => i.status === 'confirmed').sort((x, y) => (x.date?.getTime() ?? Infinity) - (y.date?.getTime() ?? Infinity));
   const undated = items.filter((i) => !i.date);
   const upcoming = confirmed.filter((i) => i.date && i.date >= now).length;
@@ -79,9 +88,14 @@ export default function CalendarPage() {
             {busy && <p className="app-meta mt-2">Grey times are David's existing calendar (busy or free only; no event details).</p>}
           </section>
           <aside className="grid gap-6 content-start">
-            <Section title="Ready to confirm" count={pending.length} countTone="warning" lead="HR saves the time on the candidate's Interview tab. Confirming adds it to David's calendar and emails the candidate.">
+            <Section title="Ready to confirm" count={pending.length} countTone="warning" lead="Confirming adds it to the interviewer's calendar and emails the candidate.">
               {!pending.length ? <p className="ab-muted m-0">Nothing waiting.</p> : <ItemRows items={pending} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />}
             </Section>
+            {passed.length > 0 && (
+              <Section title="Passed, needs a new time" count={passed.length} countTone="danger" lead="Never confirmed, and the time has gone by. Ask the candidate for a new one, or remove these.">
+                <ItemRows items={passed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />
+              </Section>
+            )}
             <Section title="Confirmed" count={confirmed.length} countTone="success">
               {!confirmed.length ? <p className="ab-muted m-0">None yet.</p> : <ItemRows items={confirmed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} showContact />}
             </Section>

@@ -11,6 +11,7 @@ import { calendarItems } from '@/domain/calendar';
 import { isOffboardingDue } from '@/domain/offboarding';
 import { stageLabel, stageTone } from '@/domain/stages';
 import { roleScope } from '../candidates/filters';
+import { tabForNextStep } from '../candidate/primaryAction';
 import { CandidatePanel, useOpenCandidate } from '../candidate/CandidatePanel';
 import { Badge, Empty, Kpis, PageHeader, Section } from '@/ui/kit';
 
@@ -88,12 +89,12 @@ export default function TodayPage() {
 }
 
 type Task = { a: Candidate; n: NonNullable<ReturnType<typeof needsAttention>> };
-function TaskRows({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: number) => void }) {
+function TaskRows({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: number, tab?: string) => void }) {
   return (
     <ul className="ab-rows">
       {tasks.map(({ a, n }) => (
         <li key={a.id}>
-          <button type="button" className="ab-row app-row-button" onClick={() => onOpen(a.id)}>
+          <button type="button" className="ab-row app-row-button" onClick={() => onOpen(a.id, tabForNextStep(a))}>
             <span className="ab-row__title">{a.name}</span>
             <span className="ab-row__body">{n.reason}</span>
             <span className="ab-row__meta"><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge><ChevronRight size={16} aria-hidden /></span>

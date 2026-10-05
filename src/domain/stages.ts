@@ -11,7 +11,13 @@ export const CLOSED_STAGES: readonly string[] = ['Hired', 'Closed - Rejected', '
 export const REASON_STAGES: readonly string[] = ['Closed - Rejected', 'Closed - Withdrawn'];
 export const ACTIVE_STAGES = CANDIDATE_STAGES.filter((s) => !CLOSED_STAGES.includes(s));
 
+// Every value that can be stored (older records may carry any of them).
 export const CLOSED_REASON_OPTIONS = ['Failed Assessment', 'Failed Interview', 'Client Declined', 'Salary Mismatch', 'Candidate Withdrew', 'Non-Responsive', 'Other'];
+// What the Close dialog offers, by outcome. "Non-Responsive" is the No reply decision, not a close.
+export const REASONS_BY_OUTCOME: Record<'Closed - Rejected' | 'Closed - Withdrawn', string[]> = {
+  'Closed - Rejected': ['Failed Assessment', 'Failed Interview', 'Client Declined', 'Salary Mismatch', 'Other'],
+  'Closed - Withdrawn': ['Candidate Withdrew', 'Salary Mismatch', 'Other'],
+};
 
 export const NEXT_ACTION_OPTIONS = [
   'Call Candidate', 'Screen CV', 'Schedule HR Preliminary Interview', 'Send Assessment', 'Follow up Candidate', 'Review Assessment',

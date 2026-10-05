@@ -9,6 +9,8 @@ import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } 
 import { ROLE_LABEL } from '../registry';
 import { useCandidateActions } from '../candidates/actions';
 import { useCaps } from './useCaps';
+import { primaryActionFor, type PanelTab } from './primaryAction';
+import { ComposeDialog } from '../email/ComposeDialog';
 import type { Capabilities } from '@/domain/permissions';
 import { Badge, Button, Field, Tabs } from '@/ui/kit';
 import { OverviewSection } from './sections/Overview';
@@ -23,7 +25,7 @@ export function useOpenCandidate() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('candidate');
   const openId = raw ? Number(raw) : null;
-  const open = useCallback((id: number) => setParams((p) => { const n = new URLSearchParams(p); n.set('candidate', String(id)); n.delete('tab'); return n; }), [setParams]);
+  const open = useCallback((id: number, tab?: string) => setParams((p) => { const n = new URLSearchParams(p); n.set('candidate', String(id)); if (tab && tab !== 'overview') n.set('tab', tab); else n.delete('tab'); return n; }), [setParams]);
   return { openId, open };
 }
 
@@ -41,6 +43,7 @@ export function CandidatePanel({ id }: { id: number | null }) {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Section) || 'overview';
   const ref = useRef<HTMLDialogElement>(null);
+  const [compose, setCompose] = useState<string | null>(null);
   const editable: Record<Section, boolean> = { overview: caps.details, assessments: caps.assessments, interview: caps.interview || caps.schedule, outcome: caps.outcome, activity: true };
   const close = useCallback(() => setParams((p) => { const n = new URLSearchParams(p); n.delete('candidate'); n.delete('tab'); return n; }), [setParams]);
   useEffect(() => {
@@ -54,7 +57,7 @@ export function CandidatePanel({ id }: { id: number | null }) {
       onClick={(e) => { if (e.target === ref.current) close(); }}>
       {id != null && (a ? (
         <div className="app-sheet__inner">
-          <PanelHeader a={a} caps={caps} onClose={close} />
+          <PanelHeader a={a} caps={caps} onClose={close} onCompose={setCompose} onTab={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
           <Tabs label="Record sections" tabs={SECTIONS} value={tab} onChange={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
           <div className="app-sheet__body">
             {!editable[tab] && <p className="app-viewonly">View only{caps.stage ? '' : ': this is not your step'}</p>}
@@ -73,6 +76,7 @@ export function CandidatePanel({ id }: { id: number | null }) {
           <p className="ab-muted">This candidate isn't in the list any more. They may have been deleted.</p>
         </div>
       ))}
+    {a && <ComposeDialog a={a} template={compose} onTemplate={setCompose} onClose={() => setCompose(null)} />}
     </dialog>
   );
 }
@@ -83,7 +87,9 @@ function SaveMark() {
   return <span className="app-savemark" role="status" aria-live="polite">{pending > 0 ? 'Saving…' : recent ? 'Saved' : ''}</span>;
 }
 
-function PanelHeader({ a, caps, onClose }: { a: Candidate; caps: Capabilities; onClose: () => void }) {
+function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; caps: Capabilities; onClose: () => void; onCompose: (template: string) => void; onTab: (tab: PanelTab) => void }) {
+  const navigate = useNavigate();
+  const primary = primaryActionFor(a, caps);
   const actions = useCandidateActions();
   const task = getStageTask(a);
   const meta = [a.position || 'No position', a.department, a.email, a.phone].filter(Boolean).join(', ');
@@ -100,7 +106,7 @@ function PanelHeader({ a, caps, onClose }: { a: Candidate; caps: Capabilities; o
         {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
         <SaveMark />
         <div className="ab-cluster flex-none app-sheet__actions">
-          {caps.email && <EmailMenu a={a} />}
+          {caps.email && <EmailMenu a={a} onPick={onCompose} />}
           <Button variant="ghost" icon={X} aria-label="Close record" onClick={onClose} />
         </div>
       </div>
@@ -117,6 +123,13 @@ function PanelHeader({ a, caps, onClose }: { a: Candidate; caps: Capabilities; o
           <p className="app-next m-0 app-truncate" title={`Next: ${task.hint} (${ROLE_LABEL[OWNER_TO_ROLE[task.owner]]})`}>
             <strong>Next:</strong> {task.hint} <span className="app-next__by">({ROLE_LABEL[OWNER_TO_ROLE[task.owner]]})</span>
           </p>
+        )}
+        {primary && (
+          <Button variant="primary" size="sm" onClick={() => {
+            if (primary.kind === 'email') onCompose(primary.template);
+            else if (primary.kind === 'tab') onTab(primary.tab);
+            else navigate('/calendar');
+          }}>{primary.label}</Button>
         )}
       </div>
     </header>
@@ -152,8 +165,7 @@ export function OtherSelect({ label, id, value, options, empty, onChange, disabl
 }
 
 // The one way to email a candidate: every template, the likely one first.
-function EmailMenu({ a }: { a: Candidate }) {
-  const navigate = useNavigate();
+function EmailMenu({ a, onPick }: { a: Candidate; onPick: (template: string) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -174,7 +186,7 @@ function EmailMenu({ a }: { a: Candidate }) {
         <div className="ab-menu app-menu-right" role="menu">
           <span className="ab-menu__label">Suggested</span>
           {keys.map((k, i) => (
-            <button key={k} type="button" role="menuitem" className="ab-menu__item" onClick={() => navigate(`/email?candidate=${a.id}&template=${k}`)}>
+            <button key={k} type="button" role="menuitem" className="ab-menu__item" onClick={() => { setOpen(false); onPick(k); }}>
               {EMAIL_TEMPLATE_LABELS[k]}
               {i === 0 && <span className="sr-only"> (suggested)</span>}
             </button>

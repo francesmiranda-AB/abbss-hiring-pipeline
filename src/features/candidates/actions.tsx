@@ -6,10 +6,10 @@ import { saveCandidate, sendEmail, type EmailPayload, type Snapshot } from '@/ap
 import { API_URL } from '@/api/client';
 import { applyOutcome, decisionChange, DECISION_LABEL, snapshotOutcome, type Decision, type OutcomeChange } from '@/domain/outcome';
 import { autoAdvanceTarget, CLOSE_PROMPT_EVENTS, emailEventFor, type AdvanceEvent } from '@/domain/autoAdvance';
-import { assessmentsAllPassed, assessmentsSubmitted } from '@/domain/assessments';
+import { assessmentsAllPassed, assessmentsSubmitted, gritOf, valuesOf } from '@/domain/assessments';
 import { EMAIL_ATTACHMENTS, fillTemplate } from '@/domain/emailTemplates';
 import { opsNotifyRecipients } from '@/domain/team';
-import { CLOSED_REASON_OPTIONS } from '@/domain/stages';
+import { REASONS_BY_OUTCOME } from '@/domain/stages';
 import type { Candidate } from '@/domain/types';
 import { useToast } from '@/ui/toast';
 import { useUser } from '@/auth/auth';
@@ -46,6 +46,14 @@ function sweptIds(): Set<number> {
 }
 function rememberSwept(ids: number[]) {
   try { localStorage.setItem(SWEPT_KEY, JSON.stringify([...sweptIds(), ...ids].slice(-500))); } catch { /* per-device memory only */ }
+}
+
+// A closing reason the record already tells us: a failed score or a failed interview.
+function reasonFromFacts(a: Candidate | undefined): string {
+  if (!a) return '';
+  if (a.interview?.result === 'fail') return 'Failed Interview';
+  const failed = gritOf(a).pass === false || valuesOf(a).pass === false || (a.requiresEmm && a.emm?.graded && a.emm.pass === false);
+  return failed ? 'Failed Assessment' : '';
 }
 
 async function fileAsBase64(path: string): Promise<string> {
@@ -198,7 +206,7 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
   return (
     <Ctx.Provider value={value}>
       {children}
-      {closeReq && <CloseDialog req={closeReq} names={closeReq.ids.map((id) => get(id)?.name || '').filter(Boolean)}
+      {closeReq && <CloseDialog req={closeReq} prefill={closeReq.ids.length === 1 ? reasonFromFacts(get(closeReq.ids[0])) : ''} names={closeReq.ids.map((id) => get(id)?.name || '').filter(Boolean)}
         onCancel={() => setCloseReq(null)}
         onConfirm={(stage, reason) => {
           const ids = closeReq.ids;
@@ -211,9 +219,10 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
 }
 
 // One dialog for every way of closing a candidate, with the reason (it feeds the reports).
-function CloseDialog({ req, names, onCancel, onConfirm }: { req: CloseRequest; names: string[]; onCancel: () => void; onConfirm: (stage: string, reason: string) => void }) {
-  const [stage, setStage] = useState(req.stage === 'Closed - Withdrawn' ? 'Closed - Withdrawn' : 'Closed - Rejected');
-  const [reason, setReason] = useState(req.reason || '');
+function CloseDialog({ req, names, prefill, onCancel, onConfirm }: { req: CloseRequest; names: string[]; prefill: string; onCancel: () => void; onConfirm: (stage: string, reason: string) => void }) {
+  const [stage, setStage] = useState<'Closed - Rejected' | 'Closed - Withdrawn'>(req.stage === 'Closed - Withdrawn' ? 'Closed - Withdrawn' : 'Closed - Rejected');
+  const [reason, setReason] = useState(req.reason || prefill);
+  const reasons = REASONS_BY_OUTCOME[stage];
   const [tried, setTried] = useState(false);
   const who = names.length === 1 ? names[0] : `${names.length} candidates`;
   return (
@@ -223,7 +232,7 @@ function CloseDialog({ req, names, onCancel, onConfirm }: { req: CloseRequest; n
     </>}>
       <div className="grid gap-4">
         <Field label="Outcome" htmlFor="close-stage">
-          <select id="close-stage" className="ab-select" value={stage} onChange={(e) => setStage(e.target.value)}>
+          <select id="close-stage" className="ab-select" value={stage} onChange={(e) => { const next = e.target.value as typeof stage; setStage(next); if (!REASONS_BY_OUTCOME[next].includes(reason)) setReason(''); }}>
             <option value="Closed - Rejected">Rejected (we decided not to continue)</option>
             <option value="Closed - Withdrawn">Withdrawn (the candidate pulled out)</option>
           </select>
@@ -231,7 +240,7 @@ function CloseDialog({ req, names, onCancel, onConfirm }: { req: CloseRequest; n
         <Field label="Reason" required htmlFor="close-reason" error={tried && !reason ? 'Pick a reason. It feeds the reports.' : undefined}>
           <select id="close-reason" className="ab-select" value={reason} aria-invalid={tried && !reason} onChange={(e) => setReason(e.target.value)}>
             <option value="">Choose a reason</option>
-            {CLOSED_REASON_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+            {reasons.map((r) => <option key={r}>{r}</option>)}
           </select>
         </Field>
       </div>
