@@ -9,7 +9,6 @@ export type Stage = (typeof CANDIDATE_STAGES)[number];
 
 export const CLOSED_STAGES: readonly string[] = ['Hired', 'Closed - Rejected', 'Closed - Withdrawn'];
 export const REASON_STAGES: readonly string[] = ['Closed - Rejected', 'Closed - Withdrawn'];
-export const ACTIVE_STAGES = CANDIDATE_STAGES.filter((s) => !CLOSED_STAGES.includes(s));
 
 // Every value that can be stored (older records may carry any of them).
 export const CLOSED_REASON_OPTIONS = ['Failed Assessment', 'Failed Interview', 'Client Declined', 'Salary Mismatch', 'Candidate Withdrew', 'Non-Responsive', 'Other'];
@@ -111,9 +110,6 @@ export function isClosed(a: Pick<Candidate, 'candidateStage' | 'overallStatus'> 
 }
 export function isPaused(a: Pick<Candidate, 'overallStatus'> | null | undefined): boolean {
   return !!a && a.overallStatus === 'Hold';
-}
-export function isDeleted(a: Pick<Candidate, 'overallStatus'>): boolean {
-  return a.overallStatus === 'Deleted';
 }
 
 // Operations works only on candidates handed to them: Initial Interview or later.

@@ -1,4 +1,5 @@
 import type { Candidate, ServerConfig } from './types';
+import { APPLICANT_INFO_SHEET, FORM_LINKS } from './links';
 import { emmStatusLabel } from './assessments';
 import { REASON_STAGES } from './stages';
 
@@ -131,7 +132,7 @@ If you cannot see the attachment, please reply to this email immediately so we c
 
 2. COMPLETE THE APPLICANT INFORMATION SHEET
 
-Applicant Information Sheet: https://forms.gle/WVQK776sX86s2cvA7
+Applicant Information Sheet: ${APPLICANT_INFO_SHEET}
 
 You do not need to complete the form again if you have already submitted it.
 
@@ -211,11 +212,6 @@ export function suggestedTemplateFor(a: Candidate): string {
   return a.requiresEmm ? 'assessment' : 'assessment_no_emm';
 }
 
-const FORM_LINKS: Record<'grit' | 'values' | 'emm', string> = {
-  grit: 'https://forms.gle/JwGGt8UWnR6NgFga8',
-  values: 'https://forms.gle/RH5HGDDvPL9H5YvRA',
-  emm: 'https://docs.google.com/forms/d/e/1FAIpQLSeJ57uk-2c56I36oKDdog5lh5hcijU-J4g13KZ3mAE2TzQ-uw/viewform',
-};
 
 // Routed through the backend so a click counts as "opened the assessment".
 export function trackedAssessmentLink(apiUrl: string, id: number | null | undefined, which: 'grit' | 'values' | 'emm'): string {

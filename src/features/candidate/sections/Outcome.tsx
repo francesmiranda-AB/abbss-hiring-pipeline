@@ -4,7 +4,7 @@ import { availableDecisions, outcomeText, type Decision } from '@/domain/outcome
 import { useConfig, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
 import { Badge, Button, Field } from '@/ui/kit';
-import { SavingInput, SavingTextarea, Section } from './common';
+import { SavingInput, SavingTextarea, PanelSection } from './common';
 
 type Check = { label: string; state: 'pass' | 'fail' | 'pending'; detail: string };
 const DECISION_BUTTON: Record<Decision | 'Close', string> = {
@@ -35,7 +35,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
   const decisions = availableDecisions(a);
   return (
     <div className="app-stack">
-      <Section title="Results so far">
+      <PanelSection title="Results so far">
         <ul className="ab-rows">
           {checks.map((c) => (
             <li key={c.label} className="ab-row app-row-compact">
@@ -46,26 +46,28 @@ export function OutcomeSection({ a }: { a: Candidate }) {
           ))}
         </ul>
         <p className="m-0 font-semibold">{verdict}</p>
-      </Section>
+      </PanelSection>
 
-      <Section title="Outcome">
+      <PanelSection title="Outcome">
         <p className="app-outcome-now">{outcomeText(a)}</p>
         <div className="ab-cluster">
           {decisions.map((d) => (
             <Button key={d} size="sm" variant={d === 'Close' ? 'outline' : d === 'Hired' ? 'secondary' : 'tonal'}
               className={d === 'Close' ? 'app-btn-danger-text' : undefined}
-              title={d === 'NonCompliant' ? `They stopped replying. Also set automatically ${config.deadlineHours} hours after the assessment invite if nothing comes back.` : undefined}
               onClick={() => (d === 'Close' ? actions.openClose({ ids: [a.id] }) : actions.decide(a.id, d))}>
               {DECISION_BUTTON[d]}
             </Button>
           ))}
         </div>
+        {a.candidateStage === 'Assessment Sent' && decisions.includes('NonCompliant') && (
+          <p className="app-meta m-0">No reply is also set automatically {config.deadlineHours} hours after the assessment invite if nothing comes back.</p>
+        )}
         <SavingTextarea id={`dec-${a.id}`} label="Decision notes" value={a.decisionNotes} placeholder="Reason, who approved, next steps" onSave={(x) => update(a.id, { decisionNotes: x })} />
-      </Section>
+      </PanelSection>
 
       {showOffer && (
-        <Section title="Offer and contract details">
-          <p className="ab-muted m-0">Filled into the Next steps, Job offer and Contract emails. Send Next steps first: it carries the pre-onboarding requirements PDF.</p>
+        <PanelSection title="Offer and contract details">
+          <p className="ab-muted m-0">Used in the Next steps, Job offer and Contract emails. Send Next steps first: it carries the pre-onboarding PDF.</p>
           <SavingTextarea id={`jd-${a.id}`} label="Job description" value={od.jd} placeholder="Key duties and responsibilities" onSave={(x) => setOffer('jd', x)} />
           <div className="app-form-grid">
             <SavingInput id={`start-${a.id}`} label="Start date" value={od.startDate} placeholder="e.g. August 4, 2026" onSave={(x) => setOffer('startDate', x)} />
@@ -77,7 +79,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
             </Field>
             <SavingInput id={`sig-${a.id}`} label="Signatory" value={od.signatory} onSave={(x) => setOffer('signatory', x)} />
           </div>
-        </Section>
+        </PanelSection>
       )}
     </div>
   );

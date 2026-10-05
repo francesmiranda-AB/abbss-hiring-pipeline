@@ -125,7 +125,7 @@ function CaseCard({ c }: { c: OffboardingCase }) {
             <label className="ab-check">
               <input type="checkbox" checked={!!c.checklist?.[item]} onChange={() => save({ checklist: { ...c.checklist, [item]: !c.checklist?.[item] } })} />
               <span className={c.checklist?.[item] ? 'app-done' : ''}>{item}</span>
-              {/Ethel/i.test(item) && <Badge tone="info">Ask Ethel</Badge>}
+              {/Ethel/i.test(item) && <Badge tone="info">Manual step</Badge>}
             </label>
           </li>
         ))}
@@ -145,7 +145,7 @@ function CaseCard({ c }: { c: OffboardingCase }) {
           await qc.invalidateQueries({ queryKey: KEY });
         }}>Delete</Button>
       </>}>
-        <p className="m-0">This removes the case and its checklist from the Sheet. It can't be undone.</p>
+        <p className="m-0">This removes the case and its checklist. It can't be undone.</p>
       </Dialog>
     </article>
   );

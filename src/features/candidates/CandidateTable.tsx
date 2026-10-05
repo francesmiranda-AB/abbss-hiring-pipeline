@@ -12,7 +12,7 @@ const COLUMNS: Array<{ key: string; label: string; sortable?: boolean }> = [
   { key: 'department', label: 'Department', sortable: true },
   { key: 'stage', label: 'Stage', sortable: true },
   { key: 'emm', label: 'EMM' },
-  { key: 'next', label: 'Next' },
+  { key: 'next', label: 'Next', sortable: true },
   { key: 'notes', label: 'Note' },
 ];
 
@@ -89,7 +89,7 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
           </thead>
           <tbody>
             {candidates.map((a) => (
-              <tr key={a.id} className="app-row-clickable" aria-selected={selected.has(a.id) || undefined} onClick={() => onOpen(a.id)}>
+              <tr key={a.id} className="app-row-clickable" data-selected={selected.has(a.id) || undefined} onClick={() => onOpen(a.id)}>
                 {selectable && (
                   <td onClick={(e) => e.stopPropagation()}>
                     <label className="ab-check"><input type="checkbox" checked={selected.has(a.id)} aria-label={`Select ${a.name}`} onChange={(e) => toggle(a.id, e.target.checked)} /></label>
@@ -102,9 +102,9 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
                   </button>
                 </td>
                 <td>{a.department || <span className="ab-subtle">None</span>}</td>
-                <td><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge></td>
-                <td><EmmCell a={a} /></td>
-                <td><Next a={a} /></td>
+                <td className="cell-badge"><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge></td>
+                <td className="cell-badge"><EmmCell a={a} /></td>
+                <td className="cell-badge"><Next a={a} /></td>
                 <td className="app-note-cell" onClick={(e) => e.stopPropagation()}><InlineNote a={a} /></td>
               </tr>
             ))}
@@ -114,7 +114,7 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
 
       <ul className="app-cand-cards" aria-label="Candidates">
         {candidates.map((a) => (
-          <li key={a.id} className="app-cand-card" aria-selected={selected.has(a.id) || undefined}>
+          <li key={a.id} className="app-cand-card" data-selected={selected.has(a.id) || undefined}>
             {selectable && (
               <label className="ab-check app-cand-card__check"><input type="checkbox" checked={selected.has(a.id)} aria-label={`Select ${a.name}`} onChange={(e) => toggle(a.id, e.target.checked)} /></label>
             )}

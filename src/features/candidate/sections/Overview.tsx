@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { FileText, Trash2, Upload } from 'lucide-react';
+import { FileText, Trash2 } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { DEPARTMENTS, ROLE_CONFIG, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
 import { uploadCv } from '@/api/actions';
 import { useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
-import { Button, ConfirmDialog, Field, fmtDate } from '@/ui/kit';
+import { Button, ConfirmDialog, Field, FilePicker, fmtDate } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { OtherSelect } from '../CandidatePanel';
 import { useCaps } from '../useCaps';
-import { SavingInput, SavingTextarea, Section, fileToBase64 } from './common';
+import { SavingInput, SavingTextarea, PanelSection, fileToBase64 } from './common';
 
 export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () => void }) {
   const update = useUpdateCandidate();
@@ -18,7 +18,7 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
   const caps = useCaps(a);
   return (
     <div className="app-stack">
-      <Section title="Details">
+      <PanelSection title="Details">
         <div className="app-form-grid app-form-grid--4">
           <SavingInput id={`phone-${a.id}`} label="Phone" value={a.phone} onSave={(v) => update(a.id, { phone: v })} />
           <SavingInput id={`pos-${a.id}`} label="Position" value={a.position} onSave={(v) => update(a.id, { position: v })} />
@@ -40,13 +40,13 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
             onChange={(v) => update(a.id, { roleCategory: v })} />
           <Field label="Entered by"><span className="app-static">{a.enteredBy || 'Not recorded'}</span></Field>
         </div>
-      </Section>
-      <Section title="Resume notes">
+      </PanelSection>
+      <PanelSection title="Resume notes">
         <SavingTextarea id={`notes-${a.id}`} label="Notes from the CV" value={a.resumeNotes} onSave={(v) => update(a.id, { resumeNotes: v })} placeholder="Relevant experience and skills" />
-      </Section>
-      <Section title="CV">
+      </PanelSection>
+      <PanelSection title="CV">
         <CvBlock a={a} />
-      </Section>
+      </PanelSection>
       {caps.delete && <div><Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete record</Button></div>}
       <ConfirmDialog open={confirmDelete} danger title={`Delete ${a.name}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)}
         onConfirm={async () => {
@@ -92,10 +92,7 @@ function CvBlock({ a }: { a: Candidate }) {
           {a.cvUploadedAt && <span className="app-meta">, uploaded {fmtDate(a.cvUploadedAt)}</span>}
         </a>
       ) : <span className="ab-muted">No CV uploaded yet.</span>}
-      <label className={`ab-btn ab-btn--tonal ab-btn--sm ${busy ? 'is-busy' : ''}`} aria-busy={busy || undefined}>
-        <Upload size={14} aria-hidden /> {a.cvUrl ? 'Replace' : 'Upload CV'}
-        <input type="file" accept=".pdf,.doc,.docx" className="ab-visually-hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
-      </label>
+      <FilePicker accept=".pdf,.doc,.docx" busy={busy} onFile={(f) => { void onFile(f || undefined); }}>{a.cvUrl ? 'Replace' : 'Upload CV'}</FilePicker>
       <span className="ab-hint">PDF or Word, up to 10 MB.</span>
     </div>
   );

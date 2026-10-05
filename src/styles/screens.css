@@ -208,9 +208,9 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
   .app-cand-table { overflow: clip; }
   .app-table-compact { table-layout: fixed; }
   .app-table-compact .col-select { width: 2.5rem; }
-  .app-table-compact .col-name { width: 24%; }
+  .app-table-compact .col-name { width: 22%; }
   .app-table-compact .col-department { width: 11%; }
-  .app-table-compact .col-stage { width: 19%; }
+  .app-table-compact .col-stage { width: 21%; }
   .app-table-compact .col-emm { width: 14%; }
   .app-table-compact .col-next { width: 19%; }
   .app-table-compact td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -305,3 +305,7 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .app-more > summary::-webkit-details-marker { display: none; }
 .app-more__menu { position: absolute; bottom: calc(100% + 0.25rem); left: 0; min-width: 16rem; z-index: 2; }
 .app-slot-grid { display: grid; gap: var(--ab-space-3); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); align-items: start; }
+
+tr[data-selected] { background: var(--ab-primary-soft); }
+.app-cand-card[data-selected] { background: var(--ab-primary-soft); }
+.app-table-compact td.cell-badge { text-overflow: clip; }

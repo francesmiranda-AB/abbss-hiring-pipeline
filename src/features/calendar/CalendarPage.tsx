@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react';
-import { confirmInterview, getDavidBusy, removeInterviewSlot, unconfirmInterview } from '@/api/actions';
+import { confirmInterview, getInterviewerBusy, removeInterviewSlot, unconfirmInterview } from '@/api/actions';
 import { SNAPSHOT_KEY, useCandidate, useCandidates, useUpdateCandidate } from '@/api/queries';
 import { useUser } from '@/auth/auth';
 import { calendarItems, DEFAULT_INTERVIEW_DURATION_MIN, findOverlap, slotDate, type CalendarItem } from '@/domain/calendar';
@@ -16,7 +16,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function useBusy(year: number, month: number) {
   return useQuery({
     queryKey: ['davidBusy', year, month],
-    queryFn: () => getDavidBusy(new Date(year, month, 1), new Date(year, month + 1, 1)),
+    queryFn: () => getInterviewerBusy(new Date(year, month, 1), new Date(year, month + 1, 1)),
     staleTime: 5 * 60_000,
     retry: false, // unavailable when the calendar isn't shared; that's fine, just nothing to show
   });
@@ -27,11 +27,10 @@ export default function CalendarPage() {
   const { candidates } = useCandidates();
   const now = new Date();
   const items = useMemo(() => calendarItems(roleScope(candidates, user.role)), [candidates, user.role]);
-  // Open on the next month with something in it (or the latest one), not an empty current month.
+  // Open on the month of the time closest to today, not an empty current month.
   const [view, setView] = useState(() => {
     const dated = items.filter((i): i is typeof i & { date: Date } => !!i.date);
-    const ahead = dated.filter((i) => i.date >= now).sort((x, y) => x.date.getTime() - y.date.getTime())[0];
-    const pick = ahead || dated.sort((x, y) => y.date.getTime() - x.date.getTime())[0];
+    const pick = dated.sort((x, y) => Math.abs(x.date.getTime() - now.getTime()) - Math.abs(y.date.getTime() - now.getTime()))[0];
     return pick ? { year: pick.date.getFullYear(), month: pick.date.getMonth() } : { year: now.getFullYear(), month: now.getMonth() };
   });
   const [open, setOpen] = useState<{ id: number; slotId: string } | null>(null);
@@ -85,7 +84,7 @@ export default function CalendarPage() {
               </div>
             )}
             <MonthGrid year={view.year} month={view.month} items={items} busy={busy} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />
-            {busy && <p className="app-meta mt-2">Grey times are David's existing calendar (busy or free only; no event details).</p>}
+            {busy && <p className="app-meta mt-2">Grey times are already busy on the interviewer's calendar.</p>}
           </section>
           <aside className="grid gap-6 content-start">
             <Section title="Ready to confirm" count={pending.length} countTone="warning" lead="Confirming adds it to the interviewer's calendar and emails the candidate.">
@@ -180,7 +179,7 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
   const reload = () => qc.invalidateQueries({ queryKey: SNAPSHOT_KEY });
 
   const confirm = async () => {
-    if (!start || isNaN(start.getTime())) { setError('Enter the real date and time. This is what goes on David\'s calendar.'); return; }
+    if (!start || isNaN(start.getTime())) { setError('Enter the real date and time for the calendar.'); return; }
     setBusy(true);
     setError('');
     try {
@@ -253,8 +252,8 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
                 </select>
               </Field>
             </div>
-            {overlap && <div className="ab-alert ab-alert--warning"><span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span><p className="ab-alert__title">This overlaps David's calendar</p><div>He's busy {time(overlap.start)} to {time(overlap.end)}. Double-check before confirming.</div></div>}
-            <p className="ab-hint m-0">Confirming adds it to David's calendar with a Google Meet link, emails the candidate the time and link, and declines their other times.</p>
+            {overlap && <div className="ab-alert ab-alert--warning"><span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span><p className="ab-alert__title">This overlaps the interviewer's calendar</p><div>Busy {time(overlap.start)} to {time(overlap.end)}. Double-check before confirming.</div></div>}
+            <p className="ab-hint m-0">Confirming adds it to the calendar with a Meet link and emails the candidate.</p>
             {error && <p className="ab-error m-0" role="alert">{error}</p>}
           </>
         )}

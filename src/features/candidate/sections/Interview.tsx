@@ -7,7 +7,7 @@ import { useReplaceCandidate, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
 import { Badge, Button, Field } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
-import { SavingTextarea, Section } from './common';
+import { SavingTextarea, PanelSection } from './common';
 import { useCaps } from '../useCaps';
 
 // Interview questions for the EMM follow-up, plus optional resilience probes.
@@ -38,15 +38,15 @@ export function InterviewSection({ a }: { a: Candidate }) {
       <fieldset disabled={!caps.schedule} className="app-fieldset"><Scheduling a={a} /></fieldset>
       <fieldset disabled={!caps.interview} className="app-fieldset app-stack">
       {a.requiresEmm && (
-        <Section title="Interview questions">
+        <PanelSection title="Interview questions">
           <Guide items={GUIDE} group="interview-guide" />
           <details>
             <summary className="app-meta">Optional: resilience and adaptability probes</summary>
             <Guide items={RESILIENCE} group="interview-resilience" />
           </details>
-        </Section>
+        </PanelSection>
       )}
-      <Section title="Notes and result">
+      <PanelSection title="Notes and result">
         <SavingTextarea id={`ivn-${a.id}`} label="Interview notes" value={iv.notes} rows={6} placeholder="Answers, observations, concerns"
           onSave={(x) => update(a.id, { interview: { ...iv, notes: x } })} />
         <div className="flex flex-wrap items-center gap-3">
@@ -55,7 +55,7 @@ export function InterviewSection({ a }: { a: Candidate }) {
           {iv.result ? <Badge tone={iv.result === 'pass' ? 'success' : 'danger'}>{iv.result === 'pass' ? 'Interview passed' : 'Interview failed'}</Badge>
             : <span className="app-meta">No result yet.</span>}
         </div>
-      </Section>
+      </PanelSection>
       </fieldset>
     </div>
   );
@@ -119,7 +119,7 @@ function Scheduling({ a }: { a: Candidate }) {
     }
   };
   return (
-    <Section title="Interview time">
+    <PanelSection title="Interview time">
       {confirmed ? (
         <div className="ab-alert ab-alert--success">
           <span className="ab-alert__icon" aria-hidden><Check size={18} /></span>
@@ -146,6 +146,6 @@ function Scheduling({ a }: { a: Candidate }) {
           </div>
         </>
       )}
-    </Section>
+    </PanelSection>
   );
 }

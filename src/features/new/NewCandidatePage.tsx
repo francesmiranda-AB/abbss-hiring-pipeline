@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Upload } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useCandidates, useUpdateCandidate } from '@/api/queries';
 import { uploadCv } from '@/api/actions';
 import { useUser } from '@/auth/auth';
@@ -23,7 +23,7 @@ export function newCandidateRecord(f: Partial<Candidate> & { name: string; email
     candidateStage: 'New Application', nextAction: 'Screen CV', overallStatus: 'In Progress',
     grit: { score: '', outcome: '', notes: '' }, values: { score: '', confScore: '', intScore: '', outcome: '', notes: '' },
     emm: { graded: false, overallPct: null, catPct: null, actPct: null, pass: null, gradedAt: '', notes: '', fullResult: '' },
-    interview: { done: false, q1: null, q2: null, q3: null, q4: null, q5: null, notes: '' },
+    interview: { notes: '' },
   };
 }
 
@@ -169,10 +169,7 @@ function ImportCsv() {
   return (
     <Section title="Import from CSV" lead="Name and email are required. Emails already in the list are skipped.">
       <div className="ab-cluster">
-        <label className="ab-btn ab-btn--tonal ab-btn--sm" aria-busy={busy || undefined}>
-          <Upload size={14} aria-hidden /> Choose CSV file
-          <input type="file" accept=".csv,text/csv" className="ab-visually-hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
-        </label>
+        <FilePicker accept=".csv,text/csv" busy={busy} onFile={(f) => { void onFile(f || undefined); }}>Choose CSV file</FilePicker>
         <Button variant="ghost" size="sm" icon={Download} onClick={() => downloadText('ABBSS_Import_Template.csv', CSV_IMPORT_TEMPLATE)}>Download template</Button>
       </div>
       {result && <p className="mt-3" role="status">{result}</p>}

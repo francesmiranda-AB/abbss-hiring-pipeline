@@ -2,7 +2,7 @@ import type { KpiTone } from '@/ui/kit';
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { AppRole, Candidate, ServerConfig } from '@/domain/types';
-import { isNewApplicant, needsAttention, needsAttentionFrom } from '@/domain/attention';
+import { getStageTask, isNewApplicant, needsAttention, needsAttentionFrom } from '@/domain/attention';
 import { CANDIDATE_STAGES, isClosed, isEndorsedToOperations, stageIndex, stageName } from '@/domain/stages';
 import { gritOf, valuesOf } from '@/domain/assessments';
 
@@ -96,6 +96,7 @@ export function sortCandidates(apps: Candidate[], sort: string, dir: 'asc' | 'de
   if (!sort) return out;
   const m = dir === 'asc' ? 1 : -1;
   if (sort === 'stage') return out.sort((x, y) => (stageIndex(x.candidateStage) - stageIndex(y.candidateStage)) * m);
+  if (sort === 'next') return out.sort((x, y) => (getStageTask(x)?.nextAction || '').localeCompare(getStageTask(y)?.nextAction || '') * m);
   return out.sort((x, y) => String(x[sort] ?? '').toLowerCase().localeCompare(String(y[sort] ?? '').toLowerCase()) * m);
 }
 

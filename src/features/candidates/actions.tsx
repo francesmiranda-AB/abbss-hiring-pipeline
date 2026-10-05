@@ -5,7 +5,7 @@ import { SNAPSHOT_KEY, useConfig, useUpdateCandidate } from '@/api/queries';
 import { saveCandidate, sendEmail, type EmailPayload, type Snapshot } from '@/api/actions';
 import { API_URL } from '@/api/client';
 import { applyOutcome, decisionChange, DECISION_LABEL, snapshotOutcome, type Decision, type OutcomeChange } from '@/domain/outcome';
-import { autoAdvanceTarget, CLOSE_PROMPT_EVENTS, emailEventFor, type AdvanceEvent } from '@/domain/autoAdvance';
+import { autoAdvanceTarget, CLOSE_PROMPT_EVENTS, type AdvanceEvent } from '@/domain/autoAdvance';
 import { assessmentsAllPassed, assessmentsSubmitted, gritOf, valuesOf } from '@/domain/assessments';
 import { EMAIL_ATTACHMENTS, fillTemplate } from '@/domain/emailTemplates';
 import { opsNotifyRecipients } from '@/domain/team';
@@ -248,4 +248,3 @@ function CloseDialog({ req, names, prefill, onCancel, onConfirm }: { req: CloseR
   );
 }
 
-export { emailEventFor };

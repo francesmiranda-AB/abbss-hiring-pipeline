@@ -5,7 +5,7 @@ import { useUser } from '@/auth/auth';
 import { can } from '@/domain/permissions';
 import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
 import { DEPARTMENTS, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
-import { Button, Empty, ErrorAlert, PageHeader, Skeleton, cx, pillTone } from '@/ui/kit';
+import { Button, Empty, ErrorAlert, PageHeader, Skeleton, Tabs, cx, pillTone } from '@/ui/kit';
 import { ADVANCED_KEYS, CHIPS, STAGE_FILTER_OPTIONS, applyFilters, chipMatch, roleScope, sortCandidates, useFilters } from './filters';
 import { CandidateTable } from './CandidateTable';
 import { CandidateBoard } from './CandidateBoard';
@@ -47,19 +47,17 @@ export default function CandidatesPage() {
             <input className="ab-input" type="search" placeholder="Search name, email, phone, position or notes" value={filters.q} onChange={(e) => set({ q: e.target.value })} />
           </label>
           {!boardOnly && (
-            <div className="ab-tabs ab-tabs--pills" role="tablist" aria-label="View">
-              <button type="button" role="tab" className="ab-tab" aria-selected={view === 'table'} onClick={() => set({ view: 'table' })}><Rows3 size={14} aria-hidden /> Table</button>
-              <button type="button" role="tab" className="ab-tab" aria-selected={view === 'board'} onClick={() => set({ view: 'board' })}><LayoutGrid size={14} aria-hidden /> Board</button>
-            </div>
+            <Tabs pills label="View" value={view} onChange={(k) => set({ view: k })}
+              tabs={[{ key: 'table' as const, label: 'Table', icon: Rows3 }, { key: 'board' as const, label: 'Board', icon: LayoutGrid }]} />
           )}
           {canExport && <Button variant="outline" size="sm" icon={Download} onClick={() => downloadText(`ABBSS_Candidates_${todayStamp()}.csv`, candidatesCsv(shown))} disabled={!shown.length}>Export CSV</Button>}
         </>}
       />
 
       <div className="app-strip">
-        <div className="app-pills" role="tablist" aria-label="Quick views">
+        <div className="app-pills" role="group" aria-label="Quick views">
           {CHIPS.map((c) => (
-            <button key={c.key} type="button" role="tab" aria-selected={filters.chip === c.key} className={cx('app-pill', pillTone(c.tone, counts[c.key]), filters.chip === c.key && 'is-active')} onClick={() => set({ chip: c.key })}>
+            <button key={c.key} type="button" aria-pressed={filters.chip === c.key} className={cx('app-pill', pillTone(c.tone, counts[c.key]), filters.chip === c.key && 'is-active')} onClick={() => set({ chip: c.key })}>
               <span className="app-pill__n">{counts[c.key]}</span><span>{c.label}</span>
             </button>
           ))}

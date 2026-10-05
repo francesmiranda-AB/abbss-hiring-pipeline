@@ -42,7 +42,7 @@ export default function TodayPage() {
       <PageHeader title={`Good ${today.getHours() < 12 ? 'morning' : today.getHours() < 18 ? 'afternoon' : 'evening'}, ${user.name.split(' ')[0]}`}
         lead={today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} />
       <Kpis compact items={[
-        { value: tasks.length, label: 'Need your action', tone: 'warning', onClick: () => navigate('/candidates?chip=attention') },
+        { value: tasks.length, label: 'Needs action', tone: 'warning', onClick: () => navigate('/candidates?chip=attention') },
         { value: overdue, label: 'Overdue', tone: 'danger', onClick: () => navigate('/candidates?chip=overdue') },
         { value: scope.filter((a) => isNewApplicant(a)).length, label: 'New today', tone: 'primary', onClick: () => navigate('/candidates?chip=new') },
         { value: interviewsToday, label: 'Interviews today', tone: 'success', onClick: () => navigate('/calendar') },
@@ -54,12 +54,12 @@ export default function TodayPage() {
         </Section>
       ) : (<>
         {overdueTasks.length > 0 && (
-          <Section title="Overdue" count={overdueTasks.length} countTone="danger" lead="Past their deadline, oldest first.">
+          <Section title="Overdue" count={overdueTasks.length} countTone="danger">
             <TaskRows tasks={overdueTasks} onOpen={open} />
           </Section>
         )}
         {onTimeTasks.length > 0 && (
-          <Section title="Needs your action" count={onTimeTasks.length} countTone="warning" lead="Oldest first.">
+          <Section title="Needs action" count={onTimeTasks.length} countTone="warning">
             <TaskRows tasks={onTimeTasks} onOpen={open} />
           </Section>
         )}

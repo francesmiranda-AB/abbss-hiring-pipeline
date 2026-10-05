@@ -34,15 +34,6 @@ export function PageHeader({ title, lead, actions }: { title: string; lead?: Rea
   );
 }
 
-export function SectionHead({ title, lead, className }: { title: string; lead?: ReactNode; className?: string }) {
-  return (
-    <div className={cx('ab-section-head app-section-head', className)}>
-      <h2 className="ab-card__title">{title}</h2>
-      {lead && <p>{lead}</p>}
-    </div>
-  );
-}
-
 // A gray block with a header band: the main way screens group things. Items
 // inside (rows, tables, fields) sit on white, so the nesting reads at a glance.
 export function Section({ title, count, countTone = 'neutral', lead, actions, children, className, label }: {
@@ -154,6 +145,23 @@ export function Field({ label, required, hint, error, children, htmlFor }: { lab
   );
 }
 
+// Modals can stack (a dialog opened over the record panel). One Esc must close
+// only the top one, so while more than one is open we take over Esc and close
+// the most recently opened.
+const modalStack: HTMLDialogElement[] = [];
+export function trackModal(d: HTMLDialogElement): () => void {
+  modalStack.push(d);
+  return () => { const i = modalStack.indexOf(d); if (i >= 0) modalStack.splice(i, 1); };
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || modalStack.length < 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    modalStack[modalStack.length - 1].close();
+  }, true);
+}
+
 // Native <dialog>: focus trap, Esc and the backdrop come free.
 export function Dialog({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -161,11 +169,20 @@ export function Dialog({ open, onClose, title, children, footer, wide }: { open:
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    let untrack: (() => void) | undefined;
+    if (open && !d.open) {
+      d.showModal();
+      untrack = trackModal(d);
+      // The browser focuses the first control, which is the close button; start in the form instead.
+      d.querySelector<HTMLElement>('.ab-modal__body :is(input, select, textarea, [href]):not([disabled])')?.focus();
+    }
     if (!open && d.open) d.close();
+    return () => untrack?.();
   }, [open]);
+  // A dialog that is removed while open still hands focus back to where it came from.
+  useEffect(() => () => { const d = ref.current; if (d?.open) d.close(); }, []);
   return (
-    <dialog ref={ref} className={cx('ab-modal', wide && 'app-modal-wide')} aria-labelledby={titleId} onClose={onClose}
+    <dialog ref={ref} className={cx('ab-modal', wide && 'app-modal-wide')} aria-labelledby={titleId} onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onClick={(e) => { if (e.target === ref.current) onClose(); }}>
       {open && (
         <>
@@ -195,21 +212,62 @@ export function ConfirmDialog({ open, title, children, confirmLabel, danger, bus
   );
 }
 
-export function Tabs<T extends string>({ tabs, value, onChange, pills, label }: { tabs: Array<{ key: T; label: string; count?: number }>; value: T; onChange: (k: T) => void; pills?: boolean; label: string }) {
+// Tabs with the keyboard behaviour people expect: arrow keys, Home and End move
+// between tabs; only the selected tab is in the tab order. `panelId` is the id of
+// the element the tabs control (give it role="tabpanel").
+export function Tabs<T extends string>({ tabs, value, onChange, pills, label, panelId }: {
+  tabs: Array<{ key: T; label: string; count?: number; icon?: LucideIcon }>; value: T; onChange: (k: T) => void; pills?: boolean; label: string; panelId?: string;
+}) {
+  const base = useId();
+  const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const move = (to: number) => {
+    const n = (to + tabs.length) % tabs.length;
+    onChange(tabs[n].key);
+    refs.current[n]?.focus();
+  };
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); move(i + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); move(i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); move(0); }
+    else if (e.key === 'End') { e.preventDefault(); move(tabs.length - 1); }
+  };
   return (
     <div className={cx('ab-tabs', pills && 'ab-tabs--pills')} role="tablist" aria-label={label}>
-      {tabs.map((t) => (
-        <button key={t.key} type="button" role="tab" className="ab-tab" aria-selected={value === t.key} onClick={() => onChange(t.key)}>
-          {t.label}{t.count !== undefined && <span className="app-tab-count">{t.count}</span>}
+      {tabs.map((t, i) => (
+        <button key={t.key} ref={(el) => { refs.current[i] = el; }} type="button" role="tab" id={`${base}-${t.key}`} className="ab-tab"
+          aria-selected={value === t.key} aria-controls={panelId} tabIndex={value === t.key ? 0 : -1}
+          onClick={() => onChange(t.key)} onKeyDown={(e) => onKey(e, i)}>
+          {t.icon && <t.icon size={14} aria-hidden />}{t.label}{t.count !== undefined && <span className="app-tab-count">{t.count}</span>}
         </button>
       ))}
     </div>
   );
 }
 
-export function Avatar({ name }: { name: string }) {
-  const initials = name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || '?';
-  return <span className="ab-avatar" aria-hidden>{initials}</span>;
+// Arrow keys and Esc for a popup menu, focus on the first item when it opens and
+// back on the trigger when it closes. Esc closes the menu only, never the dialog behind it.
+export function useMenu(open: boolean, setOpen: (o: boolean) => void) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const root = box.current;
+    const items = () => Array.from(root?.querySelectorAll<HTMLElement>('[role="menuitem"]') || []);
+    items()[0]?.focus();
+    const onDown = (e: MouseEvent) => { if (!root?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); root?.querySelector<HTMLElement>('[aria-haspopup]')?.focus(); return; }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const list = items();
+      if (!list.length) return;
+      e.preventDefault();
+      const at = list.indexOf(document.activeElement as HTMLElement);
+      list[(at + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length].focus();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey, true);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey, true); };
+  }, [open, setOpen]);
+  return box;
 }
 
 export const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '');

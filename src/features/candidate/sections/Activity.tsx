@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { Candidate } from '@/domain/types';
 import { EMAIL_TEMPLATE_LABELS } from '@/domain/emailTemplates';
-import { interviewRoundLabel } from '@/domain/stages';
+import { stageLabelFor } from '@/domain/stages';
 import { useCandidateActions } from '../../candidates/actions';
 import { Button, ConfirmDialog, fmtDateTime } from '@/ui/kit';
-import { Section } from './common';
+import { PanelSection } from './common';
 import { useCaps } from '../useCaps';
 
 const ASSESSMENT_EMAILS = ['assessment', 'assessment_no_emm', 'reminder', 'autoReminder'];
@@ -30,7 +30,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
         onConfirm={() => { const k = unmark!; setUnmark(null); void actions.unrecordEmailSent(a.id, k); }}>
         <p className="m-0">This only clears the record that it was sent, and it restarts the assessment deadline clock if it was an invite. It does not un-send anything.</p>
       </ConfirmDialog>
-      <Section title="Emails">
+      <PanelSection title="Emails">
         {!keys.length ? <p className="ab-muted m-0">No emails sent yet.</p> : (
           <div className="ab-table-wrap">
             <table className="ab-table">
@@ -51,19 +51,19 @@ export function ActivitySection({ a }: { a: Candidate }) {
             </table>
           </div>
         )}
-        <p className="ab-hint m-0">Opened only shows for emails sent from the app, and some mail apps hide it.</p>
-      </Section>
-      <Section title="Stage history">
+        <p className="ab-hint m-0">Opened is only tracked for emails sent from this app.</p>
+      </PanelSection>
+      <PanelSection title="Stage history">
         <ol className="ab-rows">
           {history.map(([stage, at]) => (
             <li key={stage} className="ab-row app-row-compact">
-              <span>{stage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : stage}</span>
+              <span>{stageLabelFor(stage, a.department)}</span>
               <span />
               <span className="ab-row__meta app-nowrap">{fmtDateTime(at)}</span>
             </li>
           ))}
         </ol>
-      </Section>
+      </PanelSection>
     </div>
   );
 }

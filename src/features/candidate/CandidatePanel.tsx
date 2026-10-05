@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
 import { useCandidate, useSaveStatus } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, REASON_STAGES, stageLabel, stageLabelFor, stageTone, type BadgeTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, REASON_STAGES, STATUS_LABEL, stageLabel, stageLabelFor, stageTone, type BadgeTone } from '@/domain/stages';
 import { OWNER_TO_ROLE, getStageTask } from '@/domain/attention';
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } from '@/domain/emailTemplates';
 import { ROLE_LABEL } from '../registry';
@@ -12,7 +12,7 @@ import { useCaps } from './useCaps';
 import { primaryActionFor, type PanelTab } from './primaryAction';
 import { ComposeDialog } from '../email/ComposeDialog';
 import type { Capabilities } from '@/domain/permissions';
-import { Badge, Button, Field, Tabs } from '@/ui/kit';
+import { Badge, Button, Field, Tabs, trackModal, useMenu } from '@/ui/kit';
 import { OverviewSection } from './sections/Overview';
 import { AssessmentsSection } from './sections/Assessments';
 import { InterviewSection } from './sections/Interview';
@@ -41,7 +41,8 @@ export function CandidatePanel({ id }: { id: number | null }) {
   const a = useCandidate(id);
   const caps = useCaps(a);
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') as Section) || 'overview';
+  const rawTab = params.get('tab');
+  const tab: Section = SECTIONS.some((x) => x.key === rawTab) ? (rawTab as Section) : 'overview';
   const ref = useRef<HTMLDialogElement>(null);
   const [compose, setCompose] = useState<string | null>(null);
   const editable: Record<Section, boolean> = { overview: caps.details, assessments: caps.assessments, interview: caps.interview || caps.schedule, outcome: caps.outcome, activity: true };
@@ -49,17 +50,19 @@ export function CandidatePanel({ id }: { id: number | null }) {
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (id != null && !d.open) d.showModal();
+    let untrack: (() => void) | undefined;
+    if (id != null && !d.open) { d.showModal(); untrack = trackModal(d); }
     if (id == null && d.open) d.close();
+    return () => untrack?.();
   }, [id]);
   return (
-    <dialog ref={ref} className="app-sheet" aria-label={a ? `${a.name}'s record` : 'Candidate'} onClose={close}
+    <dialog ref={ref} className="app-sheet" aria-label={a ? `${a.name}'s record` : 'Candidate'} onClose={(e) => { if (e.target === e.currentTarget) close(); }}
       onClick={(e) => { if (e.target === ref.current) close(); }}>
       {id != null && (a ? (
         <div className="app-sheet__inner">
           <PanelHeader a={a} caps={caps} onClose={close} onCompose={setCompose} onTab={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
-          <Tabs label="Record sections" tabs={SECTIONS} value={tab} onChange={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
-          <div className="app-sheet__body">
+          <Tabs label="Record sections" panelId="record-panel" tabs={SECTIONS} value={tab} onChange={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
+          <div className="app-sheet__body" id="record-panel" role="tabpanel">
             {!editable[tab] && <p className="app-viewonly">View only{caps.stage ? '' : ': this is not your step'}</p>}
             <fieldset disabled={!editable[tab]} className="app-fieldset">
               {tab === 'overview' && <OverviewSection a={a} onDeleted={close} />}
@@ -102,8 +105,12 @@ function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; cap
     <header className="app-sheet__head">
       <div className="app-sheet__titlerow">
         <h2 className="ab-title app-truncate app-sheet__name">{a.name}</h2>
-        <p className="app-meta app-truncate app-sheet__meta" title={meta}>{meta}</p>
-        {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
+        <p className="app-meta app-truncate app-sheet__meta" title={meta}>
+          {[a.position || 'No position', a.department].filter(Boolean).join(', ')}
+          {a.email && <>, <a href={`mailto:${a.email}`}>{a.email}</a></>}
+          {a.phone && <>, <a href={`tel:${a.phone.replace(/[^+\d]/g, '')}`}>{a.phone}</a></>}
+        </p>
+        {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{STATUS_LABEL[a.overallStatus] || a.overallStatus}</Badge>}
         <SaveMark />
         <div className="ab-cluster flex-none app-sheet__actions">
           {caps.email && <EmailMenu a={a} onPick={onCompose} />}
@@ -167,14 +174,7 @@ export function OtherSelect({ label, id, value, options, empty, onChange, disabl
 // The one way to email a candidate: every template, the likely one first.
 function EmailMenu({ a, onPick }: { a: Candidate; onPick: (template: string) => void }) {
   const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const off = (e: MouseEvent | KeyboardEvent) => { if (e instanceof KeyboardEvent ? e.key === 'Escape' : !box.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', off);
-    document.addEventListener('keydown', off);
-    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', off); };
-  }, [open]);
+  const box = useMenu(open, setOpen);
   const first = suggestedTemplateFor(a);
   const keys = [first, ...CANDIDATE_TEMPLATE_KEYS.filter((k) => k !== first)];
   return (

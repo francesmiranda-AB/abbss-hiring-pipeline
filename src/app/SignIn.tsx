@@ -38,7 +38,7 @@ export function SignIn() {
               <input id="who-name" className="ab-input" value={otherName} autoFocus onChange={(e) => setOtherName(e.target.value)} />
             </Field>
           )}
-          <Field label="Role" htmlFor="who-role" hint="What you see depends on the role. You can switch later from the menu.">
+          <Field label="Role" htmlFor="who-role" hint="You can switch later from the menu.">
             <select id="who-role" className="ab-select" value={role} onChange={(e) => setRole(e.target.value as AppRole)}>
               {(Object.keys(ROLE_LABEL) as AppRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
             </select>

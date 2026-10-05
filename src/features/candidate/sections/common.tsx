@@ -58,7 +58,7 @@ export function SavingTextarea({ label, value, onSave, id, ...rest }: Omit<Texta
   );
 }
 
-export function Section({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
+export function PanelSection({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
   return (
     <section className="app-panel-section">
       <div className="app-panel-section__head">

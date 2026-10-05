@@ -102,7 +102,7 @@ export default function GraderPage() {
 
   return (
     <div className="app-stack">
-      <PageHeader title="EMM grader" lead="Grade an EMM workbook in seconds." />
+      <PageHeader title="EMM grader" />
 
       {queue.length > 0 && (
         <Section title="Waiting to be graded" lead={`${queue.length} submitted through the form.`}>

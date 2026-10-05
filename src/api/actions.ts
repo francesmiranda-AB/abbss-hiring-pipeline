@@ -65,7 +65,8 @@ export const fetchDriveFile = (fileId: string) =>
 export interface UnmatchedSubmission { name: string; email: string; fileUrl: string; timestamp: string }
 export const getUnmatchedEmm = () => call<{ unmatched: UnmatchedSubmission[] }>('getUnmatchedEmm').then((r) => r.unmatched || []);
 
-export const getDavidBusy = (start: Date, end: Date) =>
+// The backend action keeps its old name; the app calls it the interviewer's calendar.
+export const getInterviewerBusy = (start: Date, end: Date) =>
   call<{ blocks: Array<{ start: string; end: string }> }>('getDavidBusy', { start: start.toISOString(), end: end.toISOString() })
     .then((r) => (r.blocks || []).map((b) => ({ start: new Date(b.start), end: new Date(b.end) })));
 

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { AlertTriangle, ArrowLeftRight, ChevronDown, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -7,7 +7,7 @@ import { SNAPSHOT_KEY, useCandidates, useConfig, useFailedSave, useSnapshot } fr
 import { needsAttentionFrom } from '@/domain/attention';
 import { isEndorsedToOperations } from '@/domain/stages';
 import { ROLE_LABEL, visibleFeatures } from '@/features/registry';
-import { Button, Skeleton, cx } from '@/ui/kit';
+import { Button, Skeleton, cx, useMenu } from '@/ui/kit';
 import { ReportProblemDialog } from './ReportProblem';
 
 export const APP_VERSION = 2;
@@ -108,16 +108,7 @@ function UserMenu() {
   const { switchPerson } = useAuth();
   const [open, setOpen] = useState(false);
   const [report, setReport] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
-  }, [open]);
+  const ref = useMenu(open, setOpen);
   return (
     <div className="relative" ref={ref}>
       <button type="button" className="app-user" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
