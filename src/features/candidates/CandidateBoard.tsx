@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Clock } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageTone } from '@/domain/stages';
 import { needsAttention } from '@/domain/attention';
@@ -44,11 +44,12 @@ export function CandidateBoard({ candidates, readOnly, onOpen }: { candidates: C
                 {items.length === 0 && <li className="app-meta app-board__empty">Nobody here now</li>}
                 {items.map((a) => {
                   const body = (<>
-                    <span className="app-board__name">{a.name}</span>
-                    <span className="app-meta">{a.position || 'No position'}{a.department ? `, ${a.department}` : ''}</span>
-                    {a.candidateStage === 'Initial Interview' && <span className="app-meta">{interviewRoundLabel(a.department, 'initial')}</span>}
-                    {a.nextAction && a.nextAction !== 'None' && <span className="app-meta">Next: {a.nextAction}</span>}
-                    <CardBadges a={a} config={config} />
+                    <span className="app-board__name">
+                      <span className="app-board__nametext" title={a.name}>{a.name}</span>
+                      {needsAttention(a, config)?.overdue && <Clock size={14} className="app-tone-danger app-board__late" aria-label="Overdue" role="img" />}
+                    </span>
+                    <span className="app-meta app-board__sub">{[a.position || 'No position', a.candidateStage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : a.department].filter(Boolean).join(', ')}</span>
+                    <CardBadges a={a} />
                   </>);
                   return (
                     <li key={a.id}>
@@ -69,15 +70,13 @@ export function CandidateBoard({ candidates, readOnly, onOpen }: { candidates: C
   );
 }
 
-// Only what needs a look: late or paused. Quiet cards stay quiet.
-function CardBadges({ a, config }: { a: Candidate; config: ReturnType<typeof useConfig> }) {
-  const overdue = !!needsAttention(a, config)?.overdue;
+// Late cards get a red clock beside the name; only paused ones get a badge.
+function CardBadges({ a }: { a: Candidate }) {
   const paused = a.overallStatus === 'Hold';
-  if (!overdue && !paused) return null;
+  if (!paused) return null;
   return (
     <span className="app-board__badges">
-      {overdue && <Badge tone="danger">Overdue</Badge>}
-      {paused && <Badge tone="neutral">On hold</Badge>}
+      <Badge tone="neutral">On hold</Badge>
     </span>
   );
 }

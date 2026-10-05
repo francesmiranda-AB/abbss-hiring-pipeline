@@ -75,6 +75,7 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
   const actions = useCandidateActions();
   const update = useUpdateCandidate();
   const task = getStageTask(a);
+  const meta = [a.position || 'No position', a.department, a.email, a.phone].filter(Boolean).join(', ');
   const conductor = a.candidateStage === 'HR Preliminary Interview' ? interviewerFor(a, 'preliminary')
     : a.candidateStage === 'Initial Interview' ? interviewerFor(a, 'initial')
     : a.candidateStage === 'Endorsed to Client' ? interviewerFor(a, 'final') : '';
@@ -85,21 +86,17 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
   };
   return (
     <header className="app-sheet__head">
-      <div className="flex items-start justify-between gap-4">
-        <div className="grid gap-1 min-w-0">
-          <h2 className="ab-title app-truncate">{a.name}</h2>
-          <p className="app-meta m-0">{[a.position || 'No position', a.department, a.email, a.phone].filter(Boolean).join(', ')}</p>
-          {a.overallStatus && a.overallStatus !== 'In Progress' && (
-            <span className="flex flex-wrap gap-1"><Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge></span>
-          )}
-        </div>
-        <div className="ab-cluster flex-none">
+      <div className="app-sheet__titlerow">
+        <h2 className="ab-title app-truncate app-sheet__name">{a.name}</h2>
+        <p className="app-meta app-truncate app-sheet__meta" title={meta}>{meta}</p>
+        {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
+        <div className="ab-cluster flex-none app-sheet__actions">
           {!readOnly && <EmailMenu a={a} />}
           <Button variant="ghost" icon={X} aria-label="Close record" onClick={onClose} />
         </div>
       </div>
-      <div className="app-head-grid">
-        <Field label="Stage" htmlFor={`stage-${a.id}`} hint={conductor ? `Conducted by: ${conductor}` : undefined}>
+      <div className="app-head-controls">
+        <Field label="Stage" htmlFor={`stage-${a.id}`}>
           {readOnly ? <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge> : (
             <select id={`stage-${a.id}`} className="ab-select" value={a.candidateStage} onChange={(e) => changeStage(e.target.value)}>
               {!a.candidateStage && <option value="">Not set yet</option>}
@@ -109,8 +106,12 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
         </Field>
         <OtherSelect label="Next action" id={`next-${a.id}`} value={a.nextAction || ''} options={NEXT_ACTION_OPTIONS} empty="None" disabled={readOnly}
           onChange={(v) => update(a.id, { nextAction: v })} />
+        {(task || conductor) && (
+          <p className="app-next m-0 app-truncate" title={[task && `${task.label}. ${task.hint}`, conductor && `Conducted by: ${conductor}`].filter(Boolean).join(' ')}>
+            {task && <><strong>{task.label}.</strong> {task.hint}</>}{conductor && <span className="app-next__by">{task ? ' ' : ''}Conducted by {conductor}.</span>}
+          </p>
+        )}
       </div>
-      {task && <p className="app-next m-0"><strong>{task.label}.</strong> {task.hint}</p>}
     </header>
   );
 }

@@ -34,11 +34,11 @@ export function InterviewSection({ a }: { a: Candidate }) {
     <div className="app-stack">
       <Scheduling a={a} />
       <Section title="Interview questions">
-        <p className="ab-muted m-0">A guide for the conversation, not a score sheet. Write the overall notes and pick a result below.</p>
-        <Guide items={GUIDE} />
+        <p className="ab-muted m-0">A guide for the conversation, not a score sheet. Open a question to see what to look for.</p>
+        <Guide items={GUIDE} group="interview-guide" />
         <details>
           <summary className="app-meta">Optional: resilience and adaptability probes</summary>
-          <Guide items={RESILIENCE} />
+          <Guide items={RESILIENCE} group="interview-resilience" />
         </details>
       </Section>
       <Section title="Notes and result">
@@ -55,17 +55,20 @@ export function InterviewSection({ a }: { a: Candidate }) {
   );
 }
 
-function Guide({ items }: { items: typeof GUIDE }) {
+// One question per row; opening one closes the others (details with a shared name).
+function Guide({ items, group }: { items: typeof GUIDE; group: string }) {
   return (
-    <ol className="ab-rows app-guide">
+    <div className="app-qa-list">
       {items.map((q) => (
-        <li key={q.num} className="app-guide__item">
-          <p className="app-guide__skill">{q.num}. {q.skill}</p>
-          <p className="m-0">{q.ask}</p>
-          <p className="app-meta m-0"><strong>Look for:</strong> {q.pass} <strong>Watch out for:</strong> {q.fail} {q.note}</p>
-        </li>
+        <details key={q.num} name={group} className="app-qa">
+          <summary><span className="app-qa__num">{q.num}</span> {q.skill}</summary>
+          <div className="app-qa__body">
+            <p className="m-0">{q.ask}</p>
+            <p className="app-meta m-0"><strong>Look for:</strong> {q.pass} <strong>Watch out for:</strong> {q.fail} {q.note}</p>
+          </div>
+        </details>
       ))}
-    </ol>
+    </div>
   );
 }
 

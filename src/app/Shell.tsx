@@ -46,14 +46,16 @@ export function Shell({ children }: { children: ReactNode }) {
             ))}
           </div>
         ))}
+        <div className="ab-sidebar__footer app-side-foot">
+          <UserMenu />
+          <SyncStatus />
+        </div>
       </nav>
       <div className="ab-main">
-        <header className="ab-topbar">
-          <div className="ab-cluster">
-            <Button variant="ghost" size="sm" icon={Menu} aria-label="Open menu" className="app-menu-button" onClick={() => setNavOpen(true)} />
-            <SyncStatus />
-          </div>
-          <UserMenu />
+        {/* Phones only: the menu button and sync status. On desktop they live in the sidebar. */}
+        <header className="ab-topbar app-topbar-phone">
+          <Button variant="ghost" size="sm" icon={Menu} aria-label="Open menu" className="app-menu-button" onClick={() => setNavOpen(true)} />
+          <SyncStatus />
         </header>
         {outdated && (
           <div className="app-banner" role="status">
@@ -126,7 +128,7 @@ function UserMenu() {
         <ChevronDown size={16} aria-hidden />
       </button>
       {open && (
-        <div className="ab-menu app-menu-right" role="menu">
+        <div className="ab-menu app-menu-up" role="menu">
           <button type="button" role="menuitem" className="ab-menu__item" onClick={() => { setOpen(false); setReport(true); }}>
             <MessageSquareWarning size={16} aria-hidden /> Report a problem
           </button>

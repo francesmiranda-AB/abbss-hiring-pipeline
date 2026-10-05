@@ -16,7 +16,7 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
   return (
     <div className="app-stack">
       <Section title="Details">
-        <div className="app-form-grid">
+        <div className="app-form-grid app-form-grid--4">
           <SavingInput id={`phone-${a.id}`} label="Phone" value={a.phone} onSave={(v) => update(a.id, { phone: v })} />
           <SavingInput id={`pos-${a.id}`} label="Position" value={a.position} onSave={(v) => update(a.id, { position: v })} />
           <Field label="Department" htmlFor={`dept-${a.id}`}>

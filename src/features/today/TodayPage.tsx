@@ -40,7 +40,7 @@ export default function TodayPage() {
     <div className="app-stack">
       <PageHeader title={`Good ${today.getHours() < 12 ? 'morning' : today.getHours() < 18 ? 'afternoon' : 'evening'}, ${user.name.split(' ')[0]}`}
         lead={today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} />
-      <Kpis items={[
+      <Kpis compact items={[
         { value: tasks.length, label: 'Need your action', tone: 'warning', onClick: () => navigate('/candidates?chip=attention') },
         { value: overdue, label: 'Overdue', tone: 'danger', onClick: () => navigate('/candidates?chip=overdue') },
         { value: scope.filter((a) => isNewApplicant(a)).length, label: 'New today', tone: 'primary', onClick: () => navigate('/candidates?chip=new') },

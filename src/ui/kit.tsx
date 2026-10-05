@@ -26,12 +26,10 @@ export function Badge({ tone = 'neutral', children }: { tone?: BadgeTone; childr
 
 export function PageHeader({ title, lead, actions }: { title: string; lead?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="ab-page-header">
-      <div className="grid gap-1">
-        <h1 className="ab-title">{title}</h1>
-        {lead && <p className="ab-muted m-0 text-sm">{lead}</p>}
-      </div>
-      {actions && <div className="ab-cluster">{actions}</div>}
+    <header className="ab-page-header app-page-header">
+      <h1 className="ab-title">{title}</h1>
+      {lead && <p className="app-page-lead">{lead}</p>}
+      {actions && <div className="ab-cluster app-page-actions">{actions}</div>}
     </header>
   );
 }
@@ -65,10 +63,28 @@ export function Section({ title, count, countTone = 'neutral', lead, actions, ch
 // tone colors the number (and the tile's top rule) only when it is above 0:
 // a zero "Overdue" is good news and stays plain.
 export type KpiTone = 'danger' | 'warning' | 'success' | 'primary';
+export function pillTone(tone: KpiTone | undefined, value: ReactNode) {
+  return tone && typeof value === 'number' && value > 0 ? `app-pill--${tone}` : '';
+}
 export function kpiToneClass(tone: KpiTone | undefined, value: ReactNode) {
   return tone && typeof value === 'number' && value > 0 ? `app-kpi--${tone}` : '';
 }
-export function Kpis({ items }: { items: Array<{ value: ReactNode; label: string; onClick?: () => void; tone?: KpiTone }> }) {
+// compact: a one-line strip of count pills (Today); the default big tiles are for
+// the feature block and other places that have room.
+export function Kpis({ items, compact }: { items: Array<{ value: ReactNode; label: string; onClick?: () => void; tone?: KpiTone }>; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="app-pills">
+        {items.map((k) => {
+          const inner = (<><span className="app-pill__n">{k.value}</span><span>{k.label}</span></>);
+          const cls = cx('app-pill', pillTone(k.tone, k.value));
+          return k.onClick
+            ? <button key={k.label} type="button" className={cls} onClick={k.onClick}>{inner}</button>
+            : <span key={k.label} className={cls}>{inner}</span>;
+        })}
+      </div>
+    );
+  }
   return (
     <div className="ab-kpis app-kpis">
       {items.map((k) => {

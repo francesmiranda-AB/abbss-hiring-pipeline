@@ -44,10 +44,11 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
   return (
     <div className="app-stack">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="ab-muted m-0">Form results attach on their own every 15 minutes. Check now if the candidate just submitted.</p>
+        <p className="ab-muted m-0">Form results attach on their own every 15 minutes.</p>
         <Button variant="tonal" size="sm" icon={RefreshCw} busy={checking} onClick={check}>Check for results</Button>
       </div>
 
+      <div className="app-assess-pair">
       <Section title="GRIT" aside={<a className="app-ext" href="https://forms.gle/JwGGt8UWnR6NgFga8" target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
         <div className="app-form-grid">
           <SavingInput id={`grit-${a.id}`} label="Score (1 to 5)" inputMode="decimal" value={a.grit?.score} onSave={(x) => setNested('grit', 'score', x)} />
@@ -64,8 +65,9 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
           <SavingInput id={`vali-${a.id}`} label="Integrity" inputMode="decimal" value={a.values?.intScore} onSave={(x) => setNested('values', 'intScore', x)} />
         </div>
         <OutcomeNote o={v} />
-        <SavingTextarea id={`valn-${a.id}`} label="Values notes" value={a.values?.notes} onSave={(x) => setNested('values', 'notes', x)} placeholder="Observations from the values assessment" />
+        <SavingTextarea id={`valn-${a.id}`} label="Values notes" value={a.values?.notes} onSave={(x) => setNested('values', 'notes', x)} placeholder="Observations from the values assessment" rows={2} />
       </Section>
+      </div>
 
       <Section title="EMM cognitive test" aside={
         <label className="ab-switch">

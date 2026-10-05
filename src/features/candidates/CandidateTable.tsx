@@ -11,6 +11,7 @@ const COLUMNS: Array<{ key: string; label: string; sortable?: boolean }> = [
   { key: 'name', label: 'Candidate', sortable: true },
   { key: 'department', label: 'Department', sortable: true },
   { key: 'stage', label: 'Stage', sortable: true },
+  { key: 'emm', label: 'EMM' },
   { key: 'next', label: 'Next' },
   { key: 'notes', label: 'Note' },
 ];
@@ -28,7 +29,8 @@ function useRow(a: Candidate) {
 }
 
 function Next({ a }: { a: Candidate }) {
-  const { overdue, deadline, next } = useRow(a);
+  const { overdue, deadline, next, hold } = useRow(a);
+  if (hold) return <Badge tone="neutral">On hold</Badge>;
   if (!next && !overdue && !deadline) return <span className="ab-subtle">None</span>;
   return (
     <span className="app-next-cell">
@@ -43,15 +45,21 @@ function Next({ a }: { a: Candidate }) {
   );
 }
 
+// Phone cards show everything about the stage in one place; the table gives EMM its own column.
 function StageCell({ a }: { a: Candidate }) {
   const { emm, hold } = useRow(a);
   return (
-    <span className="flex flex-wrap gap-1">
+    <span className="app-stage-cell app-stage-cell--wrap">
       <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge>
       {hold && <Badge tone="neutral">On hold</Badge>}
       {emm && <Badge tone={emm.tone}>{`EMM: ${emm.label}`}</Badge>}
     </span>
   );
+}
+
+function EmmCell({ a }: { a: Candidate }) {
+  const { emm } = useRow(a);
+  return emm ? <Badge tone={emm.tone}>{emm.label}</Badge> : null;
 }
 
 export function CandidateTable({ candidates, sort, dir, onSort, selectable, selected, onSelect, onOpen }: {
@@ -67,13 +75,13 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
           <thead>
             <tr>
               {selectable && (
-                <th style={{ width: '1%' }}>
+                <th className="col-select" style={{ width: '1%' }}>
                   <label className="ab-check"><input type="checkbox" checked={allSelected} aria-label="Select all shown"
                     onChange={(e) => onSelect(e.target.checked ? new Set(candidates.map((a) => a.id)) : new Set())} /></label>
                 </th>
               )}
               {COLUMNS.map((c) => (
-                <th key={c.key} aria-sort={sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                <th key={c.key} className={`col-${c.key}`} aria-sort={sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}>
                   {c.sortable ? <button type="button" onClick={() => onSort(c.key)}>{c.label}</button> : c.label}
                 </th>
               ))}
@@ -88,13 +96,14 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
                   </td>
                 )}
                 <td>
-                  <button type="button" className="app-row-open" onClick={(e) => { e.stopPropagation(); onOpen(a.id); }}>
+                  <button type="button" className="app-row-open app-row-open--line" title={`${a.name}, ${a.position || 'No position'}`} onClick={(e) => { e.stopPropagation(); onOpen(a.id); }}>
                     <span className="app-row-open__name">{a.name}</span>
-                    <span className="app-meta">{a.position || 'No position'}</span>
+                    <span className="app-meta app-row-open__pos">{a.position || 'No position'}</span>
                   </button>
                 </td>
                 <td>{a.department || <span className="ab-subtle">None</span>}</td>
-                <td><StageCell a={a} /></td>
+                <td><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge></td>
+                <td><EmmCell a={a} /></td>
                 <td><Next a={a} /></td>
                 <td className="app-note-cell" onClick={(e) => e.stopPropagation()}><InlineNote a={a} /></td>
               </tr>

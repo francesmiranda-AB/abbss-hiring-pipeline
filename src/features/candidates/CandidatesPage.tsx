@@ -4,7 +4,7 @@ import { useCandidates, useConfig } from '@/api/queries';
 import { useUser } from '@/auth/auth';
 import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
 import { DEPARTMENTS, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
-import { Button, Empty, ErrorAlert, PageHeader, Skeleton, cx, kpiToneClass } from '@/ui/kit';
+import { Button, Empty, ErrorAlert, PageHeader, Skeleton, cx, pillTone } from '@/ui/kit';
 import { ADVANCED_KEYS, CHIPS, STAGE_FILTER_OPTIONS, applyFilters, chipMatch, roleScope, sortCandidates, useFilters } from './filters';
 import { CandidateTable } from './CandidateTable';
 import { CandidateBoard } from './CandidateBoard';
@@ -36,8 +36,13 @@ export default function CandidatesPage() {
     <div className="app-stack">
       <PageHeader
         title="Candidates"
-        lead={user.role === 'Operations' ? 'Candidates endorsed to Operations: Initial Interview and later.' : `${shown.length} shown`}
+        lead={user.role === 'Operations' ? 'Endorsed to Operations: Initial Interview and later' : `${shown.length} shown`}
         actions={<>
+          <label className="app-search">
+            <Search size={16} aria-hidden />
+            <span className="ab-visually-hidden">Search candidates</span>
+            <input className="ab-input" type="search" placeholder="Search name, email, phone, position or notes" value={filters.q} onChange={(e) => set({ q: e.target.value })} />
+          </label>
           {!readOnly && (
             <div className="ab-tabs ab-tabs--pills" role="tablist" aria-label="View">
               <button type="button" role="tab" className="ab-tab" aria-selected={view === 'table'} onClick={() => set({ view: 'table' })}><Rows3 size={14} aria-hidden /> Table</button>
@@ -48,29 +53,20 @@ export default function CandidatesPage() {
         </>}
       />
 
-      <div className="ab-kpis app-chips" role="tablist" aria-label="Quick views">
-        {CHIPS.map((c) => (
-          <button key={c.key} type="button" role="tab" aria-selected={filters.chip === c.key} className={cx('ab-kpi app-kpi-button app-chip', kpiToneClass(c.tone, counts[c.key]), filters.chip === c.key && 'is-active')} onClick={() => set({ chip: c.key })}>
-            <span className="ab-kpi__value">{counts[c.key]}</span>
-            <span className="ab-kpi__label">{c.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid gap-3">
-        <div className="app-toolbar">
-          <label className="app-search">
-            <Search size={16} aria-hidden />
-            <span className="ab-visually-hidden">Search candidates</span>
-            <input className="ab-input" type="search" placeholder="Search name, email, phone, position or any notes" value={filters.q} onChange={(e) => set({ q: e.target.value })} />
-          </label>
-          <Button variant={showFilters ? 'secondary' : 'tonal'} size="sm" icon={SlidersHorizontal} aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}>Filters</Button>
-          {ADVANCED_KEYS.some((k) => filters[k]) && (
-            <button type="button" className="app-link-button text-sm" onClick={() => set(Object.fromEntries(ADVANCED_KEYS.map((k) => [k, ''])))}>Clear filters</button>
-          )}
+      <div className="app-strip">
+        <div className="app-pills" role="tablist" aria-label="Quick views">
+          {CHIPS.map((c) => (
+            <button key={c.key} type="button" role="tab" aria-selected={filters.chip === c.key} className={cx('app-pill', pillTone(c.tone, counts[c.key]), filters.chip === c.key && 'is-active')} onClick={() => set({ chip: c.key })}>
+              <span className="app-pill__n">{counts[c.key]}</span><span>{c.label}</span>
+            </button>
+          ))}
         </div>
-        {showFilters && <FilterRow />}
+        <Button variant={showFilters ? 'secondary' : 'tonal'} size="sm" icon={SlidersHorizontal} aria-expanded={showFilters} onClick={() => setShowFilters((f) => !f)}>Filters</Button>
+        {ADVANCED_KEYS.some((k) => filters[k]) && (
+          <button type="button" className="app-link-button text-sm" onClick={() => set(Object.fromEntries(ADVANCED_KEYS.map((k) => [k, ''])))}>Clear filters</button>
+        )}
       </div>
+      {showFilters && <FilterRow />}
 
       {canBulk && selectedList.length > 0 && <BulkBar selected={selectedList} onClear={() => setSelected(new Set())} />}
 
