@@ -27,6 +27,7 @@ Internal hiring app for AB Business Support (at most 5 staff users). Vite + Reac
 - The next step is derived (`getStageTask`); don't add a hand-edited "next action" field. Auto-advance moves forward only, on a fact, with Undo.
 - Anything saved goes through `useUpdateCandidate` (one path). Text boxes use `SavingInput` or `SavingTextarea` (keeps the draft if a save fails).
 - Dialogs: close handlers must check `e.target === e.currentTarget` (React passes `close` events from a nested dialog up to the dialog around it). Confirm anything hard to undo with `ConfirmDialog`.
+- Width: pages use the full width up to 105rem. Breakpoints: 767px (phone: drawer sidebar, one column), 1099px (strip sticky from 1100), 1280px (the candidates table; below it people get cards, two across on tablets), 1600px (table shows Department and the note text). The record panel is `clamp(56rem, 54vw, 76rem)` and its tab layouts use `@container panel` queries (the panel's width, not the window's).
 - CSS: `src/index.css` imports `app.css` before `screens.css`, so on equal specificity `screens.css` wins. Tailwind's reset zeroes dialog margins (`.ab-modal` puts them back).
 
 ## Design system

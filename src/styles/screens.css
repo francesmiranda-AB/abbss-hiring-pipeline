@@ -12,6 +12,8 @@
 .app-search > svg { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--ab-text-subtle); pointer-events: none; }
 .app-search .ab-input { padding-left: 2.25rem; }
 .app-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ab-space-3); }
+@media (min-width: 768px) { .app-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1800px) { .app-filters { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
 .app-row-open { all: unset; display: grid; gap: 0.125rem; cursor: pointer; }
 .app-row-open__name { font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
 .app-row-open:hover .app-row-open__name { color: var(--ab-link); }
@@ -29,7 +31,7 @@
 .app-bulk .ab-select { width: auto; min-width: 12rem; }
 
 .app-board { margin: 0; padding: 0; list-style: none; display: flex; gap: var(--ab-space-3); overflow-x: auto; padding-bottom: var(--ab-space-3); align-items: flex-start; }
-.app-board__col { flex: 0 0 15rem; display: grid; gap: var(--ab-space-2); padding: var(--ab-space-3); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
+.app-board__col { flex: 0 0 14.5rem; display: grid; gap: var(--ab-space-2); padding: var(--ab-space-3); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
 .app-board__col.is-collapsed { flex-basis: 3rem; padding-inline: var(--ab-space-1); }
 .app-board__col.is-empty .app-board__head { color: var(--ab-text-muted); }
 .app-board__head {
@@ -56,7 +58,7 @@
 
 /* ── Candidate panel (sheet) ───────────────────────────────────────────── */
 .app-sheet {
-  margin: 0 0 0 auto; width: min(56rem, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0;
+  margin: 0 0 0 auto; width: clamp(56rem, 54vw, 76rem); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0;
   background: var(--ab-surface-raised); color: var(--ab-text); box-shadow: var(--ab-shadow-lg);
   overflow: hidden;
 }
@@ -100,7 +102,7 @@
 .app-side-row { display: grid; gap: 0.125rem; padding: var(--ab-space-2) 0; }
 
 /* ── Email ─────────────────────────────────────────────────────────────── */
-.app-email-grid { display: grid; grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); gap: var(--ab-space-6); align-items: start; }
+.app-email-grid { display: grid; grid-template-columns: minmax(11rem, 13rem) minmax(24rem, 1fr); gap: var(--ab-space-5); align-items: start; }
 @media (max-width: 900px) { .app-email-grid { grid-template-columns: minmax(0, 1fr); } }
 .app-template-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ab-border); }
 .app-template {
@@ -114,11 +116,12 @@
 .app-email-body { min-height: 22rem; font-family: var(--ab-font-sans); line-height: var(--ab-leading-normal); }
 
 /* ── Calendar ──────────────────────────────────────────────────────────── */
-.app-cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--ab-space-6); align-items: start; }
+.app-cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: var(--ab-space-6); align-items: start; }
 @media (max-width: 1100px) { .app-cal-layout { grid-template-columns: minmax(0, 1fr); } }
 .app-cal-scroll { overflow-x: auto; }
+.app-cal__chip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-cal {
-  display: grid; grid-template-columns: repeat(7, minmax(6.5rem, 1fr)); min-width: 46rem;
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
   border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); overflow: hidden; background: var(--ab-bg);
 }
 .app-cal__dow { padding: var(--ab-space-2); background: var(--ab-surface); font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-semibold); letter-spacing: var(--ab-tracking-wide); text-transform: uppercase; color: var(--ab-text-muted); text-align: center; }
@@ -132,7 +135,7 @@
 .app-cal__chip.is-pending { background: var(--ab-info-soft); color: var(--ab-info-soft-fg); border-color: var(--ab-info-border); }
 .app-cal__chip.is-confirmed { background: var(--ab-success-soft); color: var(--ab-success-soft-fg); border-color: var(--ab-success-border); }
 .app-cal__chip:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 1px; }
-.app-cal__busy { font-size: 0.6875rem; color: var(--ab-text-subtle); }
+.app-cal__busy { font-size: 0.6875rem; color: var(--ab-text-muted); }
 
 /* ── Offboarding ───────────────────────────────────────────────────────── */
 .app-checklist { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ab-border); }
@@ -205,14 +208,16 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .app-search { flex: 0 1 18rem; min-width: 12rem; }
 @media (min-width: 1100px) {
   .app-strip { position: sticky; top: 0; z-index: var(--ab-z-sticky); flex-wrap: nowrap; height: 3rem; box-sizing: border-box; }
+}
+@media (min-width: 1280px) {
   .app-cand-table { overflow: clip; }
   .app-table-compact { table-layout: fixed; }
-  .app-table-compact .col-select { width: 2.5rem; }
-  .app-table-compact .col-name { width: 22%; }
-  .app-table-compact .col-department { width: 11%; }
-  .app-table-compact .col-stage { width: 21%; }
-  .app-table-compact .col-emm { width: 14%; }
-  .app-table-compact .col-next { width: 19%; }
+  .app-table-compact .col-select { width: 2.75rem; }
+  .app-table-compact .col-department { width: 10.5rem; }
+  .app-table-compact .col-stage { width: 13.5rem; }
+  .app-table-compact .col-emm { width: 10.25rem; }
+  .app-table-compact .col-next { width: 16rem; }
+  .app-table-compact .col-notes { width: 3rem; }
   .app-table-compact td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-table-compact thead th { position: sticky; top: 3rem; z-index: 1; }
 }
@@ -223,11 +228,10 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .app-row-open__pos { flex: 1 1 0; min-width: 0; margin-left: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-table-compact td { padding-block: 0.3125rem; }
 .app-next-cell { display: flex; align-items: baseline; gap: 0.5rem; }
-.app-note-cell { max-width: 9rem; }
 .app-note-text { max-width: 100%; }
 .app-stage-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .app-page-actions .app-search { flex: 0 1 15rem; min-width: 10rem; max-width: 15rem; }
-@media (min-width: 900px) { .app-page-actions { flex-wrap: nowrap; } }
+@media (min-width: 1200px) { .app-page-actions { flex-wrap: nowrap; } }
 
 /* Board cards. */
 .app-board__card { gap: 0; padding: var(--ab-space-2) var(--ab-space-3); }
@@ -262,10 +266,7 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .app-sheet .app-form-grid { gap: var(--ab-space-3); }
 .app-form-grid--4 { grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); }
 .app-assess-pair { display: grid; gap: var(--ab-space-3); grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 900px) {
-  .app-assess-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .app-assess-pair .app-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
+.app-assess-pair .app-form-grid { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
 @media (max-width: 767px) { .app-sheet__head { padding-inline: var(--ab-space-4); } }
 
 /* Interview questions: one line each, open one at a time. */
@@ -309,3 +310,57 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 tr[data-selected] { background: var(--ab-primary-soft); }
 .app-cand-card[data-selected] { background: var(--ab-primary-soft); }
 .app-table-compact td.cell-badge { text-overflow: clip; }
+
+/* ── Pass 4: horizontal space ─────────────────────────────────────────────
+   The page uses the width it has (up to 105rem). The table shows what fits:
+   Department and the note text from 1600px, otherwise a note icon. Under
+   1280px the list is cards. The record panel grows with the screen and
+   its tab layouts follow the panel's own width (container queries), not the window's. */
+.ab-page { max-width: 105rem; }
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .app-table-compact .col-department { display: none; }
+  .app-note-str { display: none; }
+  .app-table-compact th.col-notes, .app-table-compact td.col-notes { padding-inline: 0.25rem; text-align: center; }
+}
+@media (min-width: 1600px) {
+  .app-note-ico { display: none; }
+  .app-table-compact .col-next { width: 20rem; }
+  .app-table-compact .col-notes { width: clamp(10rem, 12vw, 22rem); }
+}
+.app-table-compact th, .app-table-compact td { padding-inline: 0.75rem; }
+.app-table-compact td:first-child, .app-table-compact th:first-child { padding-inline: 0.75rem; }
+.app-note-text { display: flex; align-items: center; gap: 0.375rem; max-width: 100%; }
+.app-note-str { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-note-ico { flex: none; }
+
+.app-board__col { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.app-board__list { grid-template-columns: minmax(0, 1fr); }
+.app-board__list > li, .app-board__card { min-width: 0; }
+.app-board__card { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.app-board__col.is-empty:not(.is-collapsed) { flex-basis: 10rem; }
+
+/* Today and similar lists: fixed columns so every row lines up; the badge column fits the longest stage name. */
+.ab-row.app-row-button { grid-template-columns: minmax(12rem, 22rem) minmax(0, 40rem) 15rem; justify-content: start; gap: var(--ab-space-2) var(--ab-space-5); }
+@media (max-width: 767px) { .ab-row.app-row-button { grid-template-columns: minmax(0, 1fr); } }
+
+/* Hiring projects: six numbers in one row. */
+.app-overview .app-kpis { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+
+/* Record panel: layouts follow the panel width. */
+.app-sheet__body { container: panel / inline-size; }
+.app-pair { display: grid; gap: var(--ab-space-3); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@container panel (min-width: 52rem) {
+  .app-assess-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-assess-pair .app-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-pair { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .app-form-grid--4 .app-span-2 { grid-column: span 2; }
+}
+.app-qa__body { max-width: 72ch; }
+
+/* A long next step ends in an ellipsis (its full text is the tooltip) instead of being cut off. */
+.app-next-cell { max-width: 100%; min-width: 0; }
+.app-next-cell__main { display: flex; flex: 0 1 auto; min-width: 0; }
+.app-next-cell__main > svg { flex: none; }
+.app-next-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-next-cell > .app-meta { flex: none; }

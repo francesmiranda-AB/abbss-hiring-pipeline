@@ -205,9 +205,12 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 .app-cand-card__body { all: unset; flex: 1; display: grid; gap: 0.25rem; justify-items: start; box-sizing: border-box; min-width: 0; padding: var(--ab-space-3); cursor: pointer; }
 .app-cand-card__body:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; border-radius: var(--ab-radius-md); }
 
-@media (max-width: 767px) {
+/* The table needs about 1280px; below that people get cards (two across on tablets). */
+@media (max-width: 1279px) {
   .app-cand-table { display: none; }
-  .app-cand-cards { display: grid; gap: var(--ab-space-2); }
+  .app-cand-cards { display: grid; gap: var(--ab-space-2); grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); }
+}
+@media (max-width: 767px) {
   .app-chips { display: flex; overflow-x: auto; padding-bottom: var(--ab-space-1); }
   .app-chips > .app-chip { flex: 0 0 8rem; }
   .app-role-row { grid-template-columns: minmax(0, 1fr); }

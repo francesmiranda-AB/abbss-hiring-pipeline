@@ -33,20 +33,24 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
           <Field label="Date received" htmlFor={`recv-${a.id}`}>
             <input id={`recv-${a.id}`} className="ab-input" type="date" value={(a.dateReceived || '').slice(0, 10)} onChange={(e) => update(a.id, { dateReceived: e.target.value })} />
           </Field>
-          <OtherSelect id={`role-${a.id}`} label="Hiring role" value={a.roleCategory || ''} options={ROLE_OPTIONS} empty="Not set"
-            hint={a.roleCategory && ROLE_CONFIG[a.roleCategory]?.requiresClientFinal === false
-              ? 'This role skips the client stages: the offer follows the Operations decision.'
-              : 'Counts them under this role in Hiring projects.'}
-            onChange={(v) => update(a.id, { roleCategory: v })} />
+          <div className="app-span-2">
+            <OtherSelect id={`role-${a.id}`} label="Hiring role" value={a.roleCategory || ''} options={ROLE_OPTIONS} empty="Not set"
+              hint={a.roleCategory && ROLE_CONFIG[a.roleCategory]?.requiresClientFinal === false
+                ? 'This role skips the client stages: the offer follows the Operations decision.'
+                : 'Counts them under this role in Hiring projects.'}
+              onChange={(v) => update(a.id, { roleCategory: v })} />
+          </div>
           <Field label="Entered by"><span className="app-static">{a.enteredBy || 'Not recorded'}</span></Field>
         </div>
       </PanelSection>
-      <PanelSection title="Resume notes">
-        <SavingTextarea id={`notes-${a.id}`} label="Notes from the CV" value={a.resumeNotes} onSave={(v) => update(a.id, { resumeNotes: v })} placeholder="Relevant experience and skills" />
-      </PanelSection>
-      <PanelSection title="CV">
-        <CvBlock a={a} />
-      </PanelSection>
+      <div className="app-pair">
+        <PanelSection title="Resume notes">
+          <SavingTextarea id={`notes-${a.id}`} label="Notes from the CV" value={a.resumeNotes} onSave={(v) => update(a.id, { resumeNotes: v })} placeholder="Relevant experience and skills" />
+        </PanelSection>
+        <PanelSection title="CV">
+          <CvBlock a={a} />
+        </PanelSection>
+      </div>
       {caps.delete && <div><Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete record</Button></div>}
       <ConfirmDialog open={confirmDelete} danger title={`Delete ${a.name}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)}
         onConfirm={async () => {

@@ -66,7 +66,7 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
 
       <PanelSection title="Values and integrity" aside={<a className="app-ext" href={FORM_LINKS.values} target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
         <div className="app-form-grid">
-          <SavingInput id={`val-${a.id}`} label="Total (out of 315)" inputMode="numeric" value={a.values?.score} readOnly={!manual} onSave={(x) => setNested('values', 'score', x)} />
+          <SavingInput id={`val-${a.id}`} label="Total of 315" inputMode="numeric" value={a.values?.score} readOnly={!manual} onSave={(x) => setNested('values', 'score', x)} />
           <SavingInput id={`valc-${a.id}`} label="Confidentiality" inputMode="decimal" value={a.values?.confScore} readOnly={!manual} onSave={(x) => setNested('values', 'confScore', x)} />
           <SavingInput id={`vali-${a.id}`} label="Integrity" inputMode="decimal" value={a.values?.intScore} readOnly={!manual} onSave={(x) => setNested('values', 'intScore', x)} />
         </div>

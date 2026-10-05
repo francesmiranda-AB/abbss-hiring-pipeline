@@ -127,7 +127,7 @@ function MonthGrid({ year, month, items, busy, onOpen }: { year: number; month: 
             <div key={c} className={cx('app-cal__cell', isToday && 'is-today')}>
               <span className="app-cal__day">{day}{isToday && <span className="ab-visually-hidden"> (today)</span>}</span>
               {(byDay[day] || []).map((i) => (
-                <button key={`${i.candidateId}-${i.slot.id}`} type="button" className={cx('app-cal__chip', i.status === 'confirmed' ? 'is-confirmed' : 'is-pending')} onClick={() => onOpen(i)}>
+                <button key={`${i.candidateId}-${i.slot.id}`} type="button" className={cx('app-cal__chip', i.status === 'confirmed' ? 'is-confirmed' : 'is-pending')} title={`${time(i.date!)} ${i.name}`} onClick={() => onOpen(i)}>
                   <span className="app-num">{time(i.date!)}</span> {i.name}
                 </button>
               ))}

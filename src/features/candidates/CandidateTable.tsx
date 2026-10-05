@@ -35,9 +35,9 @@ function Next({ a }: { a: Candidate }) {
   return (
     <span className="app-next-cell">
       {(next || overdue) && (
-        <span className={overdue ? 'app-tone-danger app-next-cell__main' : 'app-next-cell__main'}>
+        <span className={overdue ? 'app-tone-danger app-next-cell__main' : 'app-next-cell__main'} title={next || undefined}>
           {overdue && <Clock size={14} aria-label="Overdue" role="img" />}
-          {next || 'Overdue'}
+          <span className="app-next-text">{next || 'Overdue'}</span>
         </span>
       )}
       {deadline && <span className={`app-meta app-tone-${deadline.tone}`}>{deadline.label}</span>}
@@ -66,6 +66,9 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
   candidates: Candidate[]; sort: string; dir: 'asc' | 'desc'; onSort: (col: string) => void;
   selectable: boolean; selected: Set<number>; onSelect: (s: Set<number>) => void; onOpen: (id: number) => void;
 }) {
+  // The EMM column only earns its width while someone in the list owes the test.
+  const showEmm = candidates.some((a) => a.requiresEmm);
+  const columns = COLUMNS.filter((c) => c.key !== 'emm' || showEmm);
   const allSelected = candidates.length > 0 && candidates.every((a) => selected.has(a.id));
   const toggle = (id: number, on: boolean) => { const s = new Set(selected); if (on) s.add(id); else s.delete(id); onSelect(s); };
   return (
@@ -75,12 +78,12 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
           <thead>
             <tr>
               {selectable && (
-                <th className="col-select" style={{ width: '1%' }}>
+                <th className="col-select">
                   <label className="ab-check"><input type="checkbox" checked={allSelected} aria-label="Select all shown"
                     onChange={(e) => onSelect(e.target.checked ? new Set(candidates.map((a) => a.id)) : new Set())} /></label>
                 </th>
               )}
-              {COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <th key={c.key} className={`col-${c.key}`} aria-sort={sort === c.key ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}>
                   {c.sortable ? <button type="button" onClick={() => onSort(c.key)}>{c.label}</button> : c.label}
                 </th>
@@ -96,16 +99,16 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
                   </td>
                 )}
                 <td>
-                  <button type="button" className="app-row-open app-row-open--line" title={`${a.name}, ${a.position || 'No position'}`} onClick={(e) => { e.stopPropagation(); onOpen(a.id); }}>
+                  <button type="button" className="app-row-open app-row-open--line" title={[a.name, a.position || 'No position', a.department].filter(Boolean).join(', ')} onClick={(e) => { e.stopPropagation(); onOpen(a.id); }}>
                     <span className="app-row-open__name">{a.name}</span>
                     <span className="app-meta app-row-open__pos">{a.position || 'No position'}</span>
                   </button>
                 </td>
-                <td>{a.department || <span className="ab-subtle">None</span>}</td>
+                <td className="col-department">{a.department || <span className="ab-subtle">None</span>}</td>
                 <td className="cell-badge"><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge></td>
-                <td className="cell-badge"><EmmCell a={a} /></td>
+                {showEmm && <td className="cell-badge col-emm"><EmmCell a={a} /></td>}
                 <td className="cell-badge"><Next a={a} /></td>
-                <td className="app-note-cell" onClick={(e) => e.stopPropagation()}><InlineNote a={a} /></td>
+                <td className="app-note-cell col-notes" onClick={(e) => e.stopPropagation()}><InlineNote a={a} /></td>
               </tr>
             ))}
           </tbody>
@@ -154,6 +157,6 @@ function InlineNote({ a }: { a: Candidate }) {
     <button type="button" className={cls} aria-label={label} onClick={open}>{children}</button>
   );
   return saved
-    ? trigger(saved, `Edit note for ${a.name}`, 'app-note-text')
+    ? trigger(<><StickyNote size={16} aria-hidden className="app-note-ico" /><span className="app-note-str">{saved}</span></>, `Edit note for ${a.name}: ${saved}`, 'app-note-text')
     : trigger(<StickyNote size={16} aria-hidden />, `Add a note for ${a.name}`, 'app-note-add');
 }
