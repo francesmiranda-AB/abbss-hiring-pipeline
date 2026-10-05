@@ -114,7 +114,7 @@ function NewForm() {
       <Field label="Resume notes" htmlFor="na-notes">
         <textarea id="na-notes" className="ab-textarea" value={f.resumeNotes} onChange={set('resumeNotes')} placeholder="Relevant experience and skills from the CV" />
       </Field>
-      <Field label="CV (optional)" hint="PDF or Word, up to 10 MB." htmlFor="na-cv">
+      <Field label="CV" hint="Optional. PDF or Word, up to 10 MB." htmlFor="na-cv">
         <FilePicker id="na-cv" accept=".pdf,.doc,.docx" fileName={cv?.name} onFile={(file) => {
           if (file && file.size > 10 * 1024 * 1024) { toast.error('That file is over 10 MB. Choose a smaller CV.'); return; }
           setCv(file);

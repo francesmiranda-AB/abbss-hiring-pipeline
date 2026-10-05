@@ -135,7 +135,7 @@ function CaseCard({ c }: { c: OffboardingCase }) {
           onBlur={() => { if (notes !== (c.notes || '')) void save({ notes }, 'Notes saved'); }} />
       </Field>
       <div className="flex justify-end">
-        <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirm(true)}>Delete case</Button>
+        <Button variant="ghost" size="sm" icon={Trash2} className="app-btn-danger-text" onClick={() => setConfirm(true)}>Delete case</Button>
       </div>
       <ConfirmDialog open={confirm} danger title={`Delete ${c.name}'s case?`} confirmLabel="Delete" onClose={() => setConfirm(false)}
         onConfirm={async () => {

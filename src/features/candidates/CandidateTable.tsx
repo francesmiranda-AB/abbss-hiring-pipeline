@@ -105,7 +105,7 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
                     <span className="app-meta app-row-open__pos">{a.position || 'No position'}</span>
                   </button>
                 </td>
-                <td className="col-department">{a.department || <span className="ab-subtle">None</span>}</td>
+                <td className="col-department" title={a.department || undefined}>{a.department || <span className="ab-subtle">None</span>}</td>
                 <td className="cell-badge"><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge></td>
                 {showEmm && <td className="cell-badge col-emm"><EmmCell a={a} /></td>}
                 <td className="cell-badge"><Next a={a} /></td>

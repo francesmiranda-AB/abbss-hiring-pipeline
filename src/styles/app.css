@@ -67,7 +67,6 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 .app-signin__brand { margin: 0; font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-semibold); letter-spacing: var(--ab-tracking-wider); text-transform: uppercase; color: var(--ab-text-muted); }
 
 /* ── Kit helpers ───────────────────────────────────────────────────────── */
-.app-section-head { margin-bottom: var(--ab-space-4); padding-top: var(--ab-space-3); }
 .app-kpi-button { all: unset; display: grid; gap: 0.25rem; padding-top: var(--ab-space-3); border-top: 2px solid var(--ab-heading); cursor: pointer; }
 .app-kpi-button:hover .ab-kpi__value { color: var(--ab-link); }
 .app-kpi-button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 4px; border-radius: var(--ab-radius-xs); }
@@ -85,8 +84,6 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 .app-link-button { all: unset; color: var(--ab-link); text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
 .app-link-button:hover { color: var(--ab-link-hover); }
 .app-link-button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; border-radius: var(--ab-radius-xs); }
-.app-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ab-space-3); }
-.app-toolbar .ab-field { min-width: 10rem; }
 .app-card-plain { padding: var(--ab-card-padding); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
 
 /* Inputs stay white inside the navy block, so their text must stay dark. */
@@ -153,20 +150,27 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 }
 
 /* Compact KPI tiles (the navy feature block keeps AB's big numbers). */
-.app-kpi, .app-chip { padding: var(--ab-space-2) var(--ab-space-4) var(--ab-space-3); gap: 0; }
-.app-kpi .ab-kpi__value, .app-chip .ab-kpi__value { font-size: var(--ab-font-size-3xl); }
+.app-kpi { padding: var(--ab-space-2) var(--ab-space-4) var(--ab-space-3); gap: 0; }
+.app-kpi .ab-kpi__value { font-size: var(--ab-font-size-3xl); }
 .ab-feature .app-kpi { padding: var(--ab-space-3) 0 0; }
 .ab-feature .app-kpi .ab-kpi__value { font-size: var(--ab-font-size-kpi); }
 .app-kpi-button { position: relative; }
 .app-kpi__go { position: absolute; top: var(--ab-space-3); right: var(--ab-space-3); color: var(--ab-text-subtle); }
 .app-kpi-button:hover .app-kpi__go { color: var(--ab-link); }
-.app-chip.is-active .app-kpi__go { color: var(--ab-secondary-fg); }
 
 /* Tonal buttons are gray; inside a white list in a gray block they must stay visible. */
 :is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .ab-table-wrap) .ab-btn--tonal { background: var(--ab-tonal); }
 :is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .ab-table-wrap) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
 
-.app-btn-danger-text { color: var(--ab-danger-text); border-color: var(--ab-danger-border); }
+/* A destructive action that is confirmed or undoable: red text, soft red on hover (the button keeps its own shape). */
+.app-btn-danger-text { --_fg: var(--ab-danger-text); --_fg-hover: var(--ab-danger-soft-fg); --_bg-hover: var(--ab-danger-soft); --_bg-active: var(--ab-danger-soft); }
+.app-btn-danger-text.ab-btn--outline { --_border: var(--ab-danger-border); --_border-hover: var(--ab-danger-text); }
+/* A pressed toggle button reads as selected; pass and fail get their own colour. */
+.ab-btn[aria-pressed='true'] { --_bg: var(--ab-primary-soft); --_fg: var(--ab-primary-soft-fg); --_bg-hover: var(--ab-primary-soft); --_fg-hover: var(--ab-primary-soft-fg); --_border: var(--ab-primary-soft-fg); }
+.ab-btn.app-btn-pass[aria-pressed='true'] { --_bg: var(--ab-success-soft); --_fg: var(--ab-success-soft-fg); --_bg-hover: var(--ab-success-soft); --_fg-hover: var(--ab-success-soft-fg); --_border: var(--ab-success-border); }
+.ab-btn.ab-btn[aria-pressed='true'], .ab-btn.ab-btn[aria-pressed='true']:hover { background: var(--_bg); color: var(--_fg); border-color: var(--_border); }
+.ab-btn.app-btn-danger-text:hover, .ab-btn.app-btn-danger-text:active { background: var(--ab-danger-soft); color: var(--ab-danger-soft-fg); }
+.ab-btn.app-btn-fail[aria-pressed='true'] { --_bg: var(--ab-danger-soft); --_fg: var(--ab-danger-soft-fg); --_bg-hover: var(--ab-danger-soft); --_fg-hover: var(--ab-danger-soft-fg); --_border: var(--ab-danger-border); }
 .app-nowrap { white-space: nowrap; }
 .app-filepick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3); }
 .app-filepick > label:focus-within { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
@@ -190,7 +194,6 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 
 .app-cand-cards { display: none; margin: 0; padding: 0; list-style: none; }
 .app-cand-card { display: flex; align-items: stretch; border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); }
-.app-cand-card[aria-selected='true'] { background: var(--ab-primary-soft); }
 .app-cand-card__check { display: grid; place-items: center; padding: 0 var(--ab-space-3); }
 .app-cand-card__body { all: unset; flex: 1; display: grid; gap: 0.25rem; justify-items: start; box-sizing: border-box; min-width: 0; padding: var(--ab-space-3); cursor: pointer; }
 .app-cand-card__body:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; border-radius: var(--ab-radius-md); }
@@ -201,8 +204,6 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
   .app-cand-cards { display: grid; gap: var(--ab-space-2); grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); }
 }
 @media (max-width: 767px) {
-  .app-chips { display: flex; overflow-x: auto; padding-bottom: var(--ab-space-1); }
-  .app-chips > .app-chip { flex: 0 0 8rem; }
   .app-role-row { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -270,3 +271,22 @@ html:has(dialog[open]) { overflow: hidden; }
 .ab-modal[open] { display: flex; flex-direction: column; overflow: hidden; }
 .ab-modal__body { min-height: 0; overflow-y: auto; }
 .ab-modal__header, .ab-modal__footer { flex: none; }
+
+/* ── Polish ───────────────────────────────────────────────────────────────── */
+/* A busy button is disabled so Enter and Space cannot fire it twice; it still shows its spinner at full strength. */
+.ab-btn[aria-busy='true']:disabled { opacity: 1; }
+/* Danger confirmations lead with a small warning tile. */
+.app-confirm { display: flex; align-items: flex-start; gap: var(--ab-space-3); }
+.app-sheet__missing { padding: var(--ab-space-6); }
+
+/* Hover, pressed and selected feedback for the app's own clickable elements. */
+.app-cal__chip:hover { filter: brightness(0.96); }
+.app-board__head:hover .app-board__title { color: var(--ab-link); }
+.app-cal__chip.is-passed { background: var(--ab-surface); color: var(--ab-text-muted); border-color: var(--ab-border); border-style: dashed; }
+.app-cand-card:hover { background: var(--ab-tonal-hover); }
+.app-cand-card[data-selected]:hover { background: var(--ab-primary-soft); }
+tr[data-selected]:hover, .ab-table tbody tr[data-selected].app-row-clickable:hover { background: var(--ab-primary-soft); }
+.app-row-button:active, .app-template:active, .app-pill:active, .app-board__card:active, .app-cal__chip:active { background: var(--ab-tonal-hover); }
+@media (pointer: coarse) {
+  .app-pill, .app-link-button, .app-board__head, .app-qa > summary, .app-cal__chip { min-height: 2.75rem; }
+}

@@ -51,14 +51,14 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
           <CvBlock a={a} />
         </PanelSection>
       </div>
-      {caps.delete && <div><Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete record</Button></div>}
+      {caps.delete && <div><Button variant="ghost" size="sm" icon={Trash2} className="app-btn-danger-text" onClick={() => setConfirmDelete(true)}>Delete record</Button></div>}
       <ConfirmDialog open={confirmDelete} danger title={`Delete ${a.name}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)}
         onConfirm={async () => {
           setConfirmDelete(false);
           const before = a.overallStatus || 'In Progress';
           if (await update(a.id, { overallStatus: 'Deleted' })) {
             onDeleted();
-            toast.show({ message: `Deleted ${a.name}`, action: { label: 'Undo', onClick: () => { void update(a.id, { overallStatus: before }); } } });
+            toast.show({ message: `${a.name} deleted`, action: { label: 'Undo', onClick: () => { void update(a.id, { overallStatus: before }); } } });
           }
         }}>
         <p className="m-0">The record disappears from every list. You can undo this right after.</p>

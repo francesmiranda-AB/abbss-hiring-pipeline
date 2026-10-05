@@ -127,7 +127,7 @@ function MonthGrid({ year, month, items, busy, onOpen }: { year: number; month: 
             <div key={c} className={cx('app-cal__cell', isToday && 'is-today')}>
               <span className="app-cal__day">{day}{isToday && <span className="ab-visually-hidden"> (today)</span>}</span>
               {(byDay[day] || []).map((i) => (
-                <button key={`${i.candidateId}-${i.slot.id}`} type="button" className={cx('app-cal__chip', i.status === 'confirmed' ? 'is-confirmed' : 'is-pending')} title={`${time(i.date!)} ${i.name}`} onClick={() => onOpen(i)}>
+                <button key={`${i.candidateId}-${i.slot.id}`} type="button" className={cx('app-cal__chip', i.status === 'confirmed' ? 'is-confirmed' : i.date! < new Date() ? 'is-passed' : 'is-pending')} title={`${time(i.date!)} ${i.name}${i.status !== 'confirmed' && i.date! < new Date() ? ', passed and never confirmed' : ''}`} onClick={() => onOpen(i)}>
                   <span className="app-num app-cal__time">{time(i.date!)}</span><span className="app-cal__who">{i.name}</span>
                 </button>
               ))}
@@ -211,15 +211,15 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
   const meet = a.confirmedSlot?.meetLink && /^https:\/\/meet\.google\.com\//.test(a.confirmedSlot.meetLink) ? a.confirmedSlot.meetLink : '';
 
   return (
-    <Dialog open onClose={onClose} title={a.name} footer={<>
-      <Button variant="ghost" onClick={() => setAsk('remove')} disabled={busy}>Remove this time</Button>
-      {isConfirmed ? <Button variant="tonal" busy={busy} onClick={() => setAsk('undo')}>Undo confirmation</Button> : <Button variant="primary" busy={busy} onClick={confirm}>Confirm this time</Button>}
+    <Dialog open onClose={onClose} title={`Interview with ${a.name}`} footer={<>
+      <Button variant="ghost" className="app-btn-danger-text mr-auto" onClick={() => setAsk('remove')} disabled={busy}>Remove this time</Button>
+      {isConfirmed ? <Button variant="tonal" className="app-btn-danger-text" busy={busy} onClick={() => setAsk('undo')}>Undo confirmation</Button> : <Button variant="primary" busy={busy} onClick={confirm}>Confirm this time</Button>}
     </>}>
       <ConfirmDialog open={ask === 'remove'} danger title="Remove this time?" confirmLabel="Remove" busy={busy} onClose={() => setAsk(null)}
         onConfirm={async () => { await remove(); setAsk(null); }}>
         <p className="m-0">{slot.label} is taken off the calendar{isConfirmed ? ', and the confirmed event is deleted' : ''}. The candidate is not told.</p>
       </ConfirmDialog>
-      <ConfirmDialog open={ask === 'undo'} danger title="Undo the confirmation?" confirmLabel="Undo confirmation" busy={busy} onClose={() => setAsk(null)}
+      <ConfirmDialog open={ask === 'undo'} danger title="Undo the confirmation?" confirmLabel="Remove from calendar" busy={busy} onClose={() => setAsk(null)}
         onConfirm={async () => { await undo(); setAsk(null); }}>
         <p className="m-0">The Google Calendar event and Meet link are deleted. The candidate keeps the email they already received, so tell them yourself.</p>
       </ConfirmDialog>

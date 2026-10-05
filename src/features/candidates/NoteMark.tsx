@@ -67,12 +67,12 @@ export function NoteMark({ a }: { a: Candidate }) {
     };
     const onMove = () => void closeRef.current();
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('keydown', onKey, true);
     window.addEventListener('scroll', onMove, true);
     window.addEventListener('resize', onMove);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('scroll', onMove, true);
       window.removeEventListener('resize', onMove);
     };
@@ -89,7 +89,7 @@ export function NoteMark({ a }: { a: Candidate }) {
       </button>
       {open && createPortal(
         <div ref={pop} className="app-note-pop" role="dialog" aria-label={`Notes for ${a.name}`} style={place}>
-          <div className="app-note-pop__head"><span className="app-note-pop__title">Notes</span><span className="app-meta app-truncate">{a.name}</span></div>
+          <div className="app-note-pop__head"><span className="app-note-pop__title">Notes</span><span className="app-meta app-truncate" title={a.name}>{a.name}</span></div>
           {editing ? (
             <textarea className="ab-textarea app-note-pop__edit" aria-label={`Notes for ${a.name}`} placeholder="Relevant experience and skills" value={draft} autoFocus
               onChange={(e) => setDraft(e.target.value)} onBlur={() => { void commit(); }} />

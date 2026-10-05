@@ -56,7 +56,7 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
     onClear();
     if (!done.length) return;
     toast.show({
-      message: `Deleted ${done.length} record${done.length === 1 ? '' : 's'}`,
+      message: `${done.length} record${done.length === 1 ? '' : 's'} deleted`,
       action: { label: 'Undo', onClick: () => { void Promise.all(done.map((id) => update(id, { overallStatus: before.get(id) || 'In Progress' }))); } },
     });
   };
@@ -79,12 +79,12 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
         <Button size="sm" variant="tonal" icon={Mail} busy={busy} disabled={!template} onClick={() => setConfirmSend(true)}>Send</Button>
       </div>
       <Button size="sm" variant="ghost" icon={Download} onClick={() => downloadText(`ABBSS_Selected_${todayStamp()}.csv`, candidatesCsv(selected))}>Export</Button>
-      <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete</Button>
-      <Button size="sm" variant="ghost" icon={X} className="ml-auto" onClick={onClear}>Clear</Button>
+      <Button size="sm" variant="ghost" icon={Trash2} className="app-btn-danger-text" onClick={() => setConfirmDelete(true)}>Delete</Button>
+      <Button size="sm" variant="ghost" icon={X} className="ml-auto" onClick={onClear}>Clear selection</Button>
       <ConfirmDialog open={confirmSend} title={`Send ${template ? EMAIL_TEMPLATE_LABELS[template] : 'email'} to ${withEmail.length} candidate${withEmail.length === 1 ? '' : 's'}?`}
         confirmLabel={`Send ${withEmail.length} email${withEmail.length === 1 ? '' : 's'}`} onClose={() => setConfirmSend(false)} onConfirm={sendAll}>
         <p className="m-0">Each person gets their own copy from you. This can't be recalled.</p>
-        {withEmail.length < n && <p className="m-0 ab-error">{n - withEmail.length} selected {n - withEmail.length === 1 ? 'has' : 'have'} no email address and will be skipped.</p>}
+        {withEmail.length < n && <p className="m-0 app-tone-warning">{n - withEmail.length} selected {n - withEmail.length === 1 ? 'has' : 'have'} no email address and will be skipped.</p>}
         <p className="m-0 app-meta">{withEmail.slice(0, 6).map((a) => a.name).join(', ')}{withEmail.length > 6 ? `, and ${withEmail.length - 6} more` : ''}</p>
       </ConfirmDialog>
       <ConfirmDialog open={confirmDelete} danger title={`Delete ${n} record${n === 1 ? '' : 's'}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)} onConfirm={deleteAll}>

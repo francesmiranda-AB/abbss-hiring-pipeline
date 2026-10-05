@@ -27,7 +27,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
   if (!history.length && a.createdAt) history.push(['New Application', a.createdAt]);
   return (
     <div className="app-stack">
-      <ConfirmDialog open={!!unmark} title="Clear the sent mark?" confirmLabel="Clear mark" onClose={() => setUnmark(null)}
+      <ConfirmDialog open={!!unmark} quiet title="Clear the sent mark?" confirmLabel="Clear mark" onClose={() => setUnmark(null)}
         onConfirm={() => { const k = unmark!; setUnmark(null); void actions.unrecordEmailSent(a.id, k); }}>
         <p className="m-0">This only clears the record that it was sent, and it restarts the assessment deadline clock if it was an invite. It does not un-send anything.</p>
       </ConfirmDialog>
@@ -45,7 +45,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
                     </td>
                     <td className="app-num">{fmtDateTime(sent[k])}</td>
                     <td className="app-num">{opened[k] ? fmtDateTime(opened[k]) : <span className="ab-subtle">Not seen</span>}</td>
-                    <td className="text-right">{k !== 'autoReminder' && caps.email && <Button size="sm" variant="ghost" onClick={() => setUnmark(k)}>Unmark</Button>}</td>
+                    <td className="text-right">{k !== 'autoReminder' && caps.email && <Button size="sm" variant="ghost" onClick={() => setUnmark(k)}>Clear sent mark</Button>}</td>
                   </tr>
                 ))}
               </tbody>

@@ -159,7 +159,7 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
     if (!a?.emailsSent?.[key]) return;
     const next = { ...a.emailsSent };
     delete next[key];
-    if (await update(id, { emailsSent: next })) toast.show({ message: 'Removed the "sent" mark. Nothing was un-sent.', tone: 'info' });
+    if (await update(id, { emailsSent: next })) toast.show({ message: 'Sent mark cleared. Nothing was un-sent.', tone: 'info' });
   }, [get, update, toast]);
 
   const sendTemplated = useCallback(async (id: number, key: string, msg: { to: string; subject: string; body: string }) => {

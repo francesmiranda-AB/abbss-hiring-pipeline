@@ -50,7 +50,7 @@ export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]
                       <NoteGlyph note={a.resumeNotes} className="app-board__note" />
                       {needsAttention(a, config)?.overdue && <Clock size={14} className="app-tone-danger app-board__late" aria-label="Overdue" role="img" />}
                     </span>
-                    <span className="app-meta app-board__sub">{[a.position || 'No position', a.candidateStage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : a.department].filter(Boolean).join(', ')}</span>
+                    <span className="app-meta app-board__sub" title={[a.position || 'No position', a.department].filter(Boolean).join(', ')}>{[a.position || 'No position', a.candidateStage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : a.department].filter(Boolean).join(', ')}</span>
                     <CardBadges a={a} />
                   </>);
                   return (

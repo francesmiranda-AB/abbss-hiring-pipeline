@@ -6,7 +6,7 @@ import { can } from '@/domain/permissions';
 import { useCandidates } from '@/api/queries';
 import { useInterviewQuestions, useQuestionActions } from '@/api/interviewQuestions';
 import { useUser } from '@/auth/auth';
-import { Button } from '@/ui/kit';
+import { Button, Skeleton } from '@/ui/kit';
 import { PanelSection } from './common';
 import { QuestionDialog } from './QuestionDialog';
 
@@ -34,7 +34,7 @@ export function QuestionSets({ a }: { a: Candidate }) {
   return (
     <>
       {isFallback && <p className="app-meta m-0">Showing the built-in questions. The shared collection can't be reached right now, so questions can't be changed.</p>}
-      {isLoading && <p className="app-meta m-0">Loading the interview questions...</p>}
+      {isLoading && <Skeleton lines={2} />}
 
       <PanelSection title={roleName ? `Questions for ${roleName}` : 'Role-specific questions'} icon={ClipboardList} tone="blue" aside={roleName ? add('role') : undefined}>
         {!roleName ? (
@@ -86,7 +86,7 @@ function QuestionList({ items, group, canEdit, showRoles, onEdit, onDelete, onMo
                 <Button variant="ghost" size="sm" icon={Pencil} onClick={() => onEdit(q)}>Edit</Button>
                 <Button variant="ghost" size="sm" icon={ArrowUp} aria-label={`Move question ${i + 1} up`} disabled={i === 0} onClick={() => onMove(q, -1)} />
                 <Button variant="ghost" size="sm" icon={ArrowDown} aria-label={`Move question ${i + 1} down`} disabled={i === items.length - 1} onClick={() => onMove(q, 1)} />
-                <Button variant="ghost" size="sm" icon={Trash2} onClick={() => onDelete(q)}>Delete</Button>
+                <Button variant="ghost" size="sm" icon={Trash2} className="app-btn-danger-text ml-auto" onClick={() => onDelete(q)}>Delete</Button>
               </div>
             )}
           </div>

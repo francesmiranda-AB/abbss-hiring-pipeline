@@ -74,7 +74,7 @@ export function CandidatePanel({ id }: { id: number | null }) {
           </div>
         </div>
       ) : (
-        <div className="app-sheet__inner">
+        <div className="app-sheet__inner app-sheet__missing">
           <div className="flex justify-between items-center"><h2 className="ab-title">Not found</h2><Button variant="ghost" icon={X} aria-label="Close" onClick={close} /></div>
           <p className="ab-muted">This candidate isn't in the list any more. They may have been deleted.</p>
         </div>
@@ -104,7 +104,7 @@ function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; cap
   return (
     <header className="app-sheet__head" data-phase={stagePhase(a.candidateStage)}>
       <div className="app-sheet__titlerow">
-        <h2 className="ab-title app-truncate app-sheet__name">{a.name}</h2>
+        <h2 className="ab-title app-truncate app-sheet__name" title={a.name}>{a.name}</h2>
         <p className="app-meta app-truncate app-sheet__meta" title={meta}>
           {[a.position || 'No position', a.department].filter(Boolean).join(', ')}
           {a.email && <>, <a href={`mailto:${a.email}`}>{a.email}</a></>}

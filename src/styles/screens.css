@@ -1,13 +1,6 @@
 /* Screen styles. AB tokens only: no raw colors, radii or shadows. */
 
 /* ── Candidates ────────────────────────────────────────────────────────── */
-.app-chips { grid-template-columns: repeat(auto-fit, minmax(min(8.5rem, 100%), 1fr)); gap: var(--ab-space-3); }
-.app-chip { padding: var(--ab-space-3) var(--ab-space-4) var(--ab-space-4); border-radius: 0 0 var(--ab-radius-md) var(--ab-radius-md); background: var(--ab-surface); border-top-color: var(--ab-border-strong); }
-.app-chip:hover { background: var(--ab-tonal-hover); }
-.app-chip.is-active { background: var(--ab-secondary); border-top-color: var(--ab-secondary); }
-.app-chip.is-active .ab-kpi__value, .app-chip.is-active .ab-kpi__label { color: var(--ab-secondary-fg); }
-.app-chip.is-active .ab-kpi__label { font-weight: var(--ab-font-weight-semibold); }
-.app-chip.is-active:hover { background: var(--ab-secondary); }
 .app-search { position: relative; flex: 1 1 22rem; max-width: 34rem; display: block; }
 .app-search > svg { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--ab-text-subtle); pointer-events: none; }
 .app-search .ab-input { padding-left: 2.25rem; }
@@ -42,7 +35,6 @@
 .app-board__badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
 .app-board__head:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; border-radius: var(--ab-radius-xs); }
 .app-board__col.is-collapsed .app-board__head { writing-mode: vertical-rl; justify-content: flex-start; min-height: 10rem; }
-.app-board__count { font-variant-numeric: tabular-nums; }
 .app-board__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ab-space-2); }
 .app-board__empty { padding: var(--ab-space-2) 0; }
 .app-board__card {
@@ -75,7 +67,6 @@
 }
 .app-fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .app-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-head-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--ab-space-3); align-items: start; }
 .app-next { padding: var(--ab-space-1) var(--ab-space-3); border-radius: var(--ab-radius-md); background: var(--ab-primary-soft); color: var(--ab-primary-soft-fg); font-size: var(--ab-font-size-sm); }
 .app-panel-section { display: grid; gap: var(--ab-space-3); padding: var(--ab-space-4); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
 .app-panel-section__head { display: flex; justify-content: space-between; align-items: center; gap: var(--ab-space-3); }
@@ -88,8 +79,6 @@
 .app-list { margin: var(--ab-space-2) 0 0; padding-left: 1.25rem; display: grid; gap: var(--ab-space-1); }
 .app-row-compact { --ab-row-padding: var(--ab-space-2); grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(0, 6rem); align-items: center; }
 .app-row-compact .ab-row__meta { text-align: right; }
-.app-guide__item { display: grid; gap: var(--ab-space-1); padding-block: var(--ab-space-3); border-bottom: 1px solid var(--ab-border); }
-.app-guide__skill { margin: 0; font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
 .app-outcome-now { margin: 0; font-size: var(--ab-font-size-xl); font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
 
 /* Rows that are buttons (Today, calendar side lists). */
@@ -133,7 +122,7 @@
 .app-cal__chip.is-pending { background: var(--ab-info-soft); color: var(--ab-info-soft-fg); border-color: var(--ab-info-border); }
 .app-cal__chip.is-confirmed { background: var(--ab-success-soft); color: var(--ab-success-soft-fg); border-color: var(--ab-success-border); }
 .app-cal__chip:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 1px; }
-.app-cal__busy { font-size: 0.6875rem; color: var(--ab-text-muted); }
+.app-cal__busy { color: var(--ab-text-muted); }
 
 /* ── Offboarding ───────────────────────────────────────────────────────── */
 .app-checklist { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ab-border); }
@@ -298,9 +287,6 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .ab-input[readonly] { background: var(--ab-bg-subtle); }
 
 /* Email composer "More" menu and the interview time pickers. */
-.app-more { position: relative; }
-.app-more > summary { list-style: none; cursor: pointer; }
-.app-more > summary::-webkit-details-marker { display: none; }
 .app-more__menu { position: absolute; bottom: calc(100% + 0.25rem); left: 0; min-width: 16rem; z-index: 2; }
 .app-slot-grid { display: grid; gap: var(--ab-space-3); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); align-items: start; }
 
@@ -390,8 +376,8 @@ tr[data-selected] { background: var(--ab-primary-soft); }
 .app-sheet .app-panel-section[data-kind='reference'] { background: transparent; border-radius: 0; padding-inline: 0; }
 /* On white, neutral badges and tonal buttons go back to their own gray. */
 .app-sheet .app-panel-section:not([data-kind='result']) .ab-badge--neutral { --_bg: var(--ab-tonal); --_border: transparent; }
-.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal { background: var(--ab-tonal); }
-.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal:not([aria-pressed='true']):not(:hover) { background: var(--ab-tonal); }
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal:not([aria-pressed='true']):not(.app-btn-danger-text):hover { background: var(--ab-tonal-hover); }
 /* The phase of the person colours the top of the record. */
 .app-sheet__head { border-top: 4px solid var(--phase, var(--ab-border)); }
 .app-sheet__head .app-next { background: var(--phase-soft, var(--ab-primary-soft)); color: var(--phase-fg, var(--ab-primary-soft-fg)); }
@@ -415,3 +401,6 @@ tr[data-selected] { background: var(--ab-primary-soft); }
 /* Interview question rows: editors' buttons, and the role check list in the question dialog. */
 .app-qa__actions { display: flex; flex-wrap: wrap; gap: var(--ab-space-1); margin-top: var(--ab-space-1); }
 .app-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--ab-space-2) var(--ab-space-4); }
+.app-composer-foot { justify-content: flex-end; }
+/* The email and phone links in the record header sit in a clipped one-line box: keep their focus ring inside it. */
+.app-sheet__meta a:focus-visible { outline-offset: -2px; border-radius: var(--ab-radius-xs); }

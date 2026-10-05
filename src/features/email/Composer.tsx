@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, FileSignature, MoreHorizontal, Paperclip, PenLine, Send, UserRound } from 'lucide-react';
 import { useConfig, useUpdateCandidate } from '@/api/queries';
 import { API_URL } from '@/api/client';
@@ -9,7 +9,7 @@ import { stageLabel } from '@/domain/stages';
 import type { Candidate } from '@/domain/types';
 import { useCandidateActions } from '../candidates/actions';
 import { SavingInput, SavingTextarea } from '../candidate/sections/common';
-import { Badge, Button, ConfirmDialog, DialogGroup, Field, fmtDateTime } from '@/ui/kit';
+import { Badge, Button, ConfirmDialog, DialogGroup, Field, fmtDateTime, useMenu } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 // What someone typed over a template, kept per candidate and template so that
@@ -38,11 +38,12 @@ export function Composer({ a, template, drafts, setDraft, onSent }: {
   const body = drafts[key]?.body ?? filled.body;
   const [busy, setBusy] = useState(false);
   const [askUnmark, setAskUnmark] = useState(false);
-  const more = useRef<HTMLDetailsElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreBox = useMenu(moreOpen, setMoreOpen);
   const sentAt = a.emailsSent?.[template];
   const attachment = EMAIL_ATTACHMENTS[template];
   const od = a.offerDetails || {};
-  const closeMore = () => { if (more.current) more.current.open = false; };
+  const closeMore = () => setMoreOpen(false);
 
   const send = async () => {
     setBusy(true);
@@ -108,20 +109,24 @@ export function Composer({ a, template, drafts, setDraft, onSent }: {
       )}
       </DialogGroup>
       <div className="ab-cluster app-composer-foot">
-        <Button variant="primary" icon={Send} busy={busy} onClick={send}>Send</Button>
         {/* The fallbacks (Gmail, copy, marking as sent by hand) live behind More. */}
-        <details className="app-more" ref={more}>
-          <summary className="ab-btn ab-btn--ghost"><MoreHorizontal size={16} aria-hidden /> More</summary>
-          <div className="ab-menu app-more__menu">
-            <button type="button" className="ab-menu__item" onClick={openGmail}><ExternalLink size={16} aria-hidden /> Open in Gmail instead</button>
-            <button type="button" className="ab-menu__item" onClick={() => { closeMore(); void navigator.clipboard?.writeText(`Subject: ${subject}\n\n${body}`).then(() => toast.show({ message: 'Email copied' })); }}><Copy size={16} aria-hidden /> Copy the text</button>
-            {!sentAt
-              ? <button type="button" className="ab-menu__item" onClick={markSent}><Check size={16} aria-hidden /> I already sent it, mark as sent</button>
-              : <button type="button" className="ab-menu__item" onClick={() => { closeMore(); setAskUnmark(true); }}>Clear the sent mark</button>}
-          </div>
-        </details>
+        <div className="relative" ref={moreBox}>
+          <Button variant="ghost" icon={MoreHorizontal} aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>More</Button>
+          {moreOpen && (
+            <div className="ab-menu app-more__menu" role="menu">
+              <button type="button" role="menuitem" className="ab-menu__item" onClick={openGmail}><ExternalLink size={16} aria-hidden /> Open in Gmail instead</button>
+              <button type="button" role="menuitem" className="ab-menu__item" onClick={() => { closeMore(); void navigator.clipboard?.writeText(`Subject: ${subject}
+
+${body}`).then(() => toast.show({ message: 'Email copied' })); }}><Copy size={16} aria-hidden /> Copy the text</button>
+              {!sentAt
+                ? <button type="button" role="menuitem" className="ab-menu__item" onClick={markSent}><Check size={16} aria-hidden /> I already sent it, mark as sent</button>
+                : <button type="button" role="menuitem" className="ab-menu__item" onClick={() => { closeMore(); setAskUnmark(true); }}>Clear the sent mark</button>}
+            </div>
+          )}
+        </div>
+        <Button variant="primary" icon={Send} busy={busy} onClick={send}>Send</Button>
       </div>
-      <ConfirmDialog open={askUnmark} title="Clear the sent mark?" confirmLabel="Clear mark" onClose={() => setAskUnmark(false)}
+      <ConfirmDialog open={askUnmark} quiet title="Clear the sent mark?" confirmLabel="Clear mark" onClose={() => setAskUnmark(false)}
         onConfirm={() => { setAskUnmark(false); void actions.unrecordEmailSent(a.id, template); }}>
         <p className="m-0">This only clears the record that it was sent. It does not un-send anything.</p>
       </ConfirmDialog>

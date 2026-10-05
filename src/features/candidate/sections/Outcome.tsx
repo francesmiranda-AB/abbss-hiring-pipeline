@@ -4,12 +4,12 @@ import { emmHighRiskFlag, gritOf, valuesOf } from '@/domain/assessments';
 import { availableDecisions, outcomeText, type Decision } from '@/domain/outcome';
 import { useConfig, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
-import { Badge, Button, Field } from '@/ui/kit';
+import { Badge, Button, Field, cx } from '@/ui/kit';
 import { SavingInput, SavingTextarea, PanelSection } from './common';
 
 type Check = { label: string; state: 'pass' | 'fail' | 'pending'; detail: string };
 const DECISION_BUTTON: Record<Decision | 'Close', string> = {
-  Hired: 'Mark as hired', Close: 'Close', Hold: 'Put on hold', NonCompliant: 'No reply', 'In Progress': 'Back to in progress', Departed: 'No longer with us',
+  Hired: 'Mark as hired', Close: 'Close candidate', Hold: 'Put on hold', NonCompliant: 'No reply', 'In Progress': 'Back to in progress', Departed: 'No longer with us',
 };
 
 export function OutcomeSection({ a }: { a: Candidate }) {
@@ -46,7 +46,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
             </li>
           ))}
         </ul>
-        <p className="m-0 font-semibold">{verdict}</p>
+        <p className={cx('m-0 font-semibold', checks.some((c) => c.state === 'fail') ? 'app-tone-danger' : checks.every((c) => c.state === 'pass') && 'app-tone-success')}>{verdict}</p>
       </PanelSection>
 
       <PanelSection title="Outcome" kind="action" icon={Flag} tone="green">
@@ -54,7 +54,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
         <div className="ab-cluster">
           {decisions.map((d) => (
             <Button key={d} size="sm" variant={d === 'Close' ? 'outline' : d === 'Hired' ? 'secondary' : 'tonal'}
-              className={d === 'Close' ? 'app-btn-danger-text' : undefined}
+              className={d === 'Close' || d === 'NonCompliant' || d === 'Departed' ? 'app-btn-danger-text' : undefined}
               onClick={() => (d === 'Close' ? actions.openClose({ ids: [a.id] }) : actions.decide(a.id, d))}>
               {DECISION_BUTTON[d]}
             </Button>

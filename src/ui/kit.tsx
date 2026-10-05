@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { AlertTriangle, ChevronRight, Upload, X, type LucideIcon } from 'lucide-react';
 import type { BadgeTone } from '@/domain/stages';
 
@@ -13,7 +13,7 @@ export function Button({ variant = 'tonal', size, busy, icon: Icon, children, cl
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant; size?: 'sm' | 'lg'; busy?: boolean; icon?: LucideIcon }) {
   return (
     <button type={type} className={cx('ab-btn', variant !== 'primary' && `ab-btn--${variant}`, size && `ab-btn--${size}`, !children && 'ab-btn--icon', className)}
-      aria-busy={busy || undefined} {...rest}>
+      aria-busy={busy || undefined} {...rest} disabled={rest.disabled || busy || undefined}>
       {Icon && <Icon size={16} strokeWidth={2} aria-hidden />}
       {children}
     </button>
@@ -113,7 +113,7 @@ export function FilePicker({ id, accept, onFile, children, fileName, busy }: {
   return (
     <span className="app-filepick">
       <label className="ab-btn ab-btn--tonal ab-btn--sm" aria-busy={busy || undefined}>
-        <Upload size={14} aria-hidden /> {children}
+        <Upload size={16} aria-hidden /> {children}
         <input id={id} type="file" accept={accept} className="ab-visually-hidden"
           onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; onFile(f); }} />
       </label>
@@ -135,7 +135,7 @@ export function Empty({ icon: Icon, title, children, action }: { icon: LucideIco
 
 export function Skeleton({ lines = 3 }: { lines?: number }) {
   return (
-    <div className="grid gap-3" aria-busy="true" aria-label="Loading">
+    <div className="grid gap-3" role="status" aria-busy="true" aria-label="Loading">
       {Array.from({ length: lines }, (_, i) => <span key={i} className="ab-skeleton" style={{ height: '2.5rem' }} />)}
     </div>
   );
@@ -153,11 +153,13 @@ export function ErrorAlert({ title, children, action }: { title: string; childre
 }
 
 export function Field({ label, required, hint, error, children, htmlFor }: { label: string; required?: boolean; hint?: string; error?: string; children: ReactNode; htmlFor?: string }) {
+  // The hint or error is tied to the input so screen readers read it with the field.
+  const msgId = htmlFor && (error || hint) ? `${htmlFor}-msg` : undefined;
   return (
     <div className="ab-field">
       <label className={cx('ab-label', required && 'ab-label--required')} htmlFor={htmlFor}>{label}</label>
-      {children}
-      {error ? <span className="ab-error">{error}</span> : hint ? <span className="ab-hint">{hint}</span> : null}
+      {msgId ? Children.map(children, (c) => (isValidElement<{ id?: string }>(c) && c.props.id === htmlFor ? cloneElement(c as React.ReactElement<Record<string, unknown>>, { 'aria-describedby': msgId }) : c)) : children}
+      {error ? <span className="ab-error" id={msgId}>{error}</span> : hint ? <span className="ab-hint" id={msgId}>{hint}</span> : null}
     </div>
   );
 }
@@ -216,15 +218,15 @@ export function Dialog({ open, onClose, title, children, footer, wide }: { open:
 }
 
 // One confirmation for anything that is hard to take back or reaches other people.
-export function ConfirmDialog({ open, title, children, confirmLabel, danger, busy, onConfirm, onClose }: {
-  open: boolean; title: string; children: ReactNode; confirmLabel: string; danger?: boolean; busy?: boolean; onConfirm: () => void; onClose: () => void;
+export function ConfirmDialog({ open, title, children, confirmLabel, danger, quiet, busy, onConfirm, onClose }: {
+  open: boolean; title: string; children: ReactNode; confirmLabel: string; danger?: boolean; quiet?: boolean; busy?: boolean; onConfirm: () => void; onClose: () => void;
 }) {
   return (
     <Dialog open={open} onClose={onClose} title={title} footer={<>
       <Button variant="ghost" onClick={onClose}>Cancel</Button>
-      <Button variant={danger ? 'danger' : 'primary'} busy={busy} onClick={onConfirm}>{confirmLabel}</Button>
+      <Button variant={danger ? 'danger' : quiet ? 'tonal' : 'primary'} busy={busy} onClick={onConfirm}>{confirmLabel}</Button>
     </>}>
-      <div className="grid gap-2">{children}</div>
+      {danger ? <div className="app-confirm"><Tile icon={AlertTriangle} tone="red" /><div className="grid gap-2">{children}</div></div> : <div className="grid gap-2">{children}</div>}
     </Dialog>
   );
 }
@@ -281,8 +283,9 @@ export function useMenu(open: boolean, setOpen: (o: boolean) => void) {
       list[(at + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length].focus();
     };
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey, true);
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey, true); };
+    // On window, in the capture phase: that runs before the stacked-dialog Esc handler above, so Esc closes the menu first.
+    window.addEventListener('keydown', onKey, true);
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey, true); };
   }, [open, setOpen]);
   return box;
 }

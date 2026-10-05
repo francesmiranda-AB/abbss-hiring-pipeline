@@ -30,8 +30,8 @@ export function InterviewSection({ a }: { a: Candidate }) {
         <SavingTextarea id={`ivn-${a.id}`} label="Interview notes" value={iv.notes} rows={6} placeholder="Answers, observations, concerns"
           onSave={(x) => update(a.id, { interview: { ...iv, notes: x } })} />
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="tonal" size="sm" icon={Check} aria-pressed={iv.result === 'pass'} onClick={() => setResult('pass')}>Passed</Button>
-          <Button variant="tonal" size="sm" icon={X} aria-pressed={iv.result === 'fail'} onClick={() => setResult('fail')}>Failed</Button>
+          <Button variant="tonal" size="sm" icon={Check} className="app-btn-pass" aria-pressed={iv.result === 'pass'} onClick={() => setResult('pass')}>Passed</Button>
+          <Button variant="tonal" size="sm" icon={X} className="app-btn-fail" aria-pressed={iv.result === 'fail'} onClick={() => setResult('fail')}>Failed</Button>
           {iv.result ? <Badge tone={iv.result === 'pass' ? 'success' : 'danger'}>{iv.result === 'pass' ? 'Interview passed' : 'Interview failed'}</Badge>
             : <span className="app-meta">No result yet.</span>}
         </div>
@@ -91,10 +91,10 @@ function Scheduling({ a }: { a: Candidate }) {
         </div>
       ) : (
         <>
-          {unreadable.length > 0 && <p className="ab-error m-0" role="alert">Couldn't read the saved time{unreadable.length > 1 ? 's' : ''} "{unreadable.join('", "')}". Pick {unreadable.length > 1 ? 'them' : 'it'} again below.</p>}
+          {unreadable.length > 0 && <p className="app-tone-warning m-0" role="alert">Couldn't read the saved time{unreadable.length > 1 ? 's' : ''} "{unreadable.join('", "')}". Pick {unreadable.length > 1 ? 'them' : 'it'} again below.</p>}
           <div className="app-slot-grid">
             {SLOT_FIELDS.map((label, i) => (
-              <Field key={label} label={label} htmlFor={`slot-${a.id}-${i}`} error={i === 0 ? error : undefined}>
+              <Field key={label} label={label} required={i === 0} htmlFor={`slot-${a.id}-${i}`} error={i === 0 ? error : undefined}>
                 <input id={`slot-${a.id}-${i}`} type="datetime-local" className="ab-input" value={values[i]} aria-invalid={i === 0 && !!error}
                   onChange={(e) => setValues((cur) => cur.map((v, j) => (j === i ? e.target.value : v)))} />
               </Field>
