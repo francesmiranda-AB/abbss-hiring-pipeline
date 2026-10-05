@@ -1,6 +1,7 @@
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS } from '@/domain/emailTemplates';
 import type { Candidate } from '@/domain/types';
-import { Dialog, Field } from '@/ui/kit';
+import { FileText } from 'lucide-react';
+import { Dialog, DialogGroup, Field } from '@/ui/kit';
 import { Composer, useDrafts } from './Composer';
 
 // Emailing a candidate without leaving their record: the same composer as the
@@ -10,12 +11,14 @@ export function ComposeDialog({ a, template, onTemplate, onClose }: { a: Candida
   return (
     <Dialog open={!!template} onClose={onClose} wide title={`Email ${a.name}`}>
       {template && (
-        <div className="grid gap-4">
-          <Field label="Template" htmlFor="compose-template">
-            <select id="compose-template" className="ab-select" value={template} onChange={(e) => onTemplate(e.target.value)}>
-              {CANDIDATE_TEMPLATE_KEYS.map((k) => <option key={k} value={k}>{EMAIL_TEMPLATE_LABELS[k]}{a.emailsSent?.[k] ? ' (sent)' : ''}</option>)}
-            </select>
-          </Field>
+        <div className="app-dialog-groups">
+          <DialogGroup title="Template" icon={FileText}>
+            <Field label="Choose a template" htmlFor="compose-template">
+              <select id="compose-template" className="ab-select" value={template} onChange={(e) => onTemplate(e.target.value)}>
+                {CANDIDATE_TEMPLATE_KEYS.map((k) => <option key={k} value={k}>{EMAIL_TEMPLATE_LABELS[k]}{a.emailsSent?.[k] ? ' (sent)' : ''}</option>)}
+              </select>
+            </Field>
+          </DialogGroup>
           <Composer a={a} template={template} drafts={drafts} setDraft={setDraft} onSent={onClose} />
         </div>
       )}

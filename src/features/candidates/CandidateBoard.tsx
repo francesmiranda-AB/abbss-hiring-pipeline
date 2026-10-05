@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, Clock } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageName, stagePhase, stageTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageName, stageTone } from '@/domain/stages';
 import { needsAttention } from '@/domain/attention';
 import { useConfig } from '@/api/queries';
 import { Badge, cx } from '@/ui/kit';
@@ -35,7 +35,7 @@ export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]
         const items = col.key ? candidates.filter((a) => a.candidateStage === col.key) : noStage;
         const isCollapsed = !!collapsed[col.key];
         return (
-          <li key={col.key || 'none'} className={cx('app-board__col', isCollapsed && 'is-collapsed', !items.length && 'is-empty')} aria-label={`${col.label}, ${items.length}`} data-phase={stagePhase(col.key)}>
+          <li key={col.key || 'none'} className={cx('app-board__col', isCollapsed && 'is-collapsed', !items.length && 'is-empty')} aria-label={`${col.label}, ${items.length}`}>
             <button type="button" className="app-board__head" aria-expanded={!isCollapsed} onClick={() => toggle(col.key)}>
               <span className="app-board__title">{col.label}</span>
               <Badge tone={items.length ? stageTone(col.key) : 'neutral'}>{items.length}</Badge>

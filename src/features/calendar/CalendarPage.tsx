@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CalendarCheck, CalendarClock, CalendarDays, CalendarX, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Phone, UserRound, Video } from 'lucide-react';
 import { confirmInterview, getInterviewerBusy, removeInterviewSlot, unconfirmInterview } from '@/api/actions';
 import { SNAPSHOT_KEY, useCandidate, useCandidates, useUpdateCandidate } from '@/api/queries';
 import { useUser } from '@/auth/auth';
 import { calendarItems, DEFAULT_INTERVIEW_DURATION_MIN, findOverlap, slotDate, type CalendarItem } from '@/domain/calendar';
 import { roleScope } from '../candidates/filters';
 import { useCandidateActions } from '../candidates/actions';
-import { Badge, Button, ConfirmDialog, Dialog, Empty, Field, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
+import { Badge, Button, ConfirmDialog, Dialog, DialogGroup, Empty, Field, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -59,8 +59,8 @@ export default function CalendarPage() {
         <Empty icon={CalendarDays} title="No interview times yet">Times appear here once HR saves them on a candidate's Interview tab.</Empty>
       ) : (
         <div className="app-cal-layout">
-          <section aria-label="Month">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <section aria-label="Month" className="app-cal-stack">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="ab-card__title">{new Date(view.year, view.month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2>
               <div className="ab-cluster">
                 <Button size="sm" variant="tonal" icon={ChevronLeft} aria-label="Previous month" onClick={() => move(-1)} />
@@ -69,14 +69,14 @@ export default function CalendarPage() {
               </div>
             </div>
             {undated.length > 0 && (
-              <div className="ab-alert ab-alert--warning mb-3">
+              <div className="ab-alert ab-alert--warning">
                 <span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span>
                 <p className="ab-alert__title">These need a date (the text didn't say which day)</p>
-                <div className="ab-cluster mt-1">{undated.map((i) => <button key={i.slot.id} type="button" className="app-link-button" onClick={() => setOpen({ id: i.candidateId, slotId: i.slot.id })}>{i.name}: {i.slot.label}</button>)}</div>
+                <div className="ab-cluster">{undated.map((i) => <button key={i.slot.id} type="button" className="app-link-button" onClick={() => setOpen({ id: i.candidateId, slotId: i.slot.id })}>{i.name}: {i.slot.label}</button>)}</div>
               </div>
             )}
             {nearest && (
-              <div className="ab-alert mb-3">
+              <div className="ab-alert">
                 <p className="ab-alert__title">Nothing in {monthName(view.year, view.month)}</p>
                 <div>{dated.length} time{dated.length === 1 ? ' is' : 's are'} in other months.
                   {' '}<button type="button" className="app-link-button" onClick={() => setView({ year: nearest.date.getFullYear(), month: nearest.date.getMonth() })}>Go to {monthName(nearest.date.getFullYear(), nearest.date.getMonth())}</button>
@@ -84,18 +84,18 @@ export default function CalendarPage() {
               </div>
             )}
             <MonthGrid year={view.year} month={view.month} items={items} busy={busy} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />
-            {busy && <p className="app-meta mt-2">Grey times are already busy on the interviewer's calendar.</p>}
+            {busy && <p className="app-meta m-0">Grey times are already busy on the interviewer's calendar.</p>}
           </section>
           <aside className="grid gap-6 content-start">
-            <Section title="Ready to confirm" count={pending.length} countTone="warning" kind="action" icon={CalendarClock} tone="blue" lead="Confirming adds it to the interviewer's calendar and emails the candidate.">
+            <Section title="Ready to confirm" count={pending.length} countTone="warning" lead="Confirming adds it to the interviewer's calendar and emails the candidate.">
               {!pending.length ? <p className="ab-muted m-0">Nothing waiting.</p> : <ItemRows items={pending} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />}
             </Section>
             {passed.length > 0 && (
-              <Section title="Passed, needs a new time" count={passed.length} countTone="danger" kind="action" icon={CalendarX} tone="red" lead="Never confirmed, and the time has gone by. Ask the candidate for a new one, or remove these.">
+              <Section title="Passed, needs a new time" count={passed.length} countTone="danger" lead="Never confirmed, and the time has gone by. Ask the candidate for a new one, or remove these.">
                 <ItemRows items={passed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />
               </Section>
             )}
-            <Section title="Confirmed" count={confirmed.length} countTone="success" icon={CalendarCheck} tone="green">
+            <Section title="Confirmed" count={confirmed.length} countTone="success">
               {!confirmed.length ? <p className="ab-muted m-0">None yet.</p> : <ItemRows items={confirmed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} showContact />}
             </Section>
           </aside>
@@ -128,7 +128,7 @@ function MonthGrid({ year, month, items, busy, onOpen }: { year: number; month: 
               <span className="app-cal__day">{day}{isToday && <span className="ab-visually-hidden"> (today)</span>}</span>
               {(byDay[day] || []).map((i) => (
                 <button key={`${i.candidateId}-${i.slot.id}`} type="button" className={cx('app-cal__chip', i.status === 'confirmed' ? 'is-confirmed' : 'is-pending')} title={`${time(i.date!)} ${i.name}`} onClick={() => onOpen(i)}>
-                  <span className="app-num">{time(i.date!)}</span> {i.name}
+                  <span className="app-num app-cal__time">{time(i.date!)}</span><span className="app-cal__who">{i.name}</span>
                 </button>
               ))}
               {dayBusy.map((b, k) => <span key={k} className="app-cal__busy">{time(b.start)} to {time(b.end)} busy</span>)}
@@ -223,15 +223,17 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
         onConfirm={async () => { await undo(); setAsk(null); }}>
         <p className="m-0">The Google Calendar event and Meet link are deleted. The candidate keeps the email they already received, so tell them yourself.</p>
       </ConfirmDialog>
-      <div className="grid gap-4">
-        <div className="grid gap-1">
-          <span className="ab-label">Time the candidate gave</span>
-          <span className="text-base font-semibold">{slot.label}</span>
-          <span><Badge tone={isConfirmed ? 'success' : 'info'}>{isConfirmed ? 'Confirmed' : 'Ready to confirm'}</Badge></span>
-        </div>
-        <p className="m-0">{a.candidateContact ? <><Phone size={14} aria-hidden /> {a.candidateContact}</> : <span className="ab-muted">No phone number saved for this candidate.</span>}</p>
+      <div className="app-dialog-groups">
+        <DialogGroup title="Candidate" icon={UserRound}>
+          <div className="grid gap-1">
+            <span className="ab-label">Time the candidate gave</span>
+            <span className="text-base font-semibold">{slot.label}</span>
+            <span><Badge tone={isConfirmed ? 'success' : 'info'}>{isConfirmed ? 'Confirmed' : 'Ready to confirm'}</Badge></span>
+          </div>
+          <p className="m-0">{a.candidateContact ? <><Phone size={14} aria-hidden /> {a.candidateContact}</> : <span className="ab-muted">No phone number saved for this candidate.</span>}</p>
+        </DialogGroup>
         {isConfirmed ? (
-          <>
+          <DialogGroup title="Interview" icon={CalendarCheck} tone="green">
             <p className="m-0">Confirmed. The candidate has the confirmation email and their other times were declined.</p>
             {meet && <a href={meet} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2"><Video size={16} aria-hidden /> Join the Google Meet</a>}
             {a.candidateContact && (
@@ -240,9 +242,9 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
                 HR texted the candidate{a.smsSentAt ? ` (${fmtDateTime(a.smsSentAt)})` : ''}
               </label>
             )}
-          </>
+          </DialogGroup>
         ) : (
-          <>
+          <DialogGroup title="Confirm this interview" icon={CalendarClock} tone="blue">
             <div className="app-form-grid">
               <Field label="Date" htmlFor="cal-date"><input id="cal-date" type="date" className="ab-input" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
               <Field label="Time" htmlFor="cal-time"><input id="cal-time" type="time" className="ab-input" value={tm} onChange={(e) => setTm(e.target.value)} /></Field>
@@ -255,7 +257,7 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
             {overlap && <div className="ab-alert ab-alert--warning"><span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span><p className="ab-alert__title">This overlaps the interviewer's calendar</p><div>Busy {time(overlap.start)} to {time(overlap.end)}. Double-check before confirming.</div></div>}
             <p className="ab-hint m-0">Confirming adds it to the calendar with a Meet link and emails the candidate.</p>
             {error && <p className="ab-error m-0" role="alert">{error}</p>}
-          </>
+          </DialogGroup>
         )}
       </div>
     </Dialog>

@@ -13,7 +13,8 @@ import { REASONS_BY_OUTCOME } from '@/domain/stages';
 import type { Candidate } from '@/domain/types';
 import { useToast } from '@/ui/toast';
 import { useUser } from '@/auth/auth';
-import { Button, Dialog, Field } from '@/ui/kit';
+import { Flag } from 'lucide-react';
+import { Button, Dialog, DialogGroup, Field } from '@/ui/kit';
 
 // Everything that changes where a candidate is, or records an email, goes
 // through here so the rules (outcomes, auto-advance, undo, one toast) hold
@@ -230,7 +231,7 @@ function CloseDialog({ req, names, prefill, onCancel, onConfirm }: { req: CloseR
       <Button variant="ghost" onClick={onCancel}>Cancel</Button>
       <Button variant="danger" onClick={() => { setTried(true); if (reason) onConfirm(stage, reason); }}>Close {names.length === 1 ? 'candidate' : 'candidates'}</Button>
     </>}>
-      <div className="grid gap-4">
+      <DialogGroup title="Outcome and reason" icon={Flag} tone="red">
         <Field label="Outcome" htmlFor="close-stage">
           <select id="close-stage" className="ab-select" value={stage} onChange={(e) => { const next = e.target.value as typeof stage; setStage(next); if (!REASONS_BY_OUTCOME[next].includes(reason)) setReason(''); }}>
             <option value="Closed - Rejected">Rejected (we decided not to continue)</option>
@@ -243,7 +244,7 @@ function CloseDialog({ req, names, prefill, onCancel, onConfirm }: { req: CloseR
             {reasons.map((r) => <option key={r}>{r}</option>)}
           </select>
         </Field>
-      </div>
+      </DialogGroup>
     </Dialog>
   );
 }

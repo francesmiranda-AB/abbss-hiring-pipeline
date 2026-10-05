@@ -6,7 +6,7 @@ import type { OffboardingCase } from '@/domain/types';
 import { checklistProgress, isOffboardingDue, offboardingCsv, sortOffboarding, trackLabel } from '@/domain/offboarding';
 import { downloadText, todayStamp } from '@/domain/csv';
 import { DEPARTMENTS } from '@/domain/stages';
-import { Badge, Button, Dialog, Empty, ErrorAlert, Field, PageHeader, Section, Skeleton } from '@/ui/kit';
+import { Badge, Button, ConfirmDialog, Empty, ErrorAlert, Field, PageHeader, Section, Skeleton } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const KEY = ['offboarding'];
@@ -137,16 +137,14 @@ function CaseCard({ c }: { c: OffboardingCase }) {
       <div className="flex justify-end">
         <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirm(true)}>Delete case</Button>
       </div>
-      <Dialog open={confirm} onClose={() => setConfirm(false)} title={`Delete ${c.name}'s case?`} footer={<>
-        <Button variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button>
-        <Button variant="danger" onClick={async () => {
+      <ConfirmDialog open={confirm} danger title={`Delete ${c.name}'s case?`} confirmLabel="Delete" onClose={() => setConfirm(false)}
+        onConfirm={async () => {
           setConfirm(false);
           try { await deleteOffboarding(c.id); toast.show({ message: 'Case deleted' }); } catch (e) { toast.error(`Couldn't delete: ${(e as Error).message}`); }
           await qc.invalidateQueries({ queryKey: KEY });
-        }}>Delete</Button>
-      </>}>
+        }}>
         <p className="m-0">This removes the case and its checklist. It can't be undone.</p>
-      </Dialog>
+      </ConfirmDialog>
     </article>
   );
 }

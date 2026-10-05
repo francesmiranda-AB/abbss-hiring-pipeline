@@ -18,7 +18,7 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
   const caps = useCaps(a);
   return (
     <div className="app-stack">
-      <PanelSection title="Details" icon={UserRound}>
+      <PanelSection title="Details" kind="action" icon={UserRound}>
         <div className="app-form-grid app-form-grid--4">
           <SavingInput id={`phone-${a.id}`} label="Phone" value={a.phone} onSave={(v) => update(a.id, { phone: v })} />
           <SavingInput id={`pos-${a.id}`} label="Position" value={a.position} onSave={(v) => update(a.id, { position: v })} />

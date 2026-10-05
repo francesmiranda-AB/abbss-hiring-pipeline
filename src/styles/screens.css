@@ -111,7 +111,6 @@
 .app-template:hover { background: var(--ab-tonal-hover); }
 .app-template[aria-current='true'] { background: var(--ab-primary-soft); color: var(--ab-primary-soft-fg); font-weight: var(--ab-font-weight-semibold); }
 .app-template:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; }
-.app-offer-fields { padding: var(--ab-space-4); border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); }
 .app-email-body { min-height: 22rem; font-family: var(--ab-font-sans); line-height: var(--ab-leading-normal); }
 
 /* ── Calendar ──────────────────────────────────────────────────────────── */
@@ -377,3 +376,38 @@ tr[data-selected] { background: var(--ab-primary-soft); }
 .app-note-pop__foot { display: flex; justify-content: flex-end; }
 
 @media (min-width: 1440px) and (max-width: 1599px) { .app-table-compact .col-next { width: 17.5rem; } }
+
+/* ── Shelf (record panel) sections ────────────────────────────────────────
+   Three kinds, so the eye knows what to do:
+   action    white card, navy top rule: what you do now
+   result    gray block: what came back
+   reference no box, just a rule under the title: context you look things up in. */
+.app-panel-section__head { padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong); }
+.app-panel-section .ab-card__title { display: flex; align-items: center; gap: var(--ab-space-2); }
+.app-sheet .app-panel-section[data-kind='action'] {
+  background: var(--ab-bg); border: 1px solid var(--ab-border-strong); border-top: 3px solid var(--ab-heading); border-radius: var(--ab-radius-md);
+}
+.app-sheet .app-panel-section[data-kind='reference'] { background: transparent; border-radius: 0; padding-inline: 0; }
+/* On white, neutral badges and tonal buttons go back to their own gray. */
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-badge--neutral { --_bg: var(--ab-tonal); --_border: transparent; }
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal { background: var(--ab-tonal); }
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
+/* The phase of the person colours the top of the record. */
+.app-sheet__head { border-top: 4px solid var(--phase, var(--ab-border)); }
+.app-sheet__head .app-next { background: var(--phase-soft, var(--ab-primary-soft)); color: var(--phase-fg, var(--ab-primary-soft-fg)); }
+
+/* ── Calendar spacing ───────────────────────────────────────────────────── */
+.app-side-row { padding: var(--ab-space-2) var(--ab-space-4); }
+.app-block .ab-rows > li:last-child > .app-row-button { border-bottom: 0; }
+.app-cal-stack { display: grid; gap: var(--ab-space-3); }
+.app-cal__day { padding-inline: 0.125rem; }
+.app-cal__chip { padding: var(--ab-space-1) var(--ab-space-2); }
+.app-cal__busy { padding-inline: 0.125rem; font-size: var(--ab-font-size-xs); }
+
+/* The composer's buttons sit under a rule, like a dialog footer. */
+.app-composer-foot { padding-top: var(--ab-space-3); border-top: 1px solid var(--ab-border); }
+
+/* A calendar chip: the time on top, the person under it (cut with an ellipsis, full text on hover). */
+.app-cal__chip { display: grid; gap: 0; line-height: 1.3; white-space: normal; }
+.app-cal__time { font-weight: var(--ab-font-weight-semibold); }
+.app-cal__who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

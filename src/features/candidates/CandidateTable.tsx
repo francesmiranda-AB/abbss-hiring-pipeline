@@ -2,9 +2,9 @@ import { Clock, StickyNote } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { assessmentDeadline, getStageTask, needsAttention } from '@/domain/attention';
 import { emmBadge } from '@/domain/assessments';
-import { stageLabel, stagePhase, stageTone } from '@/domain/stages';
+import { stageLabel, stageTone } from '@/domain/stages';
 import { useConfig } from '@/api/queries';
-import { Badge, PhaseTile } from '@/ui/kit';
+import { Badge } from '@/ui/kit';
 import { NoteGlyph, NoteMark } from './NoteMark';
 
 const COLUMNS: Array<{ key: string; label: string; sortable?: boolean }> = [
@@ -93,7 +93,7 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
           </thead>
           <tbody>
             {candidates.map((a) => (
-              <tr key={a.id} className="app-row-clickable" data-phase={stagePhase(a.candidateStage)} data-selected={selected.has(a.id) || undefined} onClick={() => onOpen(a.id)}>
+              <tr key={a.id} className="app-row-clickable" data-selected={selected.has(a.id) || undefined} onClick={() => onOpen(a.id)}>
                 {selectable && (
                   <td onClick={(e) => e.stopPropagation()}>
                     <label className="ab-check"><input type="checkbox" checked={selected.has(a.id)} aria-label={`Select ${a.name}`} onChange={(e) => toggle(a.id, e.target.checked)} /></label>
@@ -101,7 +101,6 @@ export function CandidateTable({ candidates, sort, dir, onSort, selectable, sele
                 )}
                 <td>
                   <button type="button" className="app-row-open app-row-open--line" title={[a.name, a.position || 'No position', a.department].filter(Boolean).join(', ')} onClick={(e) => { e.stopPropagation(); onOpen(a.id); }}>
-                    <PhaseTile name={a.name} phase={stagePhase(a.candidateStage)} />
                     <span className="app-row-open__name">{a.name}</span>
                     <span className="app-meta app-row-open__pos">{a.position || 'No position'}</span>
                   </button>

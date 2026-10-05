@@ -9,7 +9,6 @@ import { isEndorsedToOperations } from '@/domain/stages';
 import { ROLE_LABEL, visibleFeatures } from '@/features/registry';
 import { Button, Skeleton, cx, useMenu } from '@/ui/kit';
 import { ReportProblemDialog } from './ReportProblem';
-import { currentLook, setLook } from './look';
 
 export const APP_VERSION = 2;
 
@@ -48,7 +47,6 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         ))}
         <div className="ab-sidebar__footer app-side-foot">
-          <LookSwitch />
           <UserMenu />
           <SyncStatus />
         </div>
@@ -132,19 +130,6 @@ function UserMenu() {
         </div>
       )}
       <ReportProblemDialog open={report} onClose={() => setReport(false)} />
-    </div>
-  );
-}
-
-// TEMPORARY (look lab): compare the visual directions on the real screens.
-function LookSwitch() {
-  const [look, setLookState] = useState(currentLook);
-  return (
-    <div className="app-lookswitch" role="group" aria-label="Look (temporary)">
-      <span>Look</span>
-      {['0', '1', '2', '3'].map((l) => (
-        <button key={l} type="button" aria-pressed={look === l} onClick={() => { setLook(l); setLookState(l); }}>{l}</button>
-      ))}
     </div>
   );
 }

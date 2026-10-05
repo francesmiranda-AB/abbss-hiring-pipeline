@@ -229,3 +229,44 @@ html:has(dialog[open]) { overflow: hidden; }
 
 /* Tailwind's reset zeroes the margins that center a modal dialog; put them back. */
 .ab-modal { margin: auto; }
+
+/* ── Where someone is in the process ──────────────────────────────────────
+   Phase colours say WHERE a person is. They are not status colours: amber and
+   red stay for "look at this". Built only from palette ramps. */
+:root {
+  --app-phase-intake: var(--ab-neutral-500);  --app-phase-intake-soft: var(--ab-neutral-100);  --app-phase-intake-fg: var(--ab-neutral-800);
+  --app-phase-assess: var(--ab-sky-600);      --app-phase-assess-soft: var(--ab-sky-100);      --app-phase-assess-fg: var(--ab-sky-800);
+  --app-phase-interview: var(--ab-navy-600);  --app-phase-interview-soft: var(--ab-navy-100);  --app-phase-interview-fg: var(--ab-navy-800);
+  --app-phase-decide: var(--ab-teal-600);     --app-phase-decide-soft: var(--ab-teal-100);     --app-phase-decide-fg: var(--ab-teal-800);
+  --app-phase-offer: var(--ab-green-600);     --app-phase-offer-soft: var(--ab-green-100);     --app-phase-offer-fg: var(--ab-green-800);
+  --app-phase-closed: var(--ab-neutral-700);  --app-phase-closed-soft: var(--ab-neutral-200);  --app-phase-closed-fg: var(--ab-neutral-900);
+}
+[data-phase='intake'] { --phase: var(--app-phase-intake); --phase-soft: var(--app-phase-intake-soft); --phase-fg: var(--app-phase-intake-fg); }
+[data-phase='assess'] { --phase: var(--app-phase-assess); --phase-soft: var(--app-phase-assess-soft); --phase-fg: var(--app-phase-assess-fg); }
+[data-phase='interview'] { --phase: var(--app-phase-interview); --phase-soft: var(--app-phase-interview-soft); --phase-fg: var(--app-phase-interview-fg); }
+[data-phase='decide'] { --phase: var(--app-phase-decide); --phase-soft: var(--app-phase-decide-soft); --phase-fg: var(--app-phase-decide-fg); }
+[data-phase='offer'] { --phase: var(--app-phase-offer); --phase-soft: var(--app-phase-offer-soft); --phase-fg: var(--app-phase-offer-fg); }
+[data-phase='closed'] { --phase: var(--app-phase-closed); --phase-soft: var(--app-phase-closed-soft); --phase-fg: var(--app-phase-closed-fg); }
+
+/* ── Dialog frame and groups ──────────────────────────────────────────────
+   A hairline under the title and over the buttons, and labelled groups inside,
+   built the same way as the record panel's sections (a tile, a title, a rule). */
+.ab-modal__header { padding-bottom: var(--ab-space-3); border-bottom: 1px solid var(--ab-border); }
+.ab-modal__body { padding-block: var(--ab-space-4); }
+.ab-modal__footer { padding-top: var(--ab-space-3); border-top: 1px solid var(--ab-border); }
+.app-dialog-groups { display: grid; gap: var(--ab-space-5); }
+.app-group { display: grid; gap: var(--ab-space-3); }
+.app-group__head { padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong); }
+.app-group__title { display: flex; align-items: center; gap: var(--ab-space-2); margin: 0; font-size: var(--ab-font-size-base); font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+.app-tile { display: inline-grid; flex: none; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: var(--ab-radius-md); }
+.app-tile[data-tone='neutral'] { background: var(--ab-neutral-200); color: var(--ab-neutral-800); }
+.app-tile[data-tone='sky'] { background: var(--ab-sky-100); color: var(--ab-sky-800); }
+.app-tile[data-tone='blue'] { background: var(--ab-blue-100); color: var(--ab-blue-800); }
+.app-tile[data-tone='green'] { background: var(--ab-green-100); color: var(--ab-green-800); }
+.app-tile[data-tone='red'] { background: var(--ab-red-100); color: var(--ab-red-800); }
+.app-tile[data-tone='amber'] { background: var(--ab-amber-100); color: var(--ab-amber-800); }
+
+/* A long dialog scrolls in its body; the title and the buttons stay put. */
+.ab-modal[open] { display: flex; flex-direction: column; overflow: hidden; }
+.ab-modal__body { min-height: 0; overflow-y: auto; }
+.ab-modal__header, .ab-modal__footer { flex: none; }
