@@ -32,7 +32,7 @@ export function getStageTask(a: Candidate): StageTask | null {
   let owner: Owner = 'HR';
   let actionable = true;
   let waiting = false;
-  let step = '';
+  let step: string;
   const slots = a.interviewSlots || [];
   switch (stage) {
     case 'New Application': step = 'Screen the CV'; break;
