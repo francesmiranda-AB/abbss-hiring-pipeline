@@ -3,21 +3,31 @@
 Internal hiring app for AB Business Support (at most 5 staff users). Vite + React + TypeScript + Tailwind v4, on the AB Design System. The backend is Google Apps Script (`backend/Code.js`) over a Google Sheet.
 
 ## Layout
-- `src/api/`: the only code that talks to the backend (`client.ts` transport, `actions.ts` typed actions, `queries.ts` cache and the one save path).
-- `src/domain/`: business rules as plain TypeScript (stages, outcomes, needs-attention, auto-advance, email templates, reports). Screens never re-implement these.
+- `src/api/`: the only code that talks to the backend (`client.ts` transport, `actions.ts` typed actions, `queries.ts` cache and the one save path: optimistic update, rollback, Retry).
+- `src/domain/`: business rules as plain TypeScript, with tests. Screens never re-implement these.
+  - `stages.ts` (12 stored stage names, `stageLabelFor` per department, `stageName` for mixed lists)
+  - `attention.ts` (`getStageTask`: the next step and who does it, derived from stage plus facts; `needsAttention`)
+  - `permissions.ts` (`capabilities(role, candidate)`: what each role may do; the one place that decides)
+  - `outcome.ts`, `autoAdvance.ts`, `assessments.ts`, `emailTemplates.ts`, `calendar.ts`, `reports.ts`, `links.ts`, `team.ts`
 - `src/domain/grader/engine.js`: the EMM grader, moved verbatim from the old app. Change it only with the golden tests passing.
-- `src/features/`: one folder per feature; `registry.tsx` lists them with roles and flags (`FEATURE_FLAGS` Script Property switches features without a deploy).
+- `src/features/`: one folder per feature; `registry.tsx` lists them with roles and flags (`FEATURE_FLAGS` Script Property switches features without a deploy). `candidate/` is the record panel, `email/Composer.tsx` is the shared email composer.
+- `src/ui/`: `kit.tsx` (Button, Badge, Section, Tabs, Dialog, ConfirmDialog, FilePicker, useMenu...) and `toast.tsx`.
 - `backend/`: Apps Script source and its vm tests (`npm run test:backend`).
 - `legacy/index.html`: the old single-file app, kept as reference for the golden tests.
 
 ## Checks
-`npm run ci` runs typecheck, lint, unit tests, backend tests and the build.
+`npm run ci` runs typecheck, lint, unit tests, backend tests and the build (if the combined script errors in your shell, run the steps one by one). The Vite dev server runs out of memory on some machines: use `npm run build` and `npm run preview`.
 
 ## Rules
 - Never point a local dev server at the production backend (`VITE_API_URL` must be staging locally).
-- Sheet columns never move; the backend decides which columns a save may change (`_changed`).
-- No login, by decision: people pick their name and role (`src/auth/auth.tsx`), and the backend runs with `AUTH_MODE=off`. Its Google sign-in check (`requireStaff_`) stays in `backend/Code.js`, inert.
+- Sheet columns never move; the backend decides which columns a save may change (`_changed`). Data-model changes are out of scope until the backend remake.
+- No login, a product decision: people pick their name and role (`src/auth/auth.tsx`). Never put secrets, keys or tokens in this repo; it is public.
 - Candidate-facing links (`trackOpen`, `pickSlot`, `viewAssessment`) stay public.
+- A role's controls come from `capabilities()`: hide what a role can't use; don't redirect silently.
+- The next step is derived (`getStageTask`); don't add a hand-edited "next action" field. Auto-advance moves forward only, on a fact, with Undo.
+- Anything saved goes through `useUpdateCandidate` (one path). Text boxes use `SavingInput` or `SavingTextarea` (keeps the draft if a save fails).
+- Dialogs: close handlers must check `e.target === e.currentTarget` (React passes `close` events from a nested dialog up to the dialog around it). Confirm anything hard to undo with `ConfirmDialog`.
+- CSS: `src/index.css` imports `app.css` before `screens.css`, so on equal specificity `screens.css` wins. Tailwind's reset zeroes dialog margins (`.ab-modal` puts them back).
 
 ## Design system
 This app uses the AB Design System (synced into `src/styles/ab/`; source: D:\Codebases\ui-ux-capture).
