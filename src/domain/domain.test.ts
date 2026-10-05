@@ -6,7 +6,7 @@ import { fillTemplate, suggestedTemplateFor } from './emailTemplates';
 import { parseSlotLabel, slotDate } from './calendar';
 import { buildRoleSummary, sourceBreakdown } from './reports';
 import { candidatesCsv, parseCsv } from './csv';
-import { isClosed, isEndorsedToOperations, stageLabel } from './stages';
+import { isClosed, isEndorsedToOperations, stageLabel, stageLabelFor, stageName } from './stages';
 import { can, capabilities, ownsStage } from './permissions';
 import type { Candidate } from './types';
 
@@ -72,7 +72,7 @@ describe('auto-advance', () => {
 
 describe('needs attention', () => {
   it('actionable stages need attention from their owner', () => {
-    const a = cand({ candidateStage: 'Initial Interview', department: 'Operations' });
+    const a = cand({ candidateStage: 'Initial Interview', department: 'Operations', confirmedSlot: { id: 's', label: 'Mon, Oct 5 - 2:00 PM' } });
     expect(getStageTask(a)?.owner).toBe('Operations Manager');
     expect(needsAttentionFrom(a, 'Operations')).toBe(true);
     expect(needsAttentionFrom(a, 'HR')).toBe(false);
@@ -174,8 +174,9 @@ describe('calendar, reports, csv', () => {
 });
 
 describe('what each role may do', () => {
-  const sales = cand({ candidateStage: 'Initial Interview', department: 'Sales and Marketing' });
-  const ops = cand({ candidateStage: 'Initial Interview', department: 'Operations' });
+  const slot = { id: 's', label: 'Mon, Oct 5 - 2:00 PM' };
+  const sales = cand({ candidateStage: 'Initial Interview', department: 'Sales and Marketing', confirmedSlot: slot });
+  const ops = cand({ candidateStage: 'Initial Interview', department: 'Operations', confirmedSlot: slot });
   it('HR can do everything', () => {
     expect(Object.values(capabilities('HR')).every(Boolean)).toBe(true);
   });
@@ -192,5 +193,47 @@ describe('what each role may do', () => {
     expect(can('PM', 'outcome', ops)).toBe(false);
     expect(can('PM', 'export', sales)).toBe(false);
     expect(can('CEO', 'stage', sales)).toBe(false);
+  });
+});
+
+describe('the next step comes from what has happened', () => {
+  const slot = { id: 's', label: 'Mon, Oct 5 - 2:00 PM' };
+  it('Assessment Sent: send the invite first, then wait', () => {
+    const noInvite = cand({ candidateStage: 'Assessment Sent' });
+    expect(getStageTask(noInvite)).toMatchObject({ nextAction: 'Send the assessment invite', owner: 'HR', actionable: true });
+    const invited = cand({ candidateStage: 'Assessment Sent', emailsSent: { assessment_no_emm: now.toISOString() } });
+    expect(getStageTask(invited)).toMatchObject({ nextAction: 'Waiting for their assessments', actionable: false, waiting: true });
+  });
+  it('Initial Interview passes from HR, to Operations, to the interviewer as the time is agreed', () => {
+    const dept = 'Sales and Marketing';
+    expect(getStageTask(cand({ candidateStage: 'Initial Interview', department: dept }))).toMatchObject({ owner: 'HR', nextAction: 'Agree an interview time with the candidate' });
+    expect(getStageTask(cand({ candidateStage: 'Initial Interview', department: dept, interviewSlots: [slot] }))).toMatchObject({ owner: 'Operations Manager', nextAction: 'Confirm the time on the calendar' });
+    expect(getStageTask(cand({ candidateStage: 'Initial Interview', department: dept, interviewSlots: [slot], confirmedSlot: slot }))).toMatchObject({ owner: 'Project Manager', nextAction: 'Hold the interview and record the result' });
+  });
+  it('Offer: send it, then follow up', () => {
+    expect(getStageTask(cand({ candidateStage: 'Offer' }))?.nextAction).toBe('Send the offer');
+    expect(getStageTask(cand({ candidateStage: 'Offer', emailsSent: { job_offer: now.toISOString() } }))?.nextAction).toBe('Follow up on the offer');
+  });
+  it('nothing for closed or paused candidates', () => {
+    expect(getStageTask(cand({ candidateStage: 'Hired', overallStatus: 'Hired' }))).toBeNull();
+    expect(getStageTask(cand({ candidateStage: 'Offer', overallStatus: 'Hold' }))).toBeNull();
+  });
+});
+
+describe('stage names by department', () => {
+  it('Sales and Marketing reads its own decision-makers', () => {
+    expect(stageLabelFor('Initial Interview', 'Sales and Marketing')).toBe('PM Interview');
+    expect(stageLabelFor('Operations Decision', 'Sales and Marketing')).toBe('PM Decision');
+    expect(stageLabelFor('Endorsed to Client', 'Sales and Marketing')).toBe('With the CEO');
+  });
+  it('Operations keeps its own', () => {
+    expect(stageLabelFor('Initial Interview', 'Operations')).toBe('Operations Interview');
+    expect(stageLabelFor('Operations Decision', 'Operations')).toBe('Operations Decision');
+    expect(stageLabelFor('Endorsed to Client', 'Operations')).toBe('Endorsed to Client');
+    expect(stageLabelFor('CV Screening', 'Operations')).toBe('CV Screening');
+  });
+  it('lists that mix departments use neutral names', () => {
+    expect(stageName('Operations Decision')).toBe('Decision');
+    expect(stageName('Closed - Rejected')).toBe('Rejected');
   });
 });

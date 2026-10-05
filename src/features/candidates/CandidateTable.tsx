@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Clock, StickyNote } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
-import { assessmentDeadline, needsAttention } from '@/domain/attention';
+import { assessmentDeadline, getStageTask, needsAttention } from '@/domain/attention';
 import { emmBadge } from '@/domain/assessments';
 import { stageLabel, stageTone } from '@/domain/stages';
 import { useConfig, useUpdateCandidate } from '@/api/queries';
@@ -24,7 +24,7 @@ function useRow(a: Candidate) {
   const attention = needsAttention(a, config);
   const deadline = assessmentDeadline(a, config);
   const emm = a.requiresEmm ? emmBadge(a) : null;
-  const next = a.nextAction && a.nextAction !== 'None' ? a.nextAction : '';
+  const next = getStageTask(a)?.nextAction || '';
   return { overdue: !!attention?.overdue, deadline, emm, next, hold: a.overallStatus === 'Hold' };
 }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download, Mail, Trash2, X } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, REASON_STAGES } from '@/domain/stages';
+import { CANDIDATE_STAGES, REASON_STAGES, stageName } from '@/domain/stages';
 import { BULK_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, fillTemplate } from '@/domain/emailTemplates';
 import { emailEventFor } from '@/domain/autoAdvance';
 import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
@@ -67,7 +67,7 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
       <div className="app-bulk__group">
         <select className="ab-select" aria-label="Change stage to" value={stage} onChange={(e) => setStage(e.target.value)}>
           <option value="">Change stage to</option>
-          {CANDIDATE_STAGES.map((s) => <option key={s}>{s}</option>)}
+          {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{stageName(s)}</option>)}
         </select>
         <Button size="sm" variant="tonal" disabled={!stage} onClick={applyStage}>Apply</Button>
       </div>

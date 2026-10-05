@@ -1,6 +1,6 @@
 import type { AppRole, Candidate, ServerConfig } from './types';
 import { latestAssessmentInvite } from './assessments';
-import { CLOSED_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, interviewerFor, isClosed, isPaused, stageLabel, type BadgeTone } from './stages';
+import { CLOSED_STAGES, interviewerFor, isClosed, isPaused, stageLabel, type BadgeTone } from './stages';
 
 export const DEFAULT_CONFIG: ServerConfig = { deadlineHours: 24, reminderHours: 12 };
 
@@ -14,41 +14,56 @@ export function isNewApplicant(a: Candidate, now = new Date()): boolean {
   return !!a.createdAt && isSameLocalDay(a.createdAt, now);
 }
 
-const STAGE_HINTS: Record<string, string> = {
-  'New Application': 'New, screen their CV.',
-  'CV Screening': 'Decide if they move forward, then schedule the preliminary interview.',
-  'HR Preliminary Interview': 'Interview is happening. Write down pass or fail.',
-  'Assessment Sent': 'Just wait for their answers.',
-  'Assessment Review': 'Review their assessment results.',
-  'Initial Interview': 'Interview is happening. Write down pass or fail.',
-  'Operations Decision': 'Approve, hold, reject, or endorse to the client.',
-  'Endorsed to Client': "With the client for their interview and decision. Follow up if it's been a while.",
-  Offer: 'Send (or follow up on) the offer.',
-};
-
 export type Owner = 'HR' | 'Operations Manager' | 'Project Manager' | 'Client' | 'CEO';
 export interface StageTask { key: string; label: string; hint: string; owner: Owner; actionable: boolean; waiting: boolean; nextAction: string }
 
-// What needs doing for one candidate. Null once closed or on hold.
+const OFFER_EMAILS = ['job_offer', 'offer', 'contract'];
+
+// What needs doing for one candidate, and who does it. The next step is worked
+// out from the stage plus what has happened (invite sent, time saved, time
+// confirmed, offer sent), so it never goes stale and nobody has to maintain it.
+// Null once closed or on hold.
 export function getStageTask(a: Candidate): StageTask | null {
   if (isClosed(a) || isPaused(a)) return null;
   const stage = a.candidateStage;
-  if (!stage) return { key: '', label: 'To do: No stage set', hint: 'No stage set yet. Open the record and pick one.', owner: 'HR', actionable: true, waiting: false, nextAction: '' };
+  if (!stage) return { key: '', label: 'To do: No stage set', hint: 'Pick a stage', owner: 'HR', actionable: true, waiting: false, nextAction: 'Pick a stage' };
   if (CLOSED_STAGES.includes(stage)) return null;
-  const next = a.nextAction || DEFAULT_NEXT_ACTION_BY_STAGE[stage] || '';
   const initialOwner = (interviewerFor(a, 'initial') || 'Operations Manager') as Owner;
   let owner: Owner = 'HR';
   let actionable = true;
   let waiting = false;
-  if (stage === 'HR Preliminary Interview') owner = (interviewerFor(a, 'preliminary') || 'HR') as Owner;
-  else if (stage === 'Initial Interview' || stage === 'Operations Decision') owner = initialOwner;
-  else if (stage === 'Endorsed to Client') { owner = (interviewerFor(a, 'final') || 'Operations Manager') as Owner; actionable = false; waiting = true; }
-  else if (stage === 'Assessment Sent') { actionable = false; waiting = true; }
+  let step = '';
+  const slots = a.interviewSlots || [];
+  switch (stage) {
+    case 'New Application': step = 'Screen the CV'; break;
+    case 'CV Screening': step = 'Call the candidate'; break;
+    case 'HR Preliminary Interview':
+      owner = (interviewerFor(a, 'preliminary') || 'HR') as Owner;
+      step = 'Hold the HR interview and record the result';
+      break;
+    case 'Assessment Sent':
+      if (latestAssessmentInvite(a.emailsSent)) { step = 'Waiting for their assessments'; actionable = false; waiting = true; }
+      else step = 'Send the assessment invite';
+      break;
+    case 'Assessment Review': step = 'Review the assessment results'; break;
+    case 'Initial Interview':
+      if (a.confirmedSlot) { owner = initialOwner; step = 'Hold the interview and record the result'; }
+      else if (slots.length) { owner = 'Operations Manager'; step = 'Confirm the time on the calendar'; }
+      else step = 'Agree an interview time with the candidate';
+      break;
+    case 'Operations Decision': owner = initialOwner; step = 'Decide: approve, hold or reject'; break;
+    case 'Endorsed to Client':
+      owner = (interviewerFor(a, 'final') || 'Operations Manager') as Owner;
+      step = 'Waiting for their interview and decision'; actionable = false; waiting = true;
+      break;
+    case 'Offer': step = OFFER_EMAILS.some((k) => a.emailsSent?.[k]) ? 'Follow up on the offer' : 'Send the offer'; break;
+    default: step = '';
+  }
   return {
     key: stage,
     label: `${actionable ? 'To do' : 'Waiting'}: ${stageLabel(a)}`,
-    hint: next || STAGE_HINTS[stage] || '',
-    owner, actionable, waiting, nextAction: next,
+    hint: step,
+    owner, actionable, waiting, nextAction: step,
   };
 }
 

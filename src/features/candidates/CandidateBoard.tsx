@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, Clock } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageName, stageTone } from '@/domain/stages';
 import { needsAttention } from '@/domain/attention';
 import { useConfig } from '@/api/queries';
 import { Badge, cx } from '@/ui/kit';
@@ -27,7 +27,7 @@ export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]
     try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)); } catch { /* per-device preference only */ }
   };
   const noStage = candidates.filter((a) => !a.candidateStage);
-  const columns = [...(noStage.length ? [{ key: '', label: 'No stage set' }] : []), ...CANDIDATE_STAGES.map((s) => ({ key: s as string, label: s === 'Initial Interview' ? 'Initial interview' : s }))];
+  const columns = [...(noStage.length ? [{ key: '', label: 'No stage set' }] : []), ...CANDIDATE_STAGES.map((s) => ({ key: s as string, label: stageName(s) }))];
   return (
     <ul className="app-board" aria-label="Pipeline board">
       {columns.map((col) => {

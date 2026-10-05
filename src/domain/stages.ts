@@ -57,11 +57,36 @@ export function interviewerFor(a: Pick<Candidate, 'department'>, round: Round): 
   return rounds ? rounds[round] : '';
 }
 
-// 'Initial Interview' is one stored value; people read it by department.
+// The stored stage names stay as they are. What people read depends on the
+// department: who interviews, who decides, who gives the final word.
+const DECISION_LABEL_BY_CONDUCTOR: Record<Conductor, string> = {
+  HR: 'HR Decision', 'Operations Manager': 'Operations Decision', 'Project Manager': 'PM Decision', Client: 'Client Decision', CEO: 'CEO Decision',
+};
+const FINAL_LABEL_BY_CONDUCTOR: Record<Conductor, string> = {
+  HR: 'With HR', 'Operations Manager': 'With Operations', 'Project Manager': 'With the PM', Client: 'Endorsed to Client', CEO: 'With the CEO',
+};
+export function stageLabelFor(stage: string, department: string | undefined): string {
+  const rounds = INTERVIEW_ROUNDS_BY_DEPARTMENT[department || ''] || INTERVIEW_ROUNDS_BY_DEPARTMENT.Operations;
+  switch (stage) {
+    case 'HR Preliminary Interview': return 'HR Interview';
+    case 'Initial Interview': return ROUND_LABEL[rounds.initial];
+    case 'Operations Decision': return DECISION_LABEL_BY_CONDUCTOR[rounds.initial];
+    case 'Endorsed to Client': return FINAL_LABEL_BY_CONDUCTOR[rounds.final];
+    default: return stage;
+  }
+}
 export function stageLabel(a: Pick<Candidate, 'candidateStage' | 'department'>): string {
   if (!a.candidateStage) return 'No stage set';
-  return a.candidateStage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : a.candidateStage;
+  return stageLabelFor(a.candidateStage, a.department);
 }
+
+// A department-neutral name, for lists that mix departments (filters, bulk
+// menus, board columns).
+const NEUTRAL_STAGE_NAME: Record<string, string> = {
+  'HR Preliminary Interview': 'HR Interview', 'Initial Interview': 'Initial Interview', 'Operations Decision': 'Decision',
+  'Endorsed to Client': 'Client or CEO', 'Closed - Rejected': 'Rejected', 'Closed - Withdrawn': 'Withdrawn',
+};
+export const stageName = (stage: string): string => NEUTRAL_STAGE_NAME[stage] || stage;
 
 export type BadgeTone = 'neutral' | 'primary' | 'info' | 'warning' | 'success' | 'danger';
 const STAGE_TONE: Record<string, BadgeTone> = {
@@ -97,5 +122,5 @@ export function stageIndex(stage: string): number {
 
 export const STATUS_LABEL: Record<string, string> = {
   'In Progress': 'In progress', Hired: 'Hired', Rejected: 'Rejected', Hold: 'On hold',
-  NonCompliant: "Doesn't respond", Departed: 'No longer with us', Deleted: 'Deleted',
+  NonCompliant: 'No reply', Departed: 'No longer with us', Deleted: 'Deleted',
 };

@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { AppRole, Candidate, ServerConfig } from '@/domain/types';
 import { isNewApplicant, needsAttention, needsAttentionFrom } from '@/domain/attention';
-import { CANDIDATE_STAGES, isClosed, isEndorsedToOperations, stageIndex } from '@/domain/stages';
+import { CANDIDATE_STAGES, isClosed, isEndorsedToOperations, stageIndex, stageName } from '@/domain/stages';
 import { gritOf, valuesOf } from '@/domain/assessments';
 
 // The Candidates filters live in the URL, so Table and Board share them, the
@@ -15,8 +15,8 @@ export const CHIPS: Array<{ key: Chip; label: string; tone?: KpiTone }> = [
   { key: 'attention', label: 'Needs action', tone: 'warning' },
   { key: 'overdue', label: 'Overdue', tone: 'danger' },
   { key: 'new', label: 'New today', tone: 'primary' },
-  { key: 'nonresponsive', label: "Doesn't respond" },
-  { key: 'all', label: 'Everyone' },
+  { key: 'nonresponsive', label: 'No reply' },
+  { key: 'all', label: 'All' },
 ];
 
 export interface Filters {
@@ -99,4 +99,4 @@ export function sortCandidates(apps: Candidate[], sort: string, dir: 'asc' | 'de
   return out.sort((x, y) => String(x[sort] ?? '').toLowerCase().localeCompare(String(y[sort] ?? '').toLowerCase()) * m);
 }
 
-export const STAGE_FILTER_OPTIONS = [{ value: '__none__', label: 'No stage set' }, ...CANDIDATE_STAGES.map((s) => ({ value: s, label: s }))];
+export const STAGE_FILTER_OPTIONS = [{ value: '__none__', label: 'No stage set' }, ...CANDIDATE_STAGES.map((s) => ({ value: s, label: stageName(s) }))];

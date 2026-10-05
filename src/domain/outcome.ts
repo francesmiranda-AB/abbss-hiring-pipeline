@@ -90,6 +90,6 @@ export function outcomeText(a: Candidate): string {
   if (st === 'Departed') return 'No longer with us (was hired)';
   if (st === 'Rejected') return (a.candidateStage === 'Closed - Withdrawn' ? 'Closed: withdrew' : 'Closed: rejected') + (a.closedReason ? ` (${a.closedReason})` : '');
   if (st === 'Hold') return 'On hold';
-  if (st === 'NonCompliant') return "Doesn't respond";
+  if (st === 'NonCompliant') return "No reply";
   return 'In progress';
 }

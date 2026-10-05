@@ -1,8 +1,7 @@
 import type { Candidate, RoleHealthOverride } from './types';
-import { daysInStage, isSameLocalDay, isStageOverdue } from './attention';
+import { daysInStage, getStageTask, isSameLocalDay, isStageOverdue } from './attention';
 import { SOURCES, isClosed, isPaused } from './stages';
 
-const FOLLOW_UP_ACTIONS = ['Follow up Candidate', 'Follow up Client'];
 // Plain-English names for "entered this stage today", in pipeline order.
 export const TODAYS_PROGRESS_LABELS: Record<string, string> = {
   'New Application': 'New applications', 'CV Screening': 'CVs screened',
@@ -48,11 +47,13 @@ export function buildRoleSummary(apps: Candidate[], roleHealth: Record<string, R
       b._daysSum[stage] = (b._daysSum[stage] || 0) + days;
       b._daysCount[stage] = (b._daysCount[stage] || 0) + 1;
     }
-    const ref: CandidateRef = { id: a.id, stage, nextAction: a.nextAction || '', daysInStage: days };
+    const task = getStageTask(a);
+    const step = task?.nextAction || '';
+    const ref: CandidateRef = { id: a.id, stage, nextAction: step, daysInStage: days };
     if (!closed) {
-      if (FOLLOW_UP_ACTIONS.includes(a.nextAction || '')) b.needingFollowUp.push(ref);
+      if (task?.waiting) b.needingFollowUp.push(ref);
       if (!paused && isStageOverdue(a, now.getTime())) b.overdue.push(ref);
-      if (a.nextAction) b._tally[a.nextAction] = (b._tally[a.nextAction] || 0) + 1;
+      if (step) b._tally[step] = (b._tally[step] || 0) + 1;
     }
     for (const [st, at] of Object.entries(a.candidateStageDates || {})) {
       if (!isSameLocalDay(at, now)) continue;

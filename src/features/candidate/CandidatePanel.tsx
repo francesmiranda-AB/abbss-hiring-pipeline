@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
-import { useCandidate, useSaveStatus, useUpdateCandidate } from '@/api/queries';
+import { useCandidate, useSaveStatus } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, REASON_STAGES, interviewRoundLabel, interviewerFor, stageLabel, stageTone, type BadgeTone } from '@/domain/stages';
-import { getStageTask } from '@/domain/attention';
+import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, REASON_STAGES, stageLabel, stageLabelFor, stageTone, type BadgeTone } from '@/domain/stages';
+import { OWNER_TO_ROLE, getStageTask } from '@/domain/attention';
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } from '@/domain/emailTemplates';
+import { ROLE_LABEL } from '../registry';
 import { useCandidateActions } from '../candidates/actions';
 import { useCaps } from './useCaps';
 import type { Capabilities } from '@/domain/permissions';
@@ -84,12 +85,8 @@ function SaveMark() {
 
 function PanelHeader({ a, caps, onClose }: { a: Candidate; caps: Capabilities; onClose: () => void }) {
   const actions = useCandidateActions();
-  const update = useUpdateCandidate();
   const task = getStageTask(a);
   const meta = [a.position || 'No position', a.department, a.email, a.phone].filter(Boolean).join(', ');
-  const conductor = a.candidateStage === 'HR Preliminary Interview' ? interviewerFor(a, 'preliminary')
-    : a.candidateStage === 'Initial Interview' ? interviewerFor(a, 'initial')
-    : a.candidateStage === 'Endorsed to Client' ? interviewerFor(a, 'final') : '';
   const changeStage = (stage: string) => {
     if (REASON_STAGES.includes(stage)) { actions.openClose({ ids: [a.id], stage }); return; }
     const hint = DEFAULT_NEXT_ACTION_BY_STAGE[stage];
@@ -112,15 +109,13 @@ function PanelHeader({ a, caps, onClose }: { a: Candidate; caps: Capabilities; o
           {!caps.stage ? <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge> : (
             <select id={`stage-${a.id}`} className="ab-select" value={a.candidateStage} onChange={(e) => changeStage(e.target.value)}>
               {!a.candidateStage && <option value="">Not set yet</option>}
-              {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : s}</option>)}
+              {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{stageLabelFor(s, a.department)}</option>)}
             </select>
           )}
         </Field>
-        <OtherSelect label="Next action" id={`next-${a.id}`} value={a.nextAction || ''} options={NEXT_ACTION_OPTIONS} empty="None" disabled={!caps.stage}
-          onChange={(v) => update(a.id, { nextAction: v })} />
-        {(task || conductor) && (
-          <p className="app-next m-0 app-truncate" title={[task && `${task.label}. ${task.hint}`, conductor && `Conducted by: ${conductor}`].filter(Boolean).join(' ')}>
-            {task && <><strong>{task.label}.</strong> {task.hint}</>}{conductor && <span className="app-next__by">{task ? ' ' : ''}Conducted by {conductor}.</span>}
+        {task && (
+          <p className="app-next m-0 app-truncate" title={`Next: ${task.hint} (${ROLE_LABEL[OWNER_TO_ROLE[task.owner]]})`}>
+            <strong>Next:</strong> {task.hint} <span className="app-next__by">({ROLE_LABEL[OWNER_TO_ROLE[task.owner]]})</span>
           </p>
         )}
       </div>

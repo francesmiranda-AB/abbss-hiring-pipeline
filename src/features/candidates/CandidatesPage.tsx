@@ -20,6 +20,7 @@ export default function CandidatesPage() {
   const [showFilters, setShowFilters] = useState(() => ADVANCED_KEYS.some((k) => filters[k]));
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const { openId, open } = useOpenCandidate();
+  const clearAll = () => set({ q: '', chip: 'active', ...Object.fromEntries(ADVANCED_KEYS.map((k) => [k, ''])) });
   const boardOnly = user.role === 'PM';
   const canBulk = can(user.role, 'bulk');
   const canExport = can(user.role, 'export');
@@ -64,8 +65,8 @@ export default function CandidatesPage() {
           ))}
         </div>
         <Button variant={showFilters ? 'secondary' : 'tonal'} size="sm" icon={SlidersHorizontal} aria-expanded={showFilters} onClick={() => setShowFilters((f) => !f)}>Filters</Button>
-        {ADVANCED_KEYS.some((k) => filters[k]) && (
-          <button type="button" className="app-link-button text-sm" onClick={() => set(Object.fromEntries(ADVANCED_KEYS.map((k) => [k, ''])))}>Clear filters</button>
+        {(ADVANCED_KEYS.some((k) => filters[k]) || filters.q || filters.chip !== 'active') && (
+          <button type="button" className="app-link-button text-sm" onClick={clearAll}>Clear filters</button>
         )}
       </div>
       {showFilters && <FilterRow />}
@@ -73,7 +74,7 @@ export default function CandidatesPage() {
       {canBulk && selectedList.length > 0 && <BulkBar selected={selectedList} onClear={() => setSelected(new Set())} />}
 
       {!shown.length ? (
-        <Empty icon={Users} title="No candidates match">Try another quick view, or clear the search and filters.</Empty>
+        <Empty icon={Users} title="No candidates match" action={<Button size="sm" variant="secondary" onClick={clearAll}>Clear search and filters</Button>}>Nothing fits this view. Clearing goes back to Active candidates.</Empty>
       ) : view === 'board' ? (
         <CandidateBoard candidates={shown} onOpen={open} />
       ) : (

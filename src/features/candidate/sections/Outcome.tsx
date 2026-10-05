@@ -8,7 +8,7 @@ import { SavingInput, SavingTextarea, Section } from './common';
 
 type Check = { label: string; state: 'pass' | 'fail' | 'pending'; detail: string };
 const DECISION_BUTTON: Record<Decision | 'Close', string> = {
-  Hired: 'Mark as hired', Close: 'Close', Hold: 'Put on hold', NonCompliant: "Doesn't respond", 'In Progress': 'Back to in progress', Departed: 'No longer with us',
+  Hired: 'Mark as hired', Close: 'Close', Hold: 'Put on hold', NonCompliant: 'No reply', 'In Progress': 'Back to in progress', Departed: 'No longer with us',
 };
 
 export function OutcomeSection({ a }: { a: Candidate }) {
