@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CalendarClock, CalendarDays, CalendarX, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react';
 import { confirmInterview, getInterviewerBusy, removeInterviewSlot, unconfirmInterview } from '@/api/actions';
 import { SNAPSHOT_KEY, useCandidate, useCandidates, useUpdateCandidate } from '@/api/queries';
 import { useUser } from '@/auth/auth';
@@ -87,15 +87,15 @@ export default function CalendarPage() {
             {busy && <p className="app-meta mt-2">Grey times are already busy on the interviewer's calendar.</p>}
           </section>
           <aside className="grid gap-6 content-start">
-            <Section title="Ready to confirm" count={pending.length} countTone="warning" lead="Confirming adds it to the interviewer's calendar and emails the candidate.">
+            <Section title="Ready to confirm" count={pending.length} countTone="warning" kind="action" icon={CalendarClock} tone="blue" lead="Confirming adds it to the interviewer's calendar and emails the candidate.">
               {!pending.length ? <p className="ab-muted m-0">Nothing waiting.</p> : <ItemRows items={pending} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />}
             </Section>
             {passed.length > 0 && (
-              <Section title="Passed, needs a new time" count={passed.length} countTone="danger" lead="Never confirmed, and the time has gone by. Ask the candidate for a new one, or remove these.">
+              <Section title="Passed, needs a new time" count={passed.length} countTone="danger" kind="action" icon={CalendarX} tone="red" lead="Never confirmed, and the time has gone by. Ask the candidate for a new one, or remove these.">
                 <ItemRows items={passed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} />
               </Section>
             )}
-            <Section title="Confirmed" count={confirmed.length} countTone="success">
+            <Section title="Confirmed" count={confirmed.length} countTone="success" icon={CalendarCheck} tone="green">
               {!confirmed.length ? <p className="ab-muted m-0">None yet.</p> : <ItemRows items={confirmed} onOpen={(i) => setOpen({ id: i.candidateId, slotId: i.slot.id })} showContact />}
             </Section>
           </aside>

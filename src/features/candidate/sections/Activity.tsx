@@ -1,3 +1,4 @@
+import { History, Mail } from 'lucide-react';
 import { useState } from 'react';
 import type { Candidate } from '@/domain/types';
 import { EMAIL_TEMPLATE_LABELS } from '@/domain/emailTemplates';
@@ -30,7 +31,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
         onConfirm={() => { const k = unmark!; setUnmark(null); void actions.unrecordEmailSent(a.id, k); }}>
         <p className="m-0">This only clears the record that it was sent, and it restarts the assessment deadline clock if it was an invite. It does not un-send anything.</p>
       </ConfirmDialog>
-      <PanelSection title="Emails">
+      <PanelSection title="Emails" icon={Mail}>
         {!keys.length ? <p className="ab-muted m-0">No emails sent yet.</p> : (
           <div className="ab-table-wrap">
             <table className="ab-table">
@@ -53,7 +54,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
         )}
         <p className="ab-hint m-0">Opened is only tracked for emails sent from this app.</p>
       </PanelSection>
-      <PanelSection title="Stage history">
+      <PanelSection title="Stage history" icon={History}>
         <ol className="ab-rows">
           {history.map(([stage, at]) => (
             <li key={stage} className="ab-row app-row-compact">

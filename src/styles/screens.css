@@ -22,7 +22,6 @@
 .app-tone-warning { color: var(--ab-warning-text); font-weight: var(--ab-font-weight-semibold); }
 .app-tone-info, .app-tone-primary { color: var(--ab-link); }
 .app-tone-success { color: var(--ab-success-text); }
-.app-inline-note { min-height: 3rem; font-size: var(--ab-font-size-sm); }
 .app-bulk {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3);
   padding: var(--ab-space-3) var(--ab-space-4); border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); background: var(--ab-primary-soft);
@@ -217,7 +216,7 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
   .app-table-compact .col-stage { width: 13.5rem; }
   .app-table-compact .col-emm { width: 10.25rem; }
   .app-table-compact .col-next { width: 16rem; }
-  .app-table-compact .col-notes { width: 3rem; }
+  .app-table-compact .col-notes { width: 3.25rem; }
   .app-table-compact td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-table-compact thead th { position: sticky; top: 3rem; z-index: 1; }
 }
@@ -228,7 +227,6 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 .app-row-open__pos { flex: 1 1 0; min-width: 0; margin-left: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-table-compact td { padding-block: 0.3125rem; }
 .app-next-cell { display: flex; align-items: baseline; gap: 0.5rem; }
-.app-note-text { max-width: 100%; }
 .app-stage-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .app-page-actions .app-search { flex: 0 1 15rem; min-width: 10rem; max-width: 15rem; }
 @media (min-width: 1200px) { .app-page-actions { flex-wrap: nowrap; } }
@@ -313,26 +311,19 @@ tr[data-selected] { background: var(--ab-primary-soft); }
 
 /* ── Pass 4: horizontal space ─────────────────────────────────────────────
    The page uses the width it has (up to 105rem). The table shows what fits:
-   Department and the note text from 1600px, otherwise a note icon. Under
+   Department from 1600px. Under
    1280px the list is cards. The record panel grows with the screen and
    its tab layouts follow the panel's own width (container queries), not the window's. */
 .ab-page { max-width: 105rem; }
 
 @media (min-width: 1280px) and (max-width: 1599px) {
   .app-table-compact .col-department { display: none; }
-  .app-note-str { display: none; }
-  .app-table-compact th.col-notes, .app-table-compact td.col-notes { padding-inline: 0.25rem; text-align: center; }
 }
 @media (min-width: 1600px) {
-  .app-note-ico { display: none; }
   .app-table-compact .col-next { width: 20rem; }
-  .app-table-compact .col-notes { width: clamp(10rem, 12vw, 22rem); }
 }
 .app-table-compact th, .app-table-compact td { padding-inline: 0.75rem; }
 .app-table-compact td:first-child, .app-table-compact th:first-child { padding-inline: 0.75rem; }
-.app-note-text { display: flex; align-items: center; gap: 0.375rem; max-width: 100%; }
-.app-note-str { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-note-ico { flex: none; }
 
 .app-board__col { grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .app-board__list { grid-template-columns: minmax(0, 1fr); }
@@ -364,3 +355,25 @@ tr[data-selected] { background: var(--ab-primary-soft); }
 .app-next-cell__main > svg { flex: none; }
 .app-next-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-next-cell > .app-meta { flex: none; }
+
+/* Notes: a mark in the table (filled when there is a note), a popover to read or edit it. */
+.app-table-compact th.col-notes, .app-table-compact td.col-notes { padding-inline: 0.25rem; text-align: center; }
+.app-table-compact th.col-notes { color: var(--ab-text-muted); }
+.app-note-mark { all: unset; display: inline-grid; place-items: center; padding: 0.25rem; border-radius: var(--ab-radius-sm); color: var(--ab-text-subtle); cursor: pointer; }
+.app-note-mark:hover { background: var(--ab-tonal); color: var(--ab-link); }
+.app-note-mark.has-note { color: var(--ab-link); }
+.app-note-mark.has-note svg { fill: var(--ab-primary-soft); }
+.app-note-mark:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+.app-note-glyph { display: inline-flex; flex: none; margin-left: 0.375rem; color: var(--ab-link); vertical-align: -0.125rem; }
+.app-note-glyph svg { fill: var(--ab-primary-soft); }
+.app-note-pop {
+  position: fixed; z-index: var(--ab-z-dropdown); width: min(22rem, calc(100vw - 1rem)); display: grid; gap: var(--ab-space-2); padding: var(--ab-space-3);
+  border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); background: var(--ab-surface-raised); box-shadow: var(--ab-shadow-lg);
+}
+.app-note-pop__head { display: flex; align-items: baseline; gap: var(--ab-space-2); min-width: 0; }
+.app-note-pop__title { font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+.app-note-pop__text { margin: 0; max-height: 12rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-note-pop__edit { min-height: 8rem; max-height: 14rem; }
+.app-note-pop__foot { display: flex; justify-content: flex-end; }
+
+@media (min-width: 1440px) and (max-width: 1599px) { .app-table-compact .col-next { width: 17.5rem; } }

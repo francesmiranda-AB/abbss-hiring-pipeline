@@ -1,3 +1,4 @@
+import { FileSignature, Flag, ListChecks } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { emmHighRiskFlag, gritOf, valuesOf } from '@/domain/assessments';
 import { availableDecisions, outcomeText, type Decision } from '@/domain/outcome';
@@ -35,7 +36,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
   const decisions = availableDecisions(a);
   return (
     <div className="app-stack">
-      <PanelSection title="Results so far">
+      <PanelSection title="Results so far" kind="result" icon={ListChecks} tone="green">
         <ul className="ab-rows">
           {checks.map((c) => (
             <li key={c.label} className="ab-row app-row-compact">
@@ -48,7 +49,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
         <p className="m-0 font-semibold">{verdict}</p>
       </PanelSection>
 
-      <PanelSection title="Outcome">
+      <PanelSection title="Outcome" kind="action" icon={Flag} tone="green">
         <p className="app-outcome-now">{outcomeText(a)}</p>
         <div className="ab-cluster">
           {decisions.map((d) => (
@@ -66,7 +67,7 @@ export function OutcomeSection({ a }: { a: Candidate }) {
       </PanelSection>
 
       {showOffer && (
-        <PanelSection title="Offer and contract details">
+        <PanelSection title="Offer and contract details" kind="action" icon={FileSignature} tone="green">
           <p className="ab-muted m-0">Used in the Next steps, Job offer and Contract emails. Send Next steps first: it carries the pre-onboarding PDF.</p>
           <SavingTextarea id={`jd-${a.id}`} label="Job description" value={od.jd} placeholder="Key duties and responsibilities" onSave={(x) => setOffer('jd', x)} />
           <div className="app-form-grid">

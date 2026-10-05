@@ -103,6 +103,17 @@ export function stageTone(stage: string): BadgeTone {
   return STAGE_TONE[stage] || 'neutral';
 }
 
+// Where someone is in the process, in six steps. A colour for the place a person
+// is, separate from the status colours (amber and red mean "look at this").
+export type Phase = 'intake' | 'assess' | 'interview' | 'decide' | 'offer' | 'closed';
+const STAGE_PHASE: Record<string, Phase> = {
+  'New Application': 'intake', 'CV Screening': 'intake', 'HR Preliminary Interview': 'intake',
+  'Assessment Sent': 'assess', 'Assessment Review': 'assess', 'Initial Interview': 'interview',
+  'Operations Decision': 'decide', 'Endorsed to Client': 'decide', Offer: 'offer', Hired: 'offer',
+  'Closed - Rejected': 'closed', 'Closed - Withdrawn': 'closed',
+};
+export const stagePhase = (stage: string): Phase => STAGE_PHASE[stage] || 'intake';
+
 const CLOSED_STATUSES = ['Hired', 'Rejected', 'NonCompliant', 'Departed', 'Deleted'];
 export function isClosed(a: Pick<Candidate, 'candidateStage' | 'overallStatus'> | null | undefined): boolean {
   if (!a) return true;

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { AlertTriangle, ChevronRight, Upload, X, type LucideIcon } from 'lucide-react';
-import type { BadgeTone } from '@/domain/stages';
+import type { BadgeTone, Phase } from '@/domain/stages';
 
 // Thin React wrappers over the AB Design System classes (components.css).
 
@@ -36,13 +36,27 @@ export function PageHeader({ title, lead, actions }: { title: string; lead?: Rea
 
 // A gray block with a header band: the main way screens group things. Items
 // inside (rows, tables, fields) sit on white, so the nesting reads at a glance.
-export function Section({ title, count, countTone = 'neutral', lead, actions, children, className, label }: {
+// Initials in the colour of the phase the person is in (shown by the current look).
+export function PhaseTile({ name, phase }: { name: string; phase: Phase }) {
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
+  return <span className="app-phase-tile" data-phase={phase} aria-hidden>{initials}</span>;
+}
+
+export type SectionKind = 'action' | 'reference' | 'result';
+export type TileTone = 'neutral' | 'sky' | 'blue' | 'green' | 'red' | 'amber';
+// A small icon tile that says what a block is for (shown by the current look).
+export function Tile({ icon: Icon, tone = 'neutral' }: { icon: LucideIcon; tone?: TileTone }) {
+  return <span className="app-tile" data-tone={tone} aria-hidden><Icon size={16} /></span>;
+}
+
+export function Section({ title, count, countTone = 'neutral', lead, actions, children, className, label, kind = 'reference', icon, tone }: {
   title: ReactNode; count?: number; countTone?: BadgeTone; lead?: ReactNode; actions?: ReactNode; children?: ReactNode; className?: string; label?: string;
+  kind?: SectionKind; icon?: LucideIcon; tone?: TileTone;
 }) {
   return (
-    <section className={cx('app-block', className)} aria-label={label}>
+    <section className={cx('app-block', className)} aria-label={label} data-kind={kind}>
       <div className="app-block__head">
-        <h2 className="app-block__title">{title}{count !== undefined && <Badge tone={count ? countTone : 'neutral'}>{count}</Badge>}</h2>
+        <h2 className="app-block__title">{icon && <Tile icon={icon} tone={tone} />}{title}{count !== undefined && <Badge tone={count ? countTone : 'neutral'}>{count}</Badge>}</h2>
         {actions && <div className="ab-cluster">{actions}</div>}
       </div>
       {lead && <p className="app-block__lead">{lead}</p>}

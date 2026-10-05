@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ExternalLink, FileCheck2, Printer, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Calculator, ExternalLink, FileCheck2, Printer, RefreshCw, ShieldCheck, Target } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { assessmentsSubmitted, emmBadge, emmHighRiskFlag, emmStatusLabel, gritOf, valuesOf, type AssessmentOutcome } from '@/domain/assessments';
 import { CAT_ORDER } from '@/domain/grader/categories';
@@ -55,7 +55,7 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
       </div>
 
       <div className="app-assess-pair">
-      <PanelSection title="GRIT" aside={<a className="app-ext" href={FORM_LINKS.grit} target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
+      <PanelSection title="GRIT" kind="result" icon={Target} tone="sky" aside={<a className="app-ext" href={FORM_LINKS.grit} target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
         <div className="app-form-grid">
           <SavingInput id={`grit-${a.id}`} label="Score (1 to 5)" inputMode="decimal" value={a.grit?.score} readOnly={!manual} onSave={(x) => setNested('grit', 'score', x)} />
           <SavingInput id={`gritp-${a.id}`} label="Perseverance" inputMode="decimal" value={a.grit?.perseverance} readOnly={!manual} onSave={(x) => setNested('grit', 'perseverance', x)} />
@@ -64,7 +64,7 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
         <OutcomeNote o={g} />
       </PanelSection>
 
-      <PanelSection title="Values and integrity" aside={<a className="app-ext" href={FORM_LINKS.values} target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
+      <PanelSection title="Values and integrity" kind="result" icon={ShieldCheck} tone="sky" aside={<a className="app-ext" href={FORM_LINKS.values} target="_blank" rel="noopener noreferrer">Open form <ExternalLink size={14} aria-hidden /></a>}>
         <div className="app-form-grid">
           <SavingInput id={`val-${a.id}`} label="Total of 315" inputMode="numeric" value={a.values?.score} readOnly={!manual} onSave={(x) => setNested('values', 'score', x)} />
           <SavingInput id={`valc-${a.id}`} label="Confidentiality" inputMode="decimal" value={a.values?.confScore} readOnly={!manual} onSave={(x) => setNested('values', 'confScore', x)} />
@@ -74,7 +74,7 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
       </PanelSection>
       </div>
 
-      <PanelSection title="EMM cognitive test">
+      <PanelSection title="EMM cognitive test" kind="result" icon={Calculator} tone="sky">
         {a.requiresEmm ? <EmmBlock a={a} manual={manual} /> : <p className="ab-muted m-0">Not asked for. Sending the assessment invite with EMM adds it.</p>}
       </PanelSection>
     </div>

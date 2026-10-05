@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { ChevronRight, Clock } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageName, stageTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageName, stagePhase, stageTone } from '@/domain/stages';
 import { needsAttention } from '@/domain/attention';
 import { useConfig } from '@/api/queries';
 import { Badge, cx } from '@/ui/kit';
+import { NoteGlyph } from './NoteMark';
 
 const COLLAPSE_KEY = 'abbss_board_collapsed';
 function loadCollapsed(): Record<string, boolean> {
@@ -34,7 +35,7 @@ export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]
         const items = col.key ? candidates.filter((a) => a.candidateStage === col.key) : noStage;
         const isCollapsed = !!collapsed[col.key];
         return (
-          <li key={col.key || 'none'} className={cx('app-board__col', isCollapsed && 'is-collapsed', !items.length && 'is-empty')} aria-label={`${col.label}, ${items.length}`}>
+          <li key={col.key || 'none'} className={cx('app-board__col', isCollapsed && 'is-collapsed', !items.length && 'is-empty')} aria-label={`${col.label}, ${items.length}`} data-phase={stagePhase(col.key)}>
             <button type="button" className="app-board__head" aria-expanded={!isCollapsed} onClick={() => toggle(col.key)}>
               <span className="app-board__title">{col.label}</span>
               <Badge tone={items.length ? stageTone(col.key) : 'neutral'}>{items.length}</Badge>
@@ -46,6 +47,7 @@ export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]
                   const body = (<>
                     <span className="app-board__name">
                       <span className="app-board__nametext" title={a.name}>{a.name}</span>
+                      <NoteGlyph note={a.resumeNotes} className="app-board__note" />
                       {needsAttention(a, config)?.overdue && <Clock size={14} className="app-tone-danger app-board__late" aria-label="Overdue" role="img" />}
                     </span>
                     <span className="app-meta app-board__sub">{[a.position || 'No position', a.candidateStage === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : a.department].filter(Boolean).join(', ')}</span>

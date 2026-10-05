@@ -183,20 +183,10 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 /* Candidates: one line per person. */
 .app-table-compact td { padding-block: 0.375rem; line-height: 1.3; }
 .app-table-compact .app-row-open { gap: 0; }
-.app-table-compact .app-note-add { padding-block: 0.125rem; }
 .app-row-clickable { cursor: pointer; }
 .ab-table tbody tr.app-row-clickable:hover { background: var(--ab-tonal-hover); }
 .app-next-cell { display: grid; gap: 0.125rem; white-space: nowrap; }
 .app-next-cell__main { display: inline-flex; align-items: center; gap: 0.375rem; }
-.app-note-cell { width: 13rem; max-width: 13rem; }
-.app-note-text {
-  all: unset; display: block; max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); cursor: pointer;
-}
-.app-note-text:hover { color: var(--ab-link); text-decoration: underline; }
-.app-note-add { all: unset; display: inline-grid; place-items: center; padding: 0.375rem; border-radius: var(--ab-radius-sm); color: var(--ab-text-subtle); cursor: pointer; }
-.app-note-add:hover { background: var(--ab-tonal); color: var(--ab-link); }
-.app-note-text:focus-visible, .app-note-add:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
 
 .app-cand-cards { display: none; margin: 0; padding: 0; list-style: none; }
 .app-cand-card { display: flex; align-items: stretch; border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); }
@@ -218,8 +208,8 @@ button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
 
 /* Touch screens: lists and small buttons need a finger-sized target. */
 @media (pointer: coarse) {
-  .ab-btn--sm, .ab-tab, .app-note-add { min-height: 2.75rem; }
-  .app-note-add { min-width: 2.75rem; }
+  .ab-btn--sm, .ab-tab, .app-note-mark { min-height: 2.75rem; }
+  .app-note-mark { min-width: 2.75rem; }
   .app-row-button, .app-template { min-height: 2.75rem; }
 }
 

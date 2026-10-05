@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Trash2 } from 'lucide-react';
+import { FileText, StickyNote, Trash2, UserRound } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { DEPARTMENTS, ROLE_CONFIG, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
 import { uploadCv } from '@/api/actions';
@@ -18,7 +18,7 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
   const caps = useCaps(a);
   return (
     <div className="app-stack">
-      <PanelSection title="Details">
+      <PanelSection title="Details" icon={UserRound}>
         <div className="app-form-grid app-form-grid--4">
           <SavingInput id={`phone-${a.id}`} label="Phone" value={a.phone} onSave={(v) => update(a.id, { phone: v })} />
           <SavingInput id={`pos-${a.id}`} label="Position" value={a.position} onSave={(v) => update(a.id, { position: v })} />
@@ -44,10 +44,10 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
         </div>
       </PanelSection>
       <div className="app-pair">
-        <PanelSection title="Resume notes">
+        <PanelSection title="Resume notes" icon={StickyNote}>
           <SavingTextarea id={`notes-${a.id}`} label="Notes from the CV" value={a.resumeNotes} onSave={(v) => update(a.id, { resumeNotes: v })} placeholder="Relevant experience and skills" />
         </PanelSection>
-        <PanelSection title="CV">
+        <PanelSection title="CV" icon={FileText}>
           <CvBlock a={a} />
         </PanelSection>
       </div>

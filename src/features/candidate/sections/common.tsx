@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { Field } from '@/ui/kit';
+import type { LucideIcon } from 'lucide-react';
+import { Field, Tile, type SectionKind, type TileTone } from '@/ui/kit';
 
 type SaveFn = (v: string) => void | Promise<boolean | void>;
 
@@ -58,11 +59,13 @@ export function SavingTextarea({ label, value, onSave, id, ...rest }: Omit<Texta
   );
 }
 
-export function PanelSection({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
+export function PanelSection({ title, children, aside, kind = 'reference', icon, tone }: {
+  title: string; children: React.ReactNode; aside?: React.ReactNode; kind?: SectionKind; icon?: LucideIcon; tone?: TileTone;
+}) {
   return (
-    <section className="app-panel-section">
+    <section className="app-panel-section" data-kind={kind}>
       <div className="app-panel-section__head">
-        <h3 className="ab-card__title">{title}</h3>
+        <h3 className="ab-card__title">{icon && <Tile icon={icon} tone={tone} />}{title}</h3>
         {aside}
       </div>
       {children}

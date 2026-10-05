@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
 import { useCandidate, useSaveStatus } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
-import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, REASON_STAGES, STATUS_LABEL, stageLabel, stageLabelFor, stageTone, type BadgeTone } from '@/domain/stages';
+import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, REASON_STAGES, STATUS_LABEL, stageLabel, stageLabelFor, stagePhase, stageTone, type BadgeTone } from '@/domain/stages';
 import { OWNER_TO_ROLE, getStageTask } from '@/domain/attention';
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } from '@/domain/emailTemplates';
 import { ROLE_LABEL } from '../registry';
@@ -102,7 +102,7 @@ function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; cap
     void actions.setOutcome([a.id], { stage }, `${a.name} moved to ${stage}${hint && hint !== 'None' ? `. Next: ${hint}` : ''}`);
   };
   return (
-    <header className="app-sheet__head">
+    <header className="app-sheet__head" data-phase={stagePhase(a.candidateStage)}>
       <div className="app-sheet__titlerow">
         <h2 className="ab-title app-truncate app-sheet__name">{a.name}</h2>
         <p className="app-meta app-truncate app-sheet__meta" title={meta}>

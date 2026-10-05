@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { CalendarClock, Check, ClipboardCheck, MessagesSquare, X } from 'lucide-react';
 import type { Candidate } from '@/domain/types';
 import { saveInterviewSlots } from '@/api/actions';
 import { parseSlotLabel } from '@/domain/calendar';
@@ -38,7 +38,7 @@ export function InterviewSection({ a }: { a: Candidate }) {
       <fieldset disabled={!caps.schedule} className="app-fieldset"><Scheduling a={a} /></fieldset>
       <fieldset disabled={!caps.interview} className="app-fieldset app-stack">
       {a.requiresEmm && (
-        <PanelSection title="Interview questions">
+        <PanelSection title="Interview questions" icon={MessagesSquare} tone="blue">
           <Guide items={GUIDE} group="interview-guide" />
           <details>
             <summary className="app-meta">Optional: resilience and adaptability probes</summary>
@@ -46,7 +46,7 @@ export function InterviewSection({ a }: { a: Candidate }) {
           </details>
         </PanelSection>
       )}
-      <PanelSection title="Notes and result">
+      <PanelSection title="Notes and result" kind="action" icon={ClipboardCheck} tone="blue">
         <SavingTextarea id={`ivn-${a.id}`} label="Interview notes" value={iv.notes} rows={6} placeholder="Answers, observations, concerns"
           onSave={(x) => update(a.id, { interview: { ...iv, notes: x } })} />
         <div className="flex flex-wrap items-center gap-3">
@@ -119,7 +119,7 @@ function Scheduling({ a }: { a: Candidate }) {
     }
   };
   return (
-    <PanelSection title="Interview time">
+    <PanelSection title="Interview time" kind="action" icon={CalendarClock} tone="blue">
       {confirmed ? (
         <div className="ab-alert ab-alert--success">
           <span className="ab-alert__icon" aria-hidden><Check size={18} /></span>

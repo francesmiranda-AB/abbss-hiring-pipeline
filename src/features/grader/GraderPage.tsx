@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ExternalLink, Printer } from 'lucide-react';
+import { AlertTriangle, Calculator, ExternalLink, FileCheck2, Printer, SearchX } from 'lucide-react';
 import { fetchDriveFile, getUnmatchedEmm } from '@/api/actions';
 import { useCandidates, useUpdateCandidate } from '@/api/queries';
 import { assessmentsSubmitted } from '@/domain/assessments';
@@ -105,12 +105,12 @@ export default function GraderPage() {
       <PageHeader title="EMM grader" />
 
       {queue.length > 0 && (
-        <Section title="Waiting to be graded" lead={`${queue.length} submitted through the form.`}>
+        <Section title="Waiting to be graded" kind="action" icon={FileCheck2} tone="sky" lead={`${queue.length} submitted through the form.`}>
           <ul className="ab-rows">{queue.map((a) => <QueueRow key={a.id} a={a} busy={loading === a.name} onGrade={() => loadFromDrive(a.emmFileUrl!, a.name, a.id)} />)}</ul>
         </Section>
       )}
       {!!unmatched.data?.length && (
-        <Section title="Submissions that match no candidate" lead="Usually a typo, or a different email than the one on file. Fix the email on the right candidate and they attach on their own.">
+        <Section title="Submissions that match no candidate" icon={SearchX} tone="amber" lead="Usually a typo, or a different email than the one on file. Fix the email on the right candidate and they attach on their own.">
           <ul className="ab-rows">
             {unmatched.data.map((u) => (
               <li key={`${u.email}-${u.timestamp}`} className="ab-row">
@@ -123,7 +123,7 @@ export default function GraderPage() {
         </Section>
       )}
 
-      <Section title="Grade a workbook">
+      <Section title="Grade a workbook" kind="action" icon={Calculator} tone="sky">
         {driveBlocked && (
           <div className="ab-alert ab-alert--warning" role="alert">
             <span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span>

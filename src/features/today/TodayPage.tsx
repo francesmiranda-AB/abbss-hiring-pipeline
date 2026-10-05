@@ -2,18 +2,18 @@ import { useMemo } from 'react';
 import type { Candidate } from '@/domain/types';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, ChevronRight } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Clock, DoorOpen, ListChecks } from 'lucide-react';
 import { useCandidates, useConfig } from '@/api/queries';
 import { getAllOffboarding } from '@/api/actions';
 import { useUser } from '@/auth/auth';
 import { isNewApplicant, needsAttention, OWNER_TO_ROLE } from '@/domain/attention';
 import { calendarItems } from '@/domain/calendar';
 import { isOffboardingDue } from '@/domain/offboarding';
-import { stageLabel, stageTone } from '@/domain/stages';
+import { stageLabel, stagePhase, stageTone } from '@/domain/stages';
 import { roleScope } from '../candidates/filters';
 import { tabForNextStep } from '../candidate/primaryAction';
 import { CandidatePanel, useOpenCandidate } from '../candidate/CandidatePanel';
-import { Badge, Empty, Kpis, PageHeader, Section } from '@/ui/kit';
+import { Badge, Empty, Kpis, PageHeader, PhaseTile, Section } from '@/ui/kit';
 
 // What needs doing now, for the signed-in person's role.
 export default function TodayPage() {
@@ -54,17 +54,17 @@ export default function TodayPage() {
         </Section>
       ) : (<>
         {overdueTasks.length > 0 && (
-          <Section title="Overdue" count={overdueTasks.length} countTone="danger">
+          <Section title="Overdue" count={overdueTasks.length} countTone="danger" kind="action" icon={Clock} tone="red">
             <TaskRows tasks={overdueTasks} onOpen={open} />
           </Section>
         )}
         {onTimeTasks.length > 0 && (
-          <Section title="Needs action" count={onTimeTasks.length} countTone="warning">
+          <Section title="Needs action" count={onTimeTasks.length} countTone="warning" kind="action" icon={ListChecks} tone="amber">
             <TaskRows tasks={onTimeTasks} onOpen={open} />
           </Section>
         )}
         {dueOffboarding.length > 0 && (
-          <Section title="Offboarding due" count={dueOffboarding.length} countTone="warning">
+          <Section title="Offboarding due" count={dueOffboarding.length} countTone="warning" icon={DoorOpen} tone="amber">
             <ul className="ab-rows">
               {dueOffboarding.map((c) => {
                 const items = Object.keys(c.checklist || {});
@@ -94,8 +94,8 @@ function TaskRows({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: number, tab?:
     <ul className="ab-rows">
       {tasks.map(({ a, n }) => (
         <li key={a.id}>
-          <button type="button" className="ab-row app-row-button" onClick={() => onOpen(a.id, tabForNextStep(a))}>
-            <span className="ab-row__title">{a.name}</span>
+          <button type="button" className="ab-row app-row-button" data-phase={stagePhase(a.candidateStage)} onClick={() => onOpen(a.id, tabForNextStep(a))}>
+            <span className="ab-row__title"><PhaseTile name={a.name} phase={stagePhase(a.candidateStage)} />{a.name}</span>
             <span className="ab-row__body">{n.reason}</span>
             <span className="ab-row__meta"><Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge><ChevronRight size={16} aria-hidden /></span>
           </button>

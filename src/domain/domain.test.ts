@@ -6,7 +6,7 @@ import { fillTemplate, suggestedTemplateFor } from './emailTemplates';
 import { parseSlotLabel, slotDate } from './calendar';
 import { buildRoleSummary, sourceBreakdown } from './reports';
 import { candidatesCsv, parseCsv } from './csv';
-import { isClosed, isEndorsedToOperations, stageLabel, stageLabelFor, stageName } from './stages';
+import { CANDIDATE_STAGES, isClosed, isEndorsedToOperations, stageLabel, stageLabelFor, stageName, stagePhase } from './stages';
 import { can, capabilities, ownsStage } from './permissions';
 import type { Candidate } from './types';
 
@@ -217,6 +217,20 @@ describe('the next step comes from what has happened', () => {
   it('nothing for closed or paused candidates', () => {
     expect(getStageTask(cand({ candidateStage: 'Hired', overallStatus: 'Hired' }))).toBeNull();
     expect(getStageTask(cand({ candidateStage: 'Offer', overallStatus: 'Hold' }))).toBeNull();
+  });
+});
+
+describe('stage phases', () => {
+  it('every stored stage has a phase, in pipeline order', () => {
+    const order = ['intake', 'assess', 'interview', 'decide', 'offer', 'closed'];
+    const seen = CANDIDATE_STAGES.map((s) => order.indexOf(stagePhase(s)));
+    expect(seen.every((i) => i >= 0)).toBe(true);
+    expect([...seen].sort((x, y) => x - y)).toEqual(seen);
+  });
+  it('an unknown or empty stage counts as intake', () => {
+    expect(stagePhase('')).toBe('intake');
+    expect(stagePhase('Closed - Rejected')).toBe('closed');
+    expect(stagePhase('Hired')).toBe('offer');
   });
 });
 

@@ -1,0 +1,81 @@
+/* LOOK LAB (temporary). Three directions for the flat places, switched with ?look=1|2|3
+   (0 = no change). Tokens only, no raw colors. Remove the losing scopes once one is chosen.
+
+   Phase colours say WHERE a person is in the process. They are not status colours:
+   amber and red stay for "look at this". */
+
+:root {
+  --app-phase-intake: var(--ab-neutral-500);  --app-phase-intake-soft: var(--ab-neutral-100);  --app-phase-intake-fg: var(--ab-neutral-800);
+  --app-phase-assess: var(--ab-sky-600);      --app-phase-assess-soft: var(--ab-sky-100);      --app-phase-assess-fg: var(--ab-sky-800);
+  --app-phase-interview: var(--ab-navy-600);  --app-phase-interview-soft: var(--ab-navy-100);  --app-phase-interview-fg: var(--ab-navy-800);
+  --app-phase-decide: var(--ab-teal-600);     --app-phase-decide-soft: var(--ab-teal-100);     --app-phase-decide-fg: var(--ab-teal-800);
+  --app-phase-offer: var(--ab-green-600);     --app-phase-offer-soft: var(--ab-green-100);     --app-phase-offer-fg: var(--ab-green-800);
+  --app-phase-closed: var(--ab-neutral-700);  --app-phase-closed-soft: var(--ab-neutral-200);  --app-phase-closed-fg: var(--ab-neutral-900);
+}
+[data-phase='intake'] { --phase: var(--app-phase-intake); --phase-soft: var(--app-phase-intake-soft); --phase-fg: var(--app-phase-intake-fg); }
+[data-phase='assess'] { --phase: var(--app-phase-assess); --phase-soft: var(--app-phase-assess-soft); --phase-fg: var(--app-phase-assess-fg); }
+[data-phase='interview'] { --phase: var(--app-phase-interview); --phase-soft: var(--app-phase-interview-soft); --phase-fg: var(--app-phase-interview-fg); }
+[data-phase='decide'] { --phase: var(--app-phase-decide); --phase-soft: var(--app-phase-decide-soft); --phase-fg: var(--app-phase-decide-fg); }
+[data-phase='offer'] { --phase: var(--app-phase-offer); --phase-soft: var(--app-phase-offer-soft); --phase-fg: var(--app-phase-offer-fg); }
+[data-phase='closed'] { --phase: var(--app-phase-closed); --phase-soft: var(--app-phase-closed-soft); --phase-fg: var(--app-phase-closed-fg); }
+
+/* Hidden unless a look turns them on. */
+.app-phase-tile, .app-tile { display: none; }
+.app-tile { flex: none; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: var(--ab-radius-md); }
+.app-tile[data-tone='neutral'] { background: var(--ab-neutral-200); color: var(--ab-neutral-800); }
+.app-tile[data-tone='sky'] { background: var(--ab-sky-100); color: var(--ab-sky-800); }
+.app-tile[data-tone='blue'] { background: var(--ab-blue-100); color: var(--ab-blue-800); }
+.app-tile[data-tone='green'] { background: var(--ab-green-100); color: var(--ab-green-800); }
+.app-tile[data-tone='red'] { background: var(--ab-red-100); color: var(--ab-red-800); }
+.app-tile[data-tone='amber'] { background: var(--ab-amber-100); color: var(--ab-amber-800); }
+.app-phase-tile { flex: none; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: var(--ab-radius-pill); background: var(--phase-soft); color: var(--phase-fg); font-size: 0.6875rem; font-weight: var(--ab-font-weight-bold); letter-spacing: 0; }
+
+/* ── Look 1: phase accents ─ where the person is gets a hue ─────────────── */
+[data-look='1'] .app-phase-tile { display: inline-grid; }
+[data-look='1'] .app-row-open--line .app-phase-tile { align-self: center; }
+[data-look='1'] .ab-row__title .app-phase-tile { margin-right: 0.625rem; vertical-align: 0.0625rem; }
+[data-look='1'] .app-board__col { border-top: 3px solid var(--phase); }
+[data-look='1'] .app-board__title { color: var(--phase-fg); }
+[data-look='1'] .app-board__head .ab-badge { --_bg: var(--phase-soft); --_fg: var(--phase-fg); --_border: transparent; }
+[data-look='1'] .app-board__col.is-empty .app-board__head { color: var(--ab-text-muted); }
+[data-look='1'] .app-sheet__head { border-top: 4px solid var(--phase); }
+[data-look='1'] .app-sheet__head .app-next { background: var(--phase-soft); color: var(--phase-fg); }
+[data-look='1'] .app-row-button[data-phase]:hover { background: var(--phase-soft); }
+[data-look='1'] .app-table-compact tr[data-phase]:hover { background: var(--phase-soft); }
+[data-look='1'] .app-table-compact thead th { border-bottom: 2px solid var(--ab-heading); }
+
+/* ── Look 2: section tiles ─ what a block is for gets an icon and a tint ─── */
+[data-look='2'] .app-tile { display: inline-grid; }
+[data-look='2'] .app-block__title, [data-look='2'] .app-panel-section .ab-card__title { gap: var(--ab-space-2); }
+[data-look='2'] .app-panel-section .ab-card__title { display: inline-flex; align-items: center; }
+[data-look='2'] .app-panel-section__head { min-height: 1.75rem; }
+[data-look='2'] .app-block__head { padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong); }
+[data-look='2'] .app-panel-section__head { padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong); }
+[data-look='2'] .app-sheet__inner > .ab-tabs { background: var(--ab-surface); }
+[data-look='2'] .ab-tab[aria-selected='true'] { background: var(--ab-bg); }
+[data-look='2'] .app-table-compact thead th { background: var(--ab-surface); border-bottom: 2px solid var(--ab-heading); }
+
+/* ── Look 3: work vs context ─ surfaces carry the hierarchy ─────────────── */
+/* What you act on is white with a navy top rule; context loses its box and sits on a rule; results stay gray. */
+[data-look='3'] :is(.app-block, .app-panel-section)[data-kind='action'] {
+  background: var(--ab-bg); border: 1px solid var(--ab-border-strong); border-top: 3px solid var(--ab-heading); border-radius: var(--ab-radius-md);
+}
+[data-look='3'] :is(.app-block, .app-panel-section)[data-kind='reference'] {
+  background: transparent; border-radius: 0; border-top: 1px solid var(--ab-border-strong); padding-inline: 0;
+}
+[data-look='3'] :is(.app-block, .app-panel-section)[data-kind='reference'] :is(.ab-rows, .app-template-list, .app-checklist) { border-radius: var(--ab-radius-sm); }
+[data-look='3'] .app-card-plain { background: var(--ab-bg); border: 1px solid var(--ab-border-strong); border-top: 3px solid var(--ab-heading); border-radius: var(--ab-radius-md); }
+[data-look='3'] .app-table-compact thead th { background: var(--ab-surface); border-bottom: 2px solid var(--ab-heading); }
+[data-look='3'] .app-table-compact td { border-bottom-color: var(--ab-neutral-200); }
+[data-look='3'] .app-table-compact .app-row-open__pos, [data-look='3'] .app-table-compact td.col-department { color: var(--ab-text-muted); }
+[data-look='3'] .app-table-compact .app-row-open__name { font-weight: var(--ab-font-weight-bold); }
+[data-look='3'] .app-board__col { background: var(--ab-surface); }
+[data-look='3'] .app-board__card { border-color: var(--ab-border-strong); }
+
+/* Temporary look switch in the sidebar footer. */
+.app-lookswitch { display: flex; align-items: center; gap: 0.25rem; padding: 0 0.25rem 0.25rem; color: var(--ab-sidebar-muted); font-size: var(--ab-font-size-xs); }
+.app-lookswitch span { margin-right: 0.25rem; }
+.app-lookswitch button { all: unset; box-sizing: border-box; min-width: 1.75rem; padding: 0.25rem 0.5rem; border-radius: var(--ab-radius-sm); text-align: center; color: var(--ab-sidebar-fg); cursor: pointer; }
+.app-lookswitch button:hover { background: var(--ab-sidebar-hover); }
+.app-lookswitch button[aria-pressed='true'] { background: var(--ab-white); color: var(--ab-navy-900); font-weight: var(--ab-font-weight-bold); }
+.app-lookswitch button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
