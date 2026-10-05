@@ -12,6 +12,7 @@ import { printEmmReport } from '../../grader/report';
 import { Badge, Button, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { SavingInput, SavingTextarea, Section } from './common';
+import { useCaps } from '../useCaps';
 
 export function AssessmentsSection({ a }: { a: Candidate }) {
   const update = useUpdateCandidate();
@@ -95,6 +96,7 @@ function OutcomeNote({ o }: { o: AssessmentOutcome }) {
 }
 
 function EmmBlock({ a }: { a: Candidate }) {
+  const caps = useCaps(a);
   const update = useUpdateCandidate();
   const actions = useCandidateActions();
   const navigate = useNavigate();
@@ -121,7 +123,7 @@ function EmmBlock({ a }: { a: Candidate }) {
       {!a.emm?.graded ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="ab-muted m-0">{a.emmFileUrl ? 'Their file is in and ready to grade.' : 'Still waiting on their file. Nothing to grade yet.'}</p>
-          <Button variant="primary" size="sm" icon={FileCheck2} onClick={() => navigate(`/grader?candidate=${a.id}`)}>Open in grader</Button>
+          {caps.grader && <Button variant="primary" size="sm" icon={FileCheck2} onClick={() => navigate(`/grader?candidate=${a.id}`)}>Open in grader</Button>}
         </div>
       ) : (
         <>
@@ -171,7 +173,7 @@ function EmmBlock({ a }: { a: Candidate }) {
           <SavingTextarea id={`emmn-${a.id}`} label="HR notes on the EMM" value={a.emm.notes} onSave={(x) => update(a.id, { emm: { ...a.emm, notes: x } })} placeholder="Observations, integrity concerns, recommendations" />
           <div className="ab-cluster">
             <Button variant="tonal" size="sm" icon={Printer} onClick={() => { const err = printEmmReport(a); if (err) toast.error(err); }}>Print report</Button>
-            <Button variant="ghost" size="sm" icon={FileCheck2} onClick={() => navigate(`/grader?candidate=${a.id}`)}>Re-grade</Button>
+            {caps.grader && <Button variant="ghost" size="sm" icon={FileCheck2} onClick={() => navigate(`/grader?candidate=${a.id}`)}>Re-grade</Button>}
           </div>
         </>
       )}

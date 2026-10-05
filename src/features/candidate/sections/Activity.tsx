@@ -5,11 +5,13 @@ import { interviewRoundLabel } from '@/domain/stages';
 import { useCandidateActions } from '../../candidates/actions';
 import { Button, ConfirmDialog, fmtDateTime } from '@/ui/kit';
 import { Section } from './common';
+import { useCaps } from '../useCaps';
 
 const ASSESSMENT_EMAILS = ['assessment', 'assessment_no_emm', 'reminder', 'autoReminder'];
 
 export function ActivitySection({ a }: { a: Candidate }) {
   const actions = useCandidateActions();
+  const caps = useCaps(a);
   const [unmark, setUnmark] = useState<string | null>(null);
   const sent = a.emailsSent || {};
   const keys = Object.keys(sent).filter((k) => sent[k] && (EMAIL_TEMPLATE_LABELS[k] !== undefined || k === 'autoReminder'))
@@ -42,7 +44,7 @@ export function ActivitySection({ a }: { a: Candidate }) {
                     </td>
                     <td className="app-num">{fmtDateTime(sent[k])}</td>
                     <td className="app-num">{opened[k] ? fmtDateTime(opened[k]) : <span className="ab-subtle">Not seen</span>}</td>
-                    <td className="text-right">{k !== 'autoReminder' && <Button size="sm" variant="ghost" onClick={() => setUnmark(k)}>Unmark</Button>}</td>
+                    <td className="text-right">{k !== 'autoReminder' && caps.email && <Button size="sm" variant="ghost" onClick={() => setUnmark(k)}>Unmark</Button>}</td>
                   </tr>
                 ))}
               </tbody>

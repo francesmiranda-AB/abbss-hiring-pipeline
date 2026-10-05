@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Download, LayoutGrid, Rows3, Search, SlidersHorizontal, Users } from 'lucide-react';
 import { useCandidates, useConfig } from '@/api/queries';
 import { useUser } from '@/auth/auth';
+import { can } from '@/domain/permissions';
 import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
 import { DEPARTMENTS, ROLE_OPTIONS, SOURCES } from '@/domain/stages';
 import { Button, Empty, ErrorAlert, PageHeader, Skeleton, cx, pillTone } from '@/ui/kit';
@@ -19,14 +20,15 @@ export default function CandidatesPage() {
   const [showFilters, setShowFilters] = useState(() => ADVANCED_KEYS.some((k) => filters[k]));
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const { openId, open } = useOpenCandidate();
-  const readOnly = user.role === 'PM';
-  const canBulk = user.role === 'HR';
+  const boardOnly = user.role === 'PM';
+  const canBulk = can(user.role, 'bulk');
+  const canExport = can(user.role, 'export');
 
   const scoped = useMemo(() => applyFilters(roleScope(candidates, user.role), filters), [candidates, user.role, filters]);
   const hasStageFilter = !!(filters.stage || filters.status);
   const counts = useMemo(() => Object.fromEntries(CHIPS.map((c) => [c.key, scoped.filter((a) => chipMatch(a, c.key, user.role, config, hasStageFilter)).length])), [scoped, user.role, config, hasStageFilter]);
   const shown = useMemo(() => sortCandidates(scoped.filter((a) => chipMatch(a, filters.chip, user.role, config, hasStageFilter)), filters.sort, filters.dir), [scoped, filters, user.role, config, hasStageFilter]);
-  const view = readOnly ? 'board' : filters.view;
+  const view = boardOnly ? 'board' : filters.view;
   const selectedList = shown.filter((a) => selected.has(a.id));
 
   if (error) return <ErrorAlert title="Couldn't load candidates">{error.message}</ErrorAlert>;
@@ -43,13 +45,13 @@ export default function CandidatesPage() {
             <span className="ab-visually-hidden">Search candidates</span>
             <input className="ab-input" type="search" placeholder="Search name, email, phone, position or notes" value={filters.q} onChange={(e) => set({ q: e.target.value })} />
           </label>
-          {!readOnly && (
+          {!boardOnly && (
             <div className="ab-tabs ab-tabs--pills" role="tablist" aria-label="View">
               <button type="button" role="tab" className="ab-tab" aria-selected={view === 'table'} onClick={() => set({ view: 'table' })}><Rows3 size={14} aria-hidden /> Table</button>
               <button type="button" role="tab" className="ab-tab" aria-selected={view === 'board'} onClick={() => set({ view: 'board' })}><LayoutGrid size={14} aria-hidden /> Board</button>
             </div>
           )}
-          <Button variant="outline" size="sm" icon={Download} onClick={() => downloadText(`ABBSS_Candidates_${todayStamp()}.csv`, candidatesCsv(shown))} disabled={!shown.length}>Export CSV</Button>
+          {canExport && <Button variant="outline" size="sm" icon={Download} onClick={() => downloadText(`ABBSS_Candidates_${todayStamp()}.csv`, candidatesCsv(shown))} disabled={!shown.length}>Export CSV</Button>}
         </>}
       />
 
@@ -73,14 +75,14 @@ export default function CandidatesPage() {
       {!shown.length ? (
         <Empty icon={Users} title="No candidates match">Try another quick view, or clear the search and filters.</Empty>
       ) : view === 'board' ? (
-        <CandidateBoard candidates={shown} readOnly={readOnly} onOpen={open} />
+        <CandidateBoard candidates={shown} onOpen={open} />
       ) : (
         <CandidateTable candidates={shown} sort={filters.sort} dir={filters.dir}
           onSort={(col) => set({ sort: col, dir: filters.sort === col && filters.dir === 'asc' ? 'desc' : 'asc' })}
           selectable={canBulk} selected={selected} onSelect={setSelected} onOpen={open} />
       )}
 
-      <CandidatePanel id={openId} readOnly={readOnly} />
+      <CandidatePanel id={openId} />
     </div>
   );
 }

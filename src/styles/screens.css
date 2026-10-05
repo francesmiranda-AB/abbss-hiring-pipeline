@@ -294,3 +294,5 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
 
 .app-savemark { flex: none; min-width: 3.5rem; font-size: var(--ab-font-size-xs); color: var(--ab-text-muted); text-align: right; }
 .app-sheet__actions { margin-left: 0; }
+
+.app-viewonly { margin: 0 0 var(--ab-space-3); padding: var(--ab-space-1) var(--ab-space-3); border-radius: var(--ab-radius-md); background: var(--ab-surface); color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); }

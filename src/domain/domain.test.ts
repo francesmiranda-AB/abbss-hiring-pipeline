@@ -7,6 +7,7 @@ import { parseSlotLabel, slotDate } from './calendar';
 import { buildRoleSummary, sourceBreakdown } from './reports';
 import { candidatesCsv, parseCsv } from './csv';
 import { isClosed, isEndorsedToOperations, stageLabel } from './stages';
+import { can, capabilities, ownsStage } from './permissions';
 import type { Candidate } from './types';
 
 const HOUR = 3600000;
@@ -169,5 +170,27 @@ describe('calendar, reports, csv', () => {
   it('Operations sees Initial Interview onwards', () => {
     expect(isEndorsedToOperations(cand({ candidateStage: 'Assessment Review' }))).toBe(false);
     expect(isEndorsedToOperations(cand({ candidateStage: 'Offer' }))).toBe(true);
+  });
+});
+
+describe('what each role may do', () => {
+  const sales = cand({ candidateStage: 'Initial Interview', department: 'Sales and Marketing' });
+  const ops = cand({ candidateStage: 'Initial Interview', department: 'Operations' });
+  it('HR can do everything', () => {
+    expect(Object.values(capabilities('HR')).every(Boolean)).toBe(true);
+  });
+  it('Operations decides and records interviews, but does not email, grade, delete, export or bulk-edit', () => {
+    expect(can('Operations', 'stage')).toBe(true);
+    expect(can('Operations', 'interview')).toBe(true);
+    expect(can('Operations', 'outcome')).toBe(true);
+    for (const cap of ['email', 'grader', 'delete', 'bulk', 'export', 'details', 'schedule'] as const) expect(can('Operations', cap)).toBe(false);
+  });
+  it('PM and CEO edit only where the current stage is theirs', () => {
+    expect(ownsStage(sales, 'PM')).toBe(true);
+    expect(can('PM', 'interview', sales)).toBe(true);
+    expect(can('PM', 'interview', ops)).toBe(false);
+    expect(can('PM', 'outcome', ops)).toBe(false);
+    expect(can('PM', 'export', sales)).toBe(false);
+    expect(can('CEO', 'stage', sales)).toBe(false);
   });
 });

@@ -7,6 +7,8 @@ import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, RE
 import { getStageTask } from '@/domain/attention';
 import { CANDIDATE_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, suggestedTemplateFor } from '@/domain/emailTemplates';
 import { useCandidateActions } from '../candidates/actions';
+import { useCaps } from './useCaps';
+import type { Capabilities } from '@/domain/permissions';
 import { Badge, Button, Field, Tabs } from '@/ui/kit';
 import { OverviewSection } from './sections/Overview';
 import { AssessmentsSection } from './sections/Assessments';
@@ -32,11 +34,13 @@ const SECTIONS: Array<{ key: Section; label: string }> = [
 
 const STATUS_TONE: Record<string, BadgeTone> = { Hired: 'success', Rejected: 'danger', Hold: 'warning', Departed: 'neutral', NonCompliant: 'danger' };
 
-export function CandidatePanel({ id, readOnly }: { id: number | null; readOnly: boolean }) {
+export function CandidatePanel({ id }: { id: number | null }) {
   const a = useCandidate(id);
+  const caps = useCaps(a);
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Section) || 'overview';
   const ref = useRef<HTMLDialogElement>(null);
+  const editable: Record<Section, boolean> = { overview: caps.details, assessments: caps.assessments, interview: caps.interview || caps.schedule, outcome: caps.outcome, activity: true };
   const close = useCallback(() => setParams((p) => { const n = new URLSearchParams(p); n.delete('candidate'); n.delete('tab'); return n; }), [setParams]);
   useEffect(() => {
     const d = ref.current;
@@ -49,10 +53,11 @@ export function CandidatePanel({ id, readOnly }: { id: number | null; readOnly: 
       onClick={(e) => { if (e.target === ref.current) close(); }}>
       {id != null && (a ? (
         <div className="app-sheet__inner">
-          <PanelHeader a={a} readOnly={readOnly} onClose={close} />
+          <PanelHeader a={a} caps={caps} onClose={close} />
           <Tabs label="Record sections" tabs={SECTIONS} value={tab} onChange={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
           <div className="app-sheet__body">
-            <fieldset disabled={readOnly} className="app-fieldset">
+            {!editable[tab] && <p className="app-viewonly">View only{caps.stage ? '' : ': this is not your step'}</p>}
+            <fieldset disabled={!editable[tab]} className="app-fieldset">
               {tab === 'overview' && <OverviewSection a={a} onDeleted={close} />}
               {tab === 'assessments' && <AssessmentsSection a={a} />}
               {tab === 'interview' && <InterviewSection a={a} />}
@@ -77,7 +82,7 @@ function SaveMark() {
   return <span className="app-savemark" role="status" aria-live="polite">{pending > 0 ? 'Saving…' : recent ? 'Saved' : ''}</span>;
 }
 
-function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean; onClose: () => void }) {
+function PanelHeader({ a, caps, onClose }: { a: Candidate; caps: Capabilities; onClose: () => void }) {
   const actions = useCandidateActions();
   const update = useUpdateCandidate();
   const task = getStageTask(a);
@@ -98,20 +103,20 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
         {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
         <SaveMark />
         <div className="ab-cluster flex-none app-sheet__actions">
-          {!readOnly && <EmailMenu a={a} />}
+          {caps.email && <EmailMenu a={a} />}
           <Button variant="ghost" icon={X} aria-label="Close record" onClick={onClose} />
         </div>
       </div>
       <div className="app-head-controls">
         <Field label="Stage" htmlFor={`stage-${a.id}`}>
-          {readOnly ? <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge> : (
+          {!caps.stage ? <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge> : (
             <select id={`stage-${a.id}`} className="ab-select" value={a.candidateStage} onChange={(e) => changeStage(e.target.value)}>
               {!a.candidateStage && <option value="">Not set yet</option>}
               {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s === 'Initial Interview' ? interviewRoundLabel(a.department, 'initial') : s}</option>)}
             </select>
           )}
         </Field>
-        <OtherSelect label="Next action" id={`next-${a.id}`} value={a.nextAction || ''} options={NEXT_ACTION_OPTIONS} empty="None" disabled={readOnly}
+        <OtherSelect label="Next action" id={`next-${a.id}`} value={a.nextAction || ''} options={NEXT_ACTION_OPTIONS} empty="None" disabled={!caps.stage}
           onChange={(v) => update(a.id, { nextAction: v })} />
         {(task || conductor) && (
           <p className="app-next m-0 app-truncate" title={[task && `${task.label}. ${task.hint}`, conductor && `Conducted by: ${conductor}`].filter(Boolean).join(' ')}>

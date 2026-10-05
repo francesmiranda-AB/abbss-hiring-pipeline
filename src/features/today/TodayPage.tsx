@@ -82,7 +82,7 @@ export default function TodayPage() {
           </Section>
         )}
       </>)}
-      <CandidatePanel id={openId} readOnly={false} />
+      <CandidatePanel id={openId} />
     </div>
   );
 }

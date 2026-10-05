@@ -18,7 +18,7 @@ function loadCollapsed(): Record<string, boolean> {
 
 // Every candidate by where they are now, one column per stage (empty columns
 // stay, so the board reads as a map of the whole pipeline).
-export function CandidateBoard({ candidates, readOnly, onOpen }: { candidates: Candidate[]; readOnly: boolean; onOpen: (id: number) => void }) {
+export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]; onOpen: (id: number) => void }) {
   const config = useConfig();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const toggle = (stage: string) => {
@@ -53,11 +53,9 @@ export function CandidateBoard({ candidates, readOnly, onOpen }: { candidates: C
                   </>);
                   return (
                     <li key={a.id}>
-                      {readOnly ? <div className="app-board__card">{body}</div> : (
-                        <button type="button" className="app-board__card is-clickable" onClick={() => onOpen(a.id)}>
-                          {body}<ChevronRight size={14} className="app-board__chev" aria-hidden />
-                        </button>
-                      )}
+                      <button type="button" className="app-board__card is-clickable" onClick={() => onOpen(a.id)}>
+                        {body}<ChevronRight size={14} className="app-board__chev" aria-hidden />
+                      </button>
                     </li>
                   );
                 })}

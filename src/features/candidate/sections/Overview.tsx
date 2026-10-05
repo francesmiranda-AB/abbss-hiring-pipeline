@@ -8,12 +8,14 @@ import { useCandidateActions } from '../../candidates/actions';
 import { Button, ConfirmDialog, Field, fmtDate } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { OtherSelect } from '../CandidatePanel';
+import { useCaps } from '../useCaps';
 import { SavingInput, SavingTextarea, Section, fileToBase64 } from './common';
 
 export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () => void }) {
   const update = useUpdateCandidate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const toast = useToast();
+  const caps = useCaps(a);
   return (
     <div className="app-stack">
       <Section title="Details">
@@ -45,9 +47,7 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
       <Section title="CV">
         <CvBlock a={a} />
       </Section>
-      <div>
-        <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete record</Button>
-      </div>
+      {caps.delete && <div><Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete record</Button></div>}
       <ConfirmDialog open={confirmDelete} danger title={`Delete ${a.name}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)}
         onConfirm={async () => {
           setConfirmDelete(false);

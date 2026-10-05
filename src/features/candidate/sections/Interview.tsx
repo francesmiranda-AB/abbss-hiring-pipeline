@@ -7,6 +7,7 @@ import { useCandidateActions } from '../../candidates/actions';
 import { Badge, Button, Field } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { SavingTextarea, Section } from './common';
+import { useCaps } from '../useCaps';
 
 // Interview questions for the EMM follow-up, plus optional resilience probes.
 const GUIDE = [
@@ -24,6 +25,7 @@ const RESILIENCE = [
 export function InterviewSection({ a }: { a: Candidate }) {
   const update = useUpdateCandidate();
   const actions = useCandidateActions();
+  const caps = useCaps(a);
   const iv = a.interview || {};
   const setResult = async (result: 'pass' | 'fail') => {
     if (!(await update(a.id, { interview: { ...iv, result } }))) return;
@@ -32,7 +34,8 @@ export function InterviewSection({ a }: { a: Candidate }) {
   };
   return (
     <div className="app-stack">
-      <Scheduling a={a} />
+      <fieldset disabled={!caps.schedule} className="app-fieldset"><Scheduling a={a} /></fieldset>
+      <fieldset disabled={!caps.interview} className="app-fieldset app-stack">
       <Section title="Interview questions">
         <p className="ab-muted m-0">A guide for the conversation, not a score sheet. Open a question to see what to look for.</p>
         <Guide items={GUIDE} group="interview-guide" />
@@ -51,6 +54,7 @@ export function InterviewSection({ a }: { a: Candidate }) {
             : <span className="app-meta">No result yet.</span>}
         </div>
       </Section>
+      </fieldset>
     </div>
   );
 }

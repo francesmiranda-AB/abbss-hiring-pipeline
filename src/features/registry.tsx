@@ -17,7 +17,7 @@ export interface Feature {
 }
 
 export const FEATURES: Feature[] = [
-  { key: 'today', path: '/today', label: 'Today', icon: ListChecks, roles: ['HR', 'Operations'], group: 'work', defaultOn: true, page: lazy(() => import('./today/TodayPage')) },
+  { key: 'today', path: '/today', label: 'Today', icon: ListChecks, roles: ['HR', 'Operations', 'PM', 'CEO'], group: 'work', defaultOn: true, page: lazy(() => import('./today/TodayPage')) },
   { key: 'candidates', path: '/candidates', label: 'Candidates', icon: Users, roles: ['HR', 'Operations', 'PM'], group: 'work', defaultOn: true, page: lazy(() => import('./candidates/CandidatesPage')) },
   { key: 'newCandidate', path: '/new', label: 'Add candidate', icon: UserPlus, roles: ['HR'], group: 'work', defaultOn: true, page: lazy(() => import('./new/NewCandidatePage')) },
   { key: 'calendar', path: '/calendar', label: 'Interview calendar', icon: CalendarDays, roles: ['HR', 'Operations'], group: 'work', defaultOn: true, page: lazy(() => import('./calendar/CalendarPage')) },
