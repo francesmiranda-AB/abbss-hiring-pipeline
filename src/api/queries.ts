@@ -36,6 +36,29 @@ export function useFailedSave() {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => failedSave);
 }
 
+// How many saves are in flight, and when the last one finished, for the small
+// "Saving / Saved" mark in the record header.
+let pendingSaves = 0;
+let recentlySaved = false;
+let recentTimer: ReturnType<typeof setTimeout> | undefined;
+let saveSnapshot = { pending: 0, recent: false };
+function publishSaves() {
+  saveSnapshot = { pending: pendingSaves, recent: recentlySaved };
+  listeners.forEach((l) => l());
+}
+function bumpSaves(delta: number, done = false) {
+  pendingSaves = Math.max(0, pendingSaves + delta);
+  if (done) {
+    recentlySaved = true;
+    clearTimeout(recentTimer);
+    recentTimer = setTimeout(() => { recentlySaved = false; publishSaves(); }, 3000);
+  }
+  publishSaves();
+}
+export function useSaveStatus() {
+  return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => saveSnapshot);
+}
+
 export interface UpdateOptions { undoStage?: boolean; silent?: boolean }
 
 // The one way to change a candidate: shows the change at once, saves the whole
@@ -50,11 +73,14 @@ async function saveWithRollback(qc: QueryClient, toast: ToastApi, id: number, pa
   const next: Candidate = { ...current, ...patch };
   const apply = (rec: Candidate) => qc.setQueryData<Snapshot>(SNAPSHOT_KEY, (s) => s && { ...s, candidates: s.candidates.map((a) => (a.id === id ? rec : a)) });
   apply(next);
+  bumpSaves(1);
   try {
     await saveCandidate(next, changed, { undoStage: opts.undoStage });
     if (failedSave) setFailedSave(null);
+    bumpSaves(-1, true);
     return true;
   } catch (e) {
+    bumpSaves(-1);
     // Put back only the fields this save changed; later edits stay.
     const latest = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)?.candidates.find((a) => a.id === id);
     if (latest) {

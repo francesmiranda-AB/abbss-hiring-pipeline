@@ -7,7 +7,7 @@ import { useUser } from '@/auth/auth';
 import { calendarItems, DEFAULT_INTERVIEW_DURATION_MIN, findOverlap, slotDate, type CalendarItem } from '@/domain/calendar';
 import { roleScope } from '../candidates/filters';
 import { useCandidateActions } from '../candidates/actions';
-import { Badge, Button, Dialog, Empty, Field, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
+import { Badge, Button, ConfirmDialog, Dialog, Empty, Field, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -158,6 +158,7 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
   const [duration, setDuration] = useState(String(DEFAULT_INTERVIEW_DURATION_MIN));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [ask, setAsk] = useState<'remove' | 'undo' | null>(null);
   const start = date && tm ? new Date(`${date}T${tm}`) : null;
   const month = useBusy(start?.getFullYear() ?? new Date().getFullYear(), start?.getMonth() ?? new Date().getMonth()).data;
   const overlap = !isConfirmed ? findOverlap(start, Number(duration), month) : null;
@@ -198,9 +199,17 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
 
   return (
     <Dialog open onClose={onClose} title={a.name} footer={<>
-      <Button variant="ghost" onClick={remove} disabled={busy}>Remove this time</Button>
-      {isConfirmed ? <Button variant="tonal" busy={busy} onClick={undo}>Undo confirmation</Button> : <Button variant="primary" busy={busy} onClick={confirm}>Confirm this time</Button>}
+      <Button variant="ghost" onClick={() => setAsk('remove')} disabled={busy}>Remove this time</Button>
+      {isConfirmed ? <Button variant="tonal" busy={busy} onClick={() => setAsk('undo')}>Undo confirmation</Button> : <Button variant="primary" busy={busy} onClick={confirm}>Confirm this time</Button>}
     </>}>
+      <ConfirmDialog open={ask === 'remove'} danger title="Remove this time?" confirmLabel="Remove" busy={busy} onClose={() => setAsk(null)}
+        onConfirm={async () => { await remove(); setAsk(null); }}>
+        <p className="m-0">{slot.label} is taken off the calendar{isConfirmed ? ', and the confirmed event is deleted' : ''}. The candidate is not told.</p>
+      </ConfirmDialog>
+      <ConfirmDialog open={ask === 'undo'} danger title="Undo the confirmation?" confirmLabel="Undo confirmation" busy={busy} onClose={() => setAsk(null)}
+        onConfirm={async () => { await undo(); setAsk(null); }}>
+        <p className="m-0">The Google Calendar event and Meet link are deleted. The candidate keeps the email they already received, so tell them yourself.</p>
+      </ConfirmDialog>
       <div className="grid gap-4">
         <div className="grid gap-1">
           <span className="ab-label">Time the candidate gave</span>

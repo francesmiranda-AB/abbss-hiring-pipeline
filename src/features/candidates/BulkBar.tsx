@@ -8,7 +8,7 @@ import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
 import { API_URL } from '@/api/client';
 import { useConfig, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from './actions';
-import { Button, Dialog } from '@/ui/kit';
+import { Button, ConfirmDialog } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 
 export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear: () => void }) {
@@ -20,6 +20,7 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
   const [template, setTemplate] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
   const ids = selected.map((a) => a.id);
   const n = selected.length;
 
@@ -30,21 +31,34 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
     setStage('');
   };
 
+  const withEmail = selected.filter((a) => a.email);
   const sendAll = async () => {
-    const withEmail = selected.filter((a) => a.email);
     if (!template || !withEmail.length) return;
+    setConfirmSend(false);
     setBusy(true);
     const failed: string[] = [];
+    const sentIds: number[] = [];
     for (const a of withEmail) {
       const msg = fillTemplate(template, a, { apiUrl: API_URL, config });
-      if (await actions.sendTemplated(a.id, template, { to: a.email, ...msg })) await actions.advance(a.id, emailEventFor(template));
+      if (await actions.sendTemplated(a.id, template, { to: a.email, ...msg })) sentIds.push(a.id);
       else failed.push(a.name);
     }
+    await actions.advanceMany(sentIds, emailEventFor(template));
     setBusy(false);
     setTemplate('');
-    const sent = withEmail.length - failed.length;
-    if (failed.length) toast.error(`Sent ${sent}. Couldn't send to: ${failed.join(', ')}`);
-    else toast.show({ message: `Sent ${EMAIL_TEMPLATE_LABELS[template]} to ${sent} candidate${sent === 1 ? '' : 's'}` });
+    if (failed.length) toast.error(`Sent ${sentIds.length}. Couldn't send to: ${failed.join(', ')}`);
+    else toast.show({ message: `Sent ${EMAIL_TEMPLATE_LABELS[template]} to ${sentIds.length} candidate${sentIds.length === 1 ? '' : 's'}` });
+  };
+  const deleteAll = async () => {
+    setConfirmDelete(false);
+    const before = new Map(selected.map((a) => [a.id, a.overallStatus]));
+    const done = (await Promise.all(ids.map(async (id) => ((await update(id, { overallStatus: 'Deleted' })) ? id : null)))).filter((x): x is number => x !== null);
+    onClear();
+    if (!done.length) return;
+    toast.show({
+      message: `Deleted ${done.length} record${done.length === 1 ? '' : 's'}`,
+      action: { label: 'Undo', onClick: () => { void Promise.all(done.map((id) => update(id, { overallStatus: before.get(id) || 'In Progress' }))); } },
+    });
   };
 
   return (
@@ -62,22 +76,20 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
           <option value="">Send an email</option>
           {BULK_TEMPLATE_KEYS.map((k) => <option key={k} value={k}>{EMAIL_TEMPLATE_LABELS[k]}</option>)}
         </select>
-        <Button size="sm" variant="tonal" icon={Mail} busy={busy} disabled={!template} onClick={sendAll}>Send</Button>
+        <Button size="sm" variant="tonal" icon={Mail} busy={busy} disabled={!template} onClick={() => setConfirmSend(true)}>Send</Button>
       </div>
       <Button size="sm" variant="ghost" icon={Download} onClick={() => downloadText(`ABBSS_Selected_${todayStamp()}.csv`, candidatesCsv(selected))}>Export</Button>
       <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete</Button>
       <Button size="sm" variant="ghost" icon={X} className="ml-auto" onClick={onClear}>Clear</Button>
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title={`Delete ${n} record${n === 1 ? '' : 's'}?`} footer={<>
-        <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-        <Button variant="danger" onClick={async () => {
-          setConfirmDelete(false);
-          const results = await Promise.all(ids.map((id) => update(id, { overallStatus: 'Deleted' })));
-          toast.show({ message: `Deleted ${results.filter(Boolean).length} record(s)` });
-          onClear();
-        }}>Delete</Button>
-      </>}>
-        <p className="m-0">They disappear from every list. The rows stay in the Sheet, marked Deleted, if they ever need to be recovered.</p>
-      </Dialog>
+      <ConfirmDialog open={confirmSend} title={`Send ${template ? EMAIL_TEMPLATE_LABELS[template] : 'email'} to ${withEmail.length} candidate${withEmail.length === 1 ? '' : 's'}?`}
+        confirmLabel={`Send ${withEmail.length} email${withEmail.length === 1 ? '' : 's'}`} onClose={() => setConfirmSend(false)} onConfirm={sendAll}>
+        <p className="m-0">Each person gets their own copy from you. This can't be recalled.</p>
+        {withEmail.length < n && <p className="m-0 ab-error">{n - withEmail.length} selected {n - withEmail.length === 1 ? 'has' : 'have'} no email address and will be skipped.</p>}
+        <p className="m-0 app-meta">{withEmail.slice(0, 6).map((a) => a.name).join(', ')}{withEmail.length > 6 ? `, and ${withEmail.length - 6} more` : ''}</p>
+      </ConfirmDialog>
+      <ConfirmDialog open={confirmDelete} danger title={`Delete ${n} record${n === 1 ? '' : 's'}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)} onConfirm={deleteAll}>
+        <p className="m-0">They disappear from every list. You can undo this right after.</p>
+      </ConfirmDialog>
     </div>
   );
 }

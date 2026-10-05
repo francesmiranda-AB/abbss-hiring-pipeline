@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
-import { useCandidate, useUpdateCandidate } from '@/api/queries';
+import { useCandidate, useSaveStatus, useUpdateCandidate } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
 import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, NEXT_ACTION_OPTIONS, REASON_STAGES, interviewRoundLabel, interviewerFor, stageLabel, stageTone, type BadgeTone } from '@/domain/stages';
 import { getStageTask } from '@/domain/attention';
@@ -71,6 +71,12 @@ export function CandidatePanel({ id, readOnly }: { id: number | null; readOnly: 
   );
 }
 
+// "Saving..." while a change is on its way, "Saved" for a moment after.
+function SaveMark() {
+  const { pending, recent } = useSaveStatus();
+  return <span className="app-savemark" role="status" aria-live="polite">{pending > 0 ? 'Saving…' : recent ? 'Saved' : ''}</span>;
+}
+
 function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean; onClose: () => void }) {
   const actions = useCandidateActions();
   const update = useUpdateCandidate();
@@ -90,6 +96,7 @@ function PanelHeader({ a, readOnly, onClose }: { a: Candidate; readOnly: boolean
         <h2 className="ab-title app-truncate app-sheet__name">{a.name}</h2>
         <p className="app-meta app-truncate app-sheet__meta" title={meta}>{meta}</p>
         {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{a.overallStatus}</Badge>}
+        <SaveMark />
         <div className="ab-cluster flex-none app-sheet__actions">
           {!readOnly && <EmailMenu a={a} />}
           <Button variant="ghost" icon={X} aria-label="Close record" onClick={onClose} />

@@ -291,3 +291,6 @@ button.app-pill:hover { background: var(--ab-tonal-hover); }
   .app-page-actions .app-search { flex: 1 1 100%; max-width: none; }
 }
 @media (max-width: 480px) { .ab-sidebar .app-sync__text { display: inline; } }
+
+.app-savemark { flex: none; min-width: 3.5rem; font-size: var(--ab-font-size-xs); color: var(--ab-text-muted); text-align: right; }
+.app-sheet__actions { margin-left: 0; }

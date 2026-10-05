@@ -27,8 +27,10 @@ export const CLOSE_PROMPT_EVENTS: Partial<Record<AdvanceEvent, { stage: string; 
 
 export function emailEventFor(templateKey: string): AdvanceEvent | '' {
   const map: Record<string, AdvanceEvent> = {
-    assessment: 'assessmentSent', assessment_no_emm: 'assessmentSent', interview: 'interviewScheduled',
-    offer: 'offerSent', contract: 'offerSent', regret: 'regretSent',
+    // The interview invitation no longer moves anyone: the move to Initial Interview
+    // happens when a time is confirmed on the calendar (interviewScheduled).
+    assessment: 'assessmentSent', assessment_no_emm: 'assessmentSent',
+    offer: 'offerSent', job_offer: 'offerSent', contract: 'offerSent', regret: 'regretSent',
   };
   return map[templateKey] || '';
 }

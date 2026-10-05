@@ -52,7 +52,7 @@ export function useFilters() {
 
 // Everything the search looks through, notes included.
 export function searchText(a: Candidate): string {
-  return [a.name, a.email, a.phone, a.position, a.resumeNotes, a.decisionNotes, a.grit?.notes, a.values?.notes, a.emm?.notes, a.interview?.notes]
+  return [a.name, a.email, a.phone, a.position, a.resumeNotes, a.decisionNotes, a.emm?.notes, a.interview?.notes]
     .filter(Boolean).join(' ').toLowerCase();
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ExternalLink, FileCheck2, Printer } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Printer } from 'lucide-react';
 import { fetchDriveFile, getUnmatchedEmm } from '@/api/actions';
 import { useCandidates, useUpdateCandidate } from '@/api/queries';
 import { assessmentsSubmitted } from '@/domain/assessments';
@@ -34,10 +34,17 @@ export default function GraderPage() {
   const [file, setFile] = useState<{ name: string; data: Uint8Array } | null>(null);
   const [loading, setLoading] = useState('');
   const [outcome, setOutcome] = useState<GradeOutcome | null>(null);
+  // Whose workbook this is, when it came from a candidate's own upload. Their result can only be saved to them.
+  const [fileFor, setFileFor] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [driveBlocked, setDriveBlocked] = useState('');
   const queue = useMemo(() => candidates.filter((a) => a.requiresEmm && a.emmFileUrl && !a.emm?.graded), [candidates]);
   const setLinked = (id: number | null) => setParams((p) => { const n = new URLSearchParams(p); if (id) n.set('candidate', String(id)); else n.delete('candidate'); return n; }, { replace: true });
+
+  const gradeNow = (data: Uint8Array, name: string) => {
+    try { setOutcome(gradeWorkbook(data, name)); }
+    catch (e) { setOutcome({ parsed: null as never, result: null, error: `Couldn't read that workbook: ${(e as Error).message}` }); }
+  };
 
   const loadFromDrive = async (url: string, label: string, candidateId: number | null) => {
     const id = driveId(url);
@@ -48,7 +55,11 @@ export default function GraderPage() {
     setFile(null);
     try {
       const res = await fetchDriveFile(id);
-      setFile({ name: res.filename || `${label}.xlsx`, data: base64ToBytes(res.base64) });
+      const data = base64ToBytes(res.base64);
+      const name = res.filename || `${label}.xlsx`;
+      setFile({ name, data });
+      setFileFor(candidateId);
+      gradeNow(data, name);
       setLinked(candidateId);
       if (candidateId == null) setManualName(label);
     } catch (e) {
@@ -69,13 +80,11 @@ export default function GraderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linked?.id]);
 
-  const grade = () => {
-    if (!file) return;
-    try { setOutcome(gradeWorkbook(file.data, file.name)); }
-    catch (e) { setOutcome({ parsed: null as never, result: null, error: `Couldn't read that workbook: ${(e as Error).message}` }); }
-  };
+  // Someone else's workbook must never be saved onto the candidate picked in the select.
+  const wrongOwner = fileFor != null && linked != null && fileFor !== linked.id;
+  const owner = fileFor != null ? candidates.find((a) => a.id === fileFor) : null;
   const save = async () => {
-    if (!outcome?.result || !linked) return;
+    if (!outcome?.result || !linked || wrongOwner) return;
     setSaving(true);
     const emm = emmRecordFromGrade(outcome.result, linked.emm?.notes);
     const ok = await update(linked.id, { emm });
@@ -123,7 +132,7 @@ export default function GraderPage() {
           </div>
         )}
         <div className="app-form-grid">
-          <Field label="Candidate" htmlFor="gr-cand" hint="Link the result to their record to save it.">
+          <Field label="Candidate" htmlFor="gr-cand">
             <select id="gr-cand" className="ab-select" value={linked?.id ?? ''} onChange={(e) => setLinked(e.target.value ? Number(e.target.value) : null)}>
               <option value="">Not linked (grade only)</option>
               {[...candidates].filter((a) => a.requiresEmm).sort((x, y) => x.name.localeCompare(y.name)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -137,16 +146,26 @@ export default function GraderPage() {
           <Field label="Workbook (.xlsx)" htmlFor="gr-file" hint={loading ? `Loading ${loading}'s file from Drive` : undefined}>
             <FilePicker id="gr-file" accept=".xlsx" busy={!!loading} fileName={file?.name} onFile={async (f) => {
               if (!f) return;
-              setOutcome(null);
-              setFile({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+              const data = new Uint8Array(await f.arrayBuffer());
+              setFile({ name: f.name, data });
+              setFileFor(null);
+              gradeNow(data, f.name);
             }}>Choose file</FilePicker>
           </Field>
         </div>
-        <div className="ab-cluster">
-          <Button variant="primary" icon={FileCheck2} disabled={!file} onClick={grade}>Grade</Button>
-          {outcome?.result && <Button variant="secondary" busy={saving} disabled={!linked} onClick={save}>Save to {linked ? linked.name : 'record'}</Button>}
-          {outcome?.result && <Button variant="ghost" icon={Printer} onClick={printIt}>Print report</Button>}
-        </div>
+        {wrongOwner && (
+          <div className="ab-alert ab-alert--warning" role="alert">
+            <span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span>
+            <p className="ab-alert__title">This is {owner?.name || 'another candidate'}'s workbook</p>
+            <div>Select {owner?.name || 'them'} to save it, or load {linked?.name}'s own file.</div>
+          </div>
+        )}
+        {outcome?.result && (
+          <div className="ab-cluster">
+            <Button variant="primary" busy={saving} disabled={!linked || wrongOwner} onClick={save}>{linked && !wrongOwner ? `Save to ${linked.name}` : 'Select a candidate to save'}</Button>
+            <Button variant="ghost" icon={Printer} onClick={printIt}>Print report</Button>
+          </div>
+        )}
       </Section>
 
       {outcome?.error && <ErrorAlert title="Couldn't grade this file">{outcome.error}</ErrorAlert>}

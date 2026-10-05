@@ -181,6 +181,20 @@ export function Dialog({ open, onClose, title, children, footer, wide }: { open:
   );
 }
 
+// One confirmation for anything that is hard to take back or reaches other people.
+export function ConfirmDialog({ open, title, children, confirmLabel, danger, busy, onConfirm, onClose }: {
+  open: boolean; title: string; children: ReactNode; confirmLabel: string; danger?: boolean; busy?: boolean; onConfirm: () => void; onClose: () => void;
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} title={title} footer={<>
+      <Button variant="ghost" onClick={onClose}>Cancel</Button>
+      <Button variant={danger ? 'danger' : 'primary'} busy={busy} onClick={onConfirm}>{confirmLabel}</Button>
+    </>}>
+      <div className="grid gap-2">{children}</div>
+    </Dialog>
+  );
+}
+
 export function Tabs<T extends string>({ tabs, value, onChange, pills, label }: { tabs: Array<{ key: T; label: string; count?: number }>; value: T; onChange: (k: T) => void; pills?: boolean; label: string }) {
   return (
     <div className={cx('ab-tabs', pills && 'ab-tabs--pills')} role="tablist" aria-label={label}>

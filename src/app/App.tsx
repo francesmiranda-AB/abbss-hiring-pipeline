@@ -4,7 +4,7 @@ import { useConfig, useSnapshot } from '@/api/queries';
 import { API_BLOCKED, API_URL } from '@/api/client';
 import { CandidateActionsProvider } from '@/features/candidates/actions';
 import { homePath, visibleFeatures } from '@/features/registry';
-import { ErrorAlert, Skeleton } from '@/ui/kit';
+import { Button, ErrorAlert, Skeleton } from '@/ui/kit';
 import { Shell } from './Shell';
 import { SignIn } from './SignIn';
 import { useAssessmentSweep } from './useAssessmentSweep';
@@ -31,6 +31,16 @@ function SignedIn() {
   useAssessmentSweep();
   if (!user) return null;
   if (snap.isLoading) return <Shell><Skeleton lines={6} /></Shell>;
+  // No data at all (the first load failed): say so, instead of letting every page show an empty state.
+  if (!snap.data) {
+    return (
+      <Shell>
+        <ErrorAlert title="Couldn't load the hiring data" action={<Button size="sm" variant="secondary" onClick={() => void snap.refetch()}>Try again</Button>}>
+          {snap.error instanceof Error ? snap.error.message : 'The server did not answer.'} Nothing on this page is missing; it just hasn't loaded.
+        </ErrorAlert>
+      </Shell>
+    );
+  }
   const features = visibleFeatures(user.role, config.features);
   return (
     <Shell>

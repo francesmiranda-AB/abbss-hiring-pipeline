@@ -5,7 +5,7 @@ import { DEPARTMENTS, ROLE_CONFIG, ROLE_OPTIONS, SOURCES } from '@/domain/stages
 import { uploadCv } from '@/api/actions';
 import { useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
-import { Button, Dialog, Field, fmtDate } from '@/ui/kit';
+import { Button, ConfirmDialog, Field, fmtDate } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { OtherSelect } from '../CandidatePanel';
 import { SavingInput, SavingTextarea, Section, fileToBase64 } from './common';
@@ -13,6 +13,7 @@ import { SavingInput, SavingTextarea, Section, fileToBase64 } from './common';
 export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () => void }) {
   const update = useUpdateCandidate();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const toast = useToast();
   return (
     <div className="app-stack">
       <Section title="Details">
@@ -47,12 +48,17 @@ export function OverviewSection({ a, onDeleted }: { a: Candidate; onDeleted: () 
       <div>
         <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>Delete record</Button>
       </div>
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title={`Delete ${a.name}?`} footer={<>
-        <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-        <Button variant="danger" onClick={async () => { setConfirmDelete(false); if (await update(a.id, { overallStatus: 'Deleted' })) onDeleted(); }}>Delete</Button>
-      </>}>
-        <p className="m-0">The record disappears from every list. The row stays in the Sheet, marked Deleted.</p>
-      </Dialog>
+      <ConfirmDialog open={confirmDelete} danger title={`Delete ${a.name}?`} confirmLabel="Delete" onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          setConfirmDelete(false);
+          const before = a.overallStatus || 'In Progress';
+          if (await update(a.id, { overallStatus: 'Deleted' })) {
+            onDeleted();
+            toast.show({ message: `Deleted ${a.name}`, action: { label: 'Undo', onClick: () => { void update(a.id, { overallStatus: before }); } } });
+          }
+        }}>
+        <p className="m-0">The record disappears from every list. You can undo this right after.</p>
+      </ConfirmDialog>
     </div>
   );
 }

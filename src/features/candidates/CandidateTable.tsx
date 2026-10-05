@@ -144,8 +144,9 @@ function InlineNote({ a }: { a: Candidate }) {
       <textarea className="ab-textarea app-inline-note" aria-label={`Notes for ${a.name}`} placeholder="Add a note" value={draft} autoFocus
         onChange={(e) => setDraft(e.target.value)}
         onBlur={async () => {
-          setEditing(false);
-          if (draft !== saved) await update(a.id, { resumeNotes: draft });
+          if (draft === saved) { setEditing(false); return; }
+          // Stay open if the save fails, so the text is not lost.
+          if (await update(a.id, { resumeNotes: draft })) setEditing(false);
         }} />
     );
   }

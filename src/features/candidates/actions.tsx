@@ -24,6 +24,7 @@ interface CandidateActions {
   setOutcome: (ids: number[], change: OutcomeChange, label: string) => Promise<void>;
   decide: (id: number, decision: Decision) => Promise<void>;
   advance: (id: number, event: AdvanceEvent | '', actionLabel?: string) => Promise<void>;
+  advanceMany: (ids: number[], event: AdvanceEvent | '') => Promise<void>;
   openClose: (req: CloseRequest) => void;
   recordEmailSent: (id: number, key: string) => Promise<boolean>;
   unrecordEmailSent: (id: number, key: string) => Promise<void>;
@@ -37,6 +38,14 @@ export function useCandidateActions(): CandidateActions {
   const c = useContext(Ctx);
   if (!c) throw new Error('useCandidateActions outside CandidateActionsProvider');
   return c;
+}
+
+const SWEPT_KEY = 'abbss_swept';
+function sweptIds(): Set<number> {
+  try { return new Set<number>(JSON.parse(localStorage.getItem(SWEPT_KEY) || '[]')); } catch { return new Set(); }
+}
+function rememberSwept(ids: number[]) {
+  try { localStorage.setItem(SWEPT_KEY, JSON.stringify([...sweptIds(), ...ids].slice(-500))); } catch { /* per-device memory only */ }
 }
 
 async function fileAsBase64(path: string): Promise<string> {
@@ -108,6 +117,26 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
     await setOutcome([id], { stage: target }, `${actionLabel ? `${actionLabel}. ` : ''}${a.name} moved to ${target}`);
   }, [get, setOutcome, toast]);
 
+  // For bulk sends: one move (and one Undo) per target stage instead of a toast per person.
+  const advanceMany = useCallback(async (ids: number[], event: AdvanceEvent | '') => {
+    if (!event) return;
+    const prompt = CLOSE_PROMPT_EVENTS[event];
+    if (prompt) {
+      const open = ids.filter((id) => get(id)?.overallStatus === 'In Progress');
+      if (open.length) setCloseReq({ ids: open, ...prompt });
+      return;
+    }
+    const byTarget = new Map<string, number[]>();
+    for (const id of ids) {
+      const a = get(id);
+      const target = a ? autoAdvanceTarget(a, event) : '';
+      if (target) byTarget.set(target, [...(byTarget.get(target) || []), id]);
+    }
+    for (const [target, group] of byTarget) {
+      await setOutcome(group, { stage: target }, `${group.length} candidate${group.length === 1 ? '' : 's'} moved to ${target}`);
+    }
+  }, [get, setOutcome]);
+
   const recordEmailSent = useCallback((id: number, key: string) => {
     const a = get(id);
     if (!a) return Promise.resolve(false);
@@ -151,15 +180,20 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
   }, [qc, toast]);
 
   // After the backend attaches scores, move everyone who finished (one toast, one Undo).
+  // Each record is moved at most once per device: if someone undoes it, or
+  // moves it back, the next refresh must not quietly move it again.
   const sweepSubmitted = useCallback(async () => {
     const all = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)?.candidates || [];
-    const ids = all.filter((a) => a.overallStatus !== 'Deleted' && assessmentsSubmitted(a) && autoAdvanceTarget(a, 'assessmentsSubmitted')).map((a) => a.id);
-    if (ids.length) await setOutcome(ids, { stage: 'Assessment Review' }, `${ids.length} candidate${ids.length === 1 ? '' : 's'} finished their assessments, moved to Assessment Review`);
+    const done = sweptIds();
+    const ids = all.filter((a) => !done.has(a.id) && a.overallStatus !== 'Deleted' && assessmentsSubmitted(a) && autoAdvanceTarget(a, 'assessmentsSubmitted')).map((a) => a.id);
+    if (!ids.length) return;
+    rememberSwept(ids);
+    await setOutcome(ids, { stage: 'Assessment Review' }, `${ids.length} candidate${ids.length === 1 ? '' : 's'} finished their assessments, moved to Assessment Review`);
   }, [qc, setOutcome]);
 
   const value = useMemo<CandidateActions>(() => ({
-    setOutcome, decide, advance, openClose: setCloseReq, recordEmailSent, unrecordEmailSent, sendTemplated, createCandidate, sweepSubmitted,
-  }), [setOutcome, decide, advance, recordEmailSent, unrecordEmailSent, sendTemplated, createCandidate, sweepSubmitted]);
+    setOutcome, decide, advance, advanceMany, openClose: setCloseReq, recordEmailSent, unrecordEmailSent, sendTemplated, createCandidate, sweepSubmitted,
+  }), [setOutcome, decide, advance, advanceMany, recordEmailSent, unrecordEmailSent, sendTemplated, createCandidate, sweepSubmitted]);
 
   return (
     <Ctx.Provider value={value}>

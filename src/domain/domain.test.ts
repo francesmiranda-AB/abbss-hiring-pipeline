@@ -64,7 +64,8 @@ describe('auto-advance', () => {
   it('maps emails to events', () => {
     expect(emailEventFor('assessment_no_emm')).toBe('assessmentSent');
     expect(emailEventFor('regret')).toBe('regretSent');
-    expect(emailEventFor('job_offer')).toBe('');
+    expect(emailEventFor('job_offer')).toBe('offerSent');
+    expect(emailEventFor('interview')).toBe('');
   });
 });
 

@@ -19,11 +19,11 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
   const actions = useCandidateActions();
   const toast = useToast();
   const [checking, setChecking] = useState(false);
-  const setNested = async (section: 'grit' | 'values', field: string, value: string) => {
+  const setNested = async (section: 'grit' | 'values', field: string, value: string): Promise<boolean> => {
     const next = { ...a, [section]: { ...a[section], [field]: value } };
-    if (await update(a.id, { [section]: next[section] })) {
-      if (field === 'score' && assessmentsSubmitted(next)) void actions.advance(a.id, 'assessmentsSubmitted');
-    }
+    if (!(await update(a.id, { [section]: next[section] }))) return false;
+    if (field === 'score' && assessmentsSubmitted(next)) void actions.advance(a.id, 'assessmentsSubmitted');
+    return true;
   };
   // Ask the backend to attach whatever has arrived (the same code its job runs).
   const check = async () => {
@@ -65,7 +65,6 @@ export function AssessmentsSection({ a }: { a: Candidate }) {
           <SavingInput id={`vali-${a.id}`} label="Integrity" inputMode="decimal" value={a.values?.intScore} onSave={(x) => setNested('values', 'intScore', x)} />
         </div>
         <OutcomeNote o={v} />
-        <SavingTextarea id={`valn-${a.id}`} label="Values notes" value={a.values?.notes} onSave={(x) => setNested('values', 'notes', x)} placeholder="Observations from the values assessment" rows={2} />
       </Section>
       </div>
 
