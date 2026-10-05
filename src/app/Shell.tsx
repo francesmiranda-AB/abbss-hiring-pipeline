@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { AlertTriangle, ArrowLeftRight, ChevronDown, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, useUser } from '@/auth/auth';
+import { usePrefetchQuestions } from '@/api/interviewQuestions';
 import { SNAPSHOT_KEY, useCandidates, useConfig, useFailedSave, useSnapshot } from '@/api/queries';
 import { needsAttentionFrom } from '@/domain/attention';
 import { isEndorsedToOperations } from '@/domain/stages';
@@ -14,6 +15,7 @@ export const APP_VERSION = 2;
 
 export function Shell({ children }: { children: ReactNode }) {
   const user = useUser();
+  usePrefetchQuestions();
   const config = useConfig();
   const features = visibleFeatures(user.role, config.features);
   const [navOpen, setNavOpen] = useState(false);

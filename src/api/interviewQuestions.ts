@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteInterviewQuestion, getInterviewQuestions, reorderInterviewQuestions, saveInterviewQuestion } from './actions';
 import { useUser } from '@/auth/auth';
@@ -10,6 +10,14 @@ export const QUESTIONS_KEY = ['interview-questions'] as const;
 // The shared question collections. If the backend can't serve them (an older
 // backend that doesn't know the action, or a failed call) the built-in questions
 // are shown and the collection can't be edited until it is reachable again.
+// The backend can take a few seconds to answer, so start loading the questions as soon as
+// the app opens; the Interview tab then has them ready. A failure here is ignored (the tab
+// asks again and falls back to the built-in questions if it still can't get them).
+export function usePrefetchQuestions() {
+  const qc = useQueryClient();
+  useEffect(() => { void qc.prefetchQuery({ queryKey: QUESTIONS_KEY, queryFn: getInterviewQuestions, staleTime: 5 * 60_000 }); }, [qc]);
+}
+
 export function useInterviewQuestions(): { questions: InterviewQuestion[]; isFallback: boolean; isLoading: boolean } {
   const q = useQuery({ queryKey: QUESTIONS_KEY, queryFn: getInterviewQuestions, staleTime: 5 * 60_000, retry: 1 });
   if (q.isError) return { questions: DEFAULT_QUESTIONS, isFallback: true, isLoading: false };
