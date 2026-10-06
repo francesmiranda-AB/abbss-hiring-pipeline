@@ -19,7 +19,9 @@ Internal hiring app for AB Business Support (at most 5 staff users). Vite + Reac
 `npm run ci` runs typecheck, lint, unit tests, backend tests and the build (if the combined script errors in your shell, run the steps one by one). The Vite dev server runs out of memory on some machines: use `npm run build` and `npm run preview`.
 
 ## Rules
-- Never point a local dev server at the production backend (`VITE_API_URL` must be staging locally).
+- Never point a local dev server at the production backend (`VITE_API_URL` must be staging locally). The app also refuses the production address on any `*.vercel.app` preview except the live site (`isBackendBlocked` in `src/api/client.ts`); on Vercel set `VITE_API_URL` per environment (Preview = staging, Production = live).
+- A CV upload sends the candidate id (`uploadCv`), so the server writes the CV link onto the row itself; the app only advances the stage afterwards.
+- Every commit message starts with its Jira key (`AB-24` lean-out and interview questions, `AB-29` frontend).
 - Sheet columns never move; the backend decides which columns a save may change (`_changed`). Data-model changes are out of scope until the backend remake.
 - No login, a product decision: people pick their name and role (`src/auth/auth.tsx`). Never put secrets, keys or tokens in this repo; it is public.
 - Candidate-facing links (`trackOpen`, `pickSlot`, `viewAssessment`) stay public.
