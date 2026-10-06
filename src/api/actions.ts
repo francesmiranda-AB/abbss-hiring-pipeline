@@ -51,7 +51,8 @@ export function saveCandidate(record: Candidate, changed: string[], opts: { undo
 export const refreshAssessments = (id: number) =>
   call<{ attached: number; record: Candidate }>('refreshAssessments', { data: { id } }).then((r) => ({ ...r, record: normalizeCandidate(r.record) }));
 
-export const uploadCv = (data: { data: string; filename: string; mimeType: string }) =>
+// `id` lets the server write the CV link onto the candidate's row itself (it survives a lost reply and stale saves).
+export const uploadCv = (data: { data: string; filename: string; mimeType: string; id: number }) =>
   call<{ url: string; fileId: string; filename: string }>('uploadCV', { data });
 
 export interface EmailPayload {

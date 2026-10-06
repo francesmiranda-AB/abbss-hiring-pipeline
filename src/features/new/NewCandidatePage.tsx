@@ -77,7 +77,7 @@ function NewForm() {
     setF(blank); setCv(null); setTouched({});
     if (file) {
       try {
-        const res = await uploadCv({ data: await fileToBase64(file), filename: file.name, mimeType: file.type || 'application/octet-stream' });
+        const res = await uploadCv({ data: await fileToBase64(file), filename: file.name, mimeType: file.type || 'application/octet-stream', id: record.id });
         if (await update(record.id, { cvUrl: res.url, cvFileId: res.fileId, cvFileName: file.name, cvUploadedAt: new Date().toISOString() })) {
           await actions.advance(record.id, 'cvUploaded', `CV attached for ${record.name}`);
         }

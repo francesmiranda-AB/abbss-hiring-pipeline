@@ -78,7 +78,7 @@ function CvBlock({ a }: { a: Candidate }) {
     if (file.size > MAX_CV) { toast.error('That file is over 10 MB. Choose a smaller CV.'); return; }
     setBusy(true);
     try {
-      const res = await uploadCv({ data: await fileToBase64(file), filename: file.name, mimeType: file.type || 'application/octet-stream' });
+      const res = await uploadCv({ data: await fileToBase64(file), filename: file.name, mimeType: file.type || 'application/octet-stream', id: a.id });
       if (await update(a.id, { cvUrl: res.url, cvFileId: res.fileId, cvFileName: file.name, cvUploadedAt: new Date().toISOString() })) {
         await actions.advance(a.id, 'cvUploaded', `CV uploaded for ${a.name}`);
       }
