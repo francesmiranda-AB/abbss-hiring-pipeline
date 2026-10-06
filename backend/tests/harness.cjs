@@ -36,7 +36,7 @@ function row(values) {
 
 const PROD_SCRIPT_ID = '1kt0pyJYL0Vu_4o46hYYY5GO91kWrtpDQxi4z0dvXyVfQsJdiJQk83sTm';
 // forms: {grit:[rows], values:[rows], emm:[rows]} -- response sheets (row 0 is the header).
-function load({props = {}, applicants = [], sheets = {}, failCalendar = false, scriptId = PROD_SCRIPT_ID, forms = {}, tokeninfo = {}} = {}) {
+function load({props = {}, applicants = [], sheets = {}, failCalendar = false, scriptId = PROD_SCRIPT_ID, forms = {}, tokeninfo = {}, onSleep = null} = {}) {
   const log = {mail: [], calInsert: [], calRemove: [], logger: [], tokenFetches: 0};
   const cacheStore = {};
   const book = {Applicants: makeSheet([new Array(NCOLS).fill('header'), ...applicants])};
@@ -53,7 +53,7 @@ function load({props = {}, applicants = [], sheets = {}, failCalendar = false, s
   const masterId = props.MASTER_SHEET_ID || (scriptId === PROD_SCRIPT_ID ? '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0' : '__none__');
   const env = {
     console, log, book,
-    PropertiesService: {getScriptProperties: () => ({getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }})},
+    PropertiesService: {getScriptProperties: () => ({getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; }})},
     SpreadsheetApp: {openById: id => (id === masterId ? ss : (FORM_IDS[id] || otherSS))},
     MailApp: {sendEmail: (to, subject, body, options) => log.mail.push({to, subject, body, options})},
     Calendar: {Events: {
@@ -62,7 +62,7 @@ function load({props = {}, applicants = [], sheets = {}, failCalendar = false, s
       remove: (cal, id, opts) => { log.calRemove.push({cal, id, opts}); },
     }, CalendarList: {get: () => ({accessRole: 'writer'}), list: () => ({items: []})}, Calendars: {get: () => ({summary: 'x'})}},
     CalendarApp: {getCalendarById: () => ({getEvents: () => []})},
-    Utilities: {getUuid: () => 'uuid', formatDate: d => 'FMT(' + d.toISOString() + ')', base64Decode: () => [], newBlob: () => ({}),
+    Utilities: {getUuid: () => 'uuid', formatDate: d => 'FMT(' + d.toISOString() + ')', base64Decode: () => [], newBlob: (b, m, n) => ({name: n}), sleep: ms => { log.sleeps = (log.sleeps || 0) + 1; if (onSleep) onSleep(env, log.sleeps); },
       DigestAlgorithm: {SHA_256: 'sha256'}, computeDigest: (_alg, text) => Array.from(require('crypto').createHash('sha256').update(String(text)).digest()).map(b => (b > 127 ? b - 256 : b))},
     CacheService: {getScriptCache: () => ({get: k => (k in cacheStore ? cacheStore[k] : null), put: (k, v) => { cacheStore[k] = v; }})},
     // tokeninfo: {idToken: responseObject}; unknown tokens get HTTP 400.
@@ -72,7 +72,7 @@ function load({props = {}, applicants = [], sheets = {}, failCalendar = false, s
     LockService: {getScriptLock: () => ({waitLock: () => {}, tryLock: () => true, releaseLock: () => {}})},
     ContentService: {createTextOutput: t => ({setMimeType: () => t}), MimeType: {JSON: 'json'}},
     HtmlService: {createHtmlOutput: h => ({setTitle: () => h, h})},
-    DriveApp: {getFoldersByName: () => ({hasNext: () => false}), createFolder: n => ({name: n})},
+    DriveApp: {Access: {DOMAIN_WITH_LINK: 'DOMAIN_WITH_LINK'}, Permission: {VIEW: 'VIEW'}, getFoldersByName: () => ({hasNext: () => false}), createFolder: n => ({name: n, createFile: blob => { const id = 'file' + (log.files = (log.files || []).concat([blob.name])).length; return {getUrl: () => 'https://drive/' + id, getId: () => id, getName: () => blob.name, setSharing: () => {}, setDescription: d => { log.descriptions = (log.descriptions || []).concat([d]); }}; }}), getFileById: id => ({getUrl: () => 'https://drive/' + id, getName: () => 'name-' + id, getDateCreated: () => new Date('2026-10-06T04:21:23Z')})},
     ScriptApp: {getScriptId: () => scriptId, getProjectTriggers: () => [], newTrigger: () => ({timeBased: () => ({everyMinutes: () => ({create: () => {}})})})},
   };
   vm.createContext(env);

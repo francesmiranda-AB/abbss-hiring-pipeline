@@ -399,6 +399,7 @@ function saveApplicantLocked_(d){
     existing?(existing[58]||''):''
   ];
   if(existing) applyColumnOwnership_(row, existing, d);
+  keepCvLink_(row, existing, d.id);
   if(idx>0)t.getRange(idx+1,1,1,row.length).setValues([row]);else t.appendRow(row);
   return{success:true};
 }
@@ -1147,10 +1148,98 @@ function uploadCV(d){
     const blob=Utilities.newBlob(bytes,d.mimeType||'application/octet-stream',d.filename||'resume');
     const file=folder.createFile(blob);
     file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK,DriveApp.Permission.VIEW);
-    return{success:true,url:file.getUrl(),fileId:file.getId(),filename:d.filename||file.getName()};
+    if(d.id!==undefined && d.id!==null && d.id!=='') file.setDescription('Candidate '+d.id);
+    const cv={url:file.getUrl(),fileId:file.getId(),filename:d.filename||file.getName(),uploadedAt:new Date().toISOString()};
+    // The link is saved here, not only by the app after this reply arrives:
+    // when the reply was lost or slow the file sat in Drive with no link.
+    if(d.id!==undefined && d.id!==null && d.id!=='') linkCvToApplicant_(d.id, cv);
+    return{success:true,url:cv.url,fileId:cv.fileId,filename:cv.filename};
   }catch(e){
     return{success:false,error:e.message};
   }
+}
+
+// Columns 32-35: CV URL, CV File ID, CV File Name, CV Uploaded At.
+const CV_COLUMNS = [31,32,33,34];
+function cvCells_(cv){ return [cv.url, cv.fileId, cv.filename, cv.uploadedAt]; }
+// Writes the CV link onto the candidate's row. A brand-new candidate's first
+// save can still be on its way when the upload finishes, so wait for the row
+// a little; if it still isn't there, saveApplicant picks the link up when the
+// row is written.
+function linkCvToApplicant_(id, cv){
+  for(var attempt=0; attempt<7; attempt++){
+    var lock=LockService.getScriptLock();
+    lock.waitLock(30000);
+    try{
+      var t=SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+      var ids=t.getRange(1,1,t.getLastRow(),1).getValues();
+      for(var i=1;i<ids.length;i++){
+        if(String(ids[i][0])===String(id)){
+          t.getRange(i+1,CV_COLUMNS[0]+1,1,CV_COLUMNS.length).setValues([cvCells_(cv)]);
+          return true;
+        }
+      }
+      if(attempt===6){
+        PropertiesService.getScriptProperties().setProperty('pendingCv_'+id, JSON.stringify(cv));
+        return false;
+      }
+    } finally { lock.releaseLock(); }
+    Utilities.sleep(1500);
+  }
+  return false;
+}
+// A save never blanks a stored CV link: a client copy without the CV (made
+// before the upload finished, or on another device) keeps the stored one. A
+// new upload (Replace) sends a new link, which wins.
+function keepCvLink_(row, existing, id){
+  if(String(row[CV_COLUMNS[0]]||'').trim()!=='') return;
+  if(existing && String(existing[CV_COLUMNS[0]]||'').trim()!==''){
+    CV_COLUMNS.forEach(function(c){ row[c]=existing[c]; });
+    return;
+  }
+  var props=PropertiesService.getScriptProperties();
+  var pending=props.getProperty('pendingCv_'+id);
+  if(pending){
+    try{ var cells=cvCells_(JSON.parse(pending)); CV_COLUMNS.forEach(function(c, n){ row[c]=cells[n]; }); }catch(e){}
+    props.deleteProperty('pendingCv_'+id);
+  }
+}
+
+// One-time repair: CVs uploaded to Drive whose link never reached the record.
+// The mapping (candidate id -> Drive file id) was checked by hand; only rows
+// with no CV link are filled. Run previewCvRelink, then applyCvRelink.
+const CV_RELINK = {
+  '1791260480965':'1W7fXK3BLCK29VyLBwD7dGUabCuCyiSRd',
+  '1790165240722':'18joPoRZqY0imL9_vsd_LGonuYtqxr89L',
+  '1790081005942':'1nVU8vu6zng1lg5_S16U9g4ZfLb2tlCEA'
+};
+function cvRelinkPlan_(){
+  var t=SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+  var data=t.getDataRange().getValues();
+  var plan=[];
+  for(var i=1;i<data.length;i++){
+    var fileId=CV_RELINK[String(data[i][0])];
+    if(!fileId || String(data[i][CV_COLUMNS[0]]||'').trim()!=='') continue;
+    var f=DriveApp.getFileById(fileId);
+    plan.push({row:i+1, id:data[i][0], name:data[i][1], cv:{url:f.getUrl(), fileId:fileId, filename:f.getName(), uploadedAt:f.getDateCreated().toISOString()}});
+  }
+  return {sheet:t, plan:plan};
+}
+function previewCvRelink(){
+  var p=cvRelinkPlan_().plan;
+  Logger.log(p.length+' CV link(s) to restore:\n'+p.map(function(x){ return x.name+' <- '+x.cv.filename; }).join('\n'));
+  return p;
+}
+function applyCvRelink(){
+  var lock=LockService.getScriptLock();
+  lock.waitLock(30000);
+  var res;
+  try{
+    res=cvRelinkPlan_();
+    res.plan.forEach(function(x){ res.sheet.getRange(x.row,CV_COLUMNS[0]+1,1,CV_COLUMNS.length).setValues([cvCells_(x.cv)]); });
+  } finally { lock.releaseLock(); }
+  Logger.log('Restored '+res.plan.length+' CV link(s).');
+  return res.plan;
 }
 
 // ============================================================
