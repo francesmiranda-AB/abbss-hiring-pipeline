@@ -1,0 +1,406 @@
+/* Screen styles. AB tokens only: no raw colors, radii or shadows. */
+
+/* ── Candidates ────────────────────────────────────────────────────────── */
+.app-search { position: relative; flex: 1 1 22rem; max-width: 34rem; display: block; }
+.app-search > svg { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--ab-text-subtle); pointer-events: none; }
+.app-search .ab-input { padding-left: 2.25rem; }
+.app-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ab-space-3); }
+@media (min-width: 768px) { .app-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1800px) { .app-filters { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+.app-row-open { all: unset; display: grid; gap: 0.125rem; cursor: pointer; }
+.app-row-open__name { font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+.app-row-open:hover .app-row-open__name { color: var(--ab-link); }
+.app-row-open:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; border-radius: var(--ab-radius-xs); }
+.app-tone-danger { color: var(--ab-danger-text); font-weight: var(--ab-font-weight-semibold); }
+.app-tone-warning { color: var(--ab-warning-text); font-weight: var(--ab-font-weight-semibold); }
+.app-tone-info, .app-tone-primary { color: var(--ab-link); }
+.app-tone-success { color: var(--ab-success-text); }
+.app-bulk {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3);
+  padding: var(--ab-space-3) var(--ab-space-4); border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); background: var(--ab-primary-soft);
+}
+.app-bulk__group { display: flex; align-items: center; gap: var(--ab-space-2); }
+.app-bulk .ab-select { width: auto; min-width: 12rem; }
+
+.app-board { margin: 0; padding: 0; list-style: none; display: flex; gap: var(--ab-space-3); overflow-x: auto; padding-bottom: var(--ab-space-3); align-items: flex-start; }
+.app-board__col { flex: 0 0 14.5rem; display: grid; gap: var(--ab-space-2); padding: var(--ab-space-3); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
+.app-board__col.is-collapsed { flex-basis: 3rem; padding-inline: var(--ab-space-1); }
+.app-board__col.is-empty .app-board__head { color: var(--ab-text-muted); }
+.app-board__head {
+  all: unset; display: flex; justify-content: space-between; align-items: center; gap: var(--ab-space-2); cursor: pointer;
+  padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong);
+  font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-bold); letter-spacing: var(--ab-tracking-wide); text-transform: uppercase; color: var(--ab-heading);
+}
+.app-board__col.is-collapsed .app-board__head { border-bottom: 0; }
+.app-board__badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
+.app-board__head:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; border-radius: var(--ab-radius-xs); }
+.app-board__col.is-collapsed .app-board__head { writing-mode: vertical-rl; justify-content: flex-start; min-height: 10rem; }
+.app-board__list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ab-space-2); }
+.app-board__empty { padding: var(--ab-space-2) 0; }
+.app-board__card {
+  position: relative; display: grid; gap: 0.125rem; width: 100%; box-sizing: border-box; text-align: left;
+  padding: var(--ab-space-3); border: 1px solid transparent; border-radius: var(--ab-radius-md); background: var(--ab-bg); color: var(--ab-text); font: inherit;
+}
+.app-board__card.is-clickable { cursor: pointer; }
+.app-board__card { border-color: var(--ab-border); }
+.app-board__card.is-clickable:hover { border-color: var(--ab-primary); background: var(--ab-tonal-hover); }
+.app-board__name { font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); padding-right: 1rem; }
+.app-board__chev { position: absolute; right: var(--ab-space-2); top: var(--ab-space-3); color: var(--ab-text-subtle); }
+
+/* ── Candidate panel (sheet) ───────────────────────────────────────────── */
+.app-sheet {
+  margin: 0 0 0 auto; width: clamp(56rem, 54vw, 76rem); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0;
+  background: var(--ab-surface-raised); color: var(--ab-text); box-shadow: var(--ab-shadow-lg);
+  overflow: hidden;
+}
+.app-sheet[open] { animation: app-slide var(--ab-duration-base) var(--ab-ease-out); }
+.app-sheet::backdrop { background: var(--ab-scrim, rgba(8, 23, 49, 0.6)); }
+@keyframes app-slide { from { transform: translateX(2rem); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .app-sheet[open] { animation: none; } }
+.app-sheet__inner { display: grid; grid-template-rows: auto auto minmax(0, 1fr); height: 100%; min-height: 0; }
+.app-sheet__head { display: grid; gap: var(--ab-space-3); padding: var(--ab-space-4) var(--ab-space-6) var(--ab-space-3); border-bottom: 1px solid var(--ab-border); }
+.app-sheet__inner > .ab-tabs { padding-inline: var(--ab-space-6); background: var(--ab-bg-subtle); }
+.app-sheet__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--ab-space-6); }
+@media (max-width: 767px) {
+  .app-sheet__head, .app-sheet__body { padding-inline: var(--ab-space-4); }
+  .app-sheet__inner > .ab-tabs { padding-inline: var(--ab-space-4); }
+}
+.app-fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.app-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-next { padding: var(--ab-space-1) var(--ab-space-3); border-radius: var(--ab-radius-md); background: var(--ab-primary-soft); color: var(--ab-primary-soft-fg); font-size: var(--ab-font-size-sm); }
+.app-panel-section { display: grid; gap: var(--ab-space-3); padding: var(--ab-space-4); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
+.app-panel-section__head { display: flex; justify-content: space-between; align-items: center; gap: var(--ab-space-3); }
+.app-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--ab-space-4); }
+.app-static { min-height: var(--ab-control-height); display: flex; align-items: center; }
+.app-file-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3); }
+.app-file-link { display: inline-flex; align-items: center; gap: var(--ab-space-2); font-weight: var(--ab-font-weight-semibold); }
+.app-ext { display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--ab-font-size-sm); }
+.app-outcome { display: grid; gap: var(--ab-space-2); justify-items: start; }
+.app-list { margin: var(--ab-space-2) 0 0; padding-left: 1.25rem; display: grid; gap: var(--ab-space-1); }
+.app-row-compact { --ab-row-padding: var(--ab-space-2); grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(0, 6rem); align-items: center; }
+.app-row-compact .ab-row__meta { text-align: right; }
+.app-outcome-now { margin: 0; font-size: var(--ab-font-size-xl); font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+
+/* Rows that are buttons (Today, calendar side lists). */
+.app-row-button { width: 100%; box-sizing: border-box; border: 0; border-bottom: 1px solid var(--ab-border); background: none; font: inherit; text-align: left; cursor: pointer; }
+.app-row-button:hover .ab-row__title,
+.app-row-button:hover .font-semibold { color: var(--ab-link); }
+.app-row-button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; border-radius: var(--ab-radius-xs); }
+.app-row-button .ab-row__meta { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--ab-space-2); }
+.app-side-row { display: grid; gap: 0.125rem; padding: var(--ab-space-2) 0; }
+
+/* ── Email ─────────────────────────────────────────────────────────────── */
+.app-email-grid { display: grid; grid-template-columns: minmax(11rem, 13rem) minmax(24rem, 1fr); gap: var(--ab-space-5); align-items: start; }
+@media (max-width: 900px) { .app-email-grid { grid-template-columns: minmax(0, 1fr); } }
+.app-template-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ab-border); }
+.app-template {
+  display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--ab-space-3) var(--ab-space-2);
+  border: 0; border-bottom: 1px solid var(--ab-border); background: none; color: var(--ab-text); font: inherit; text-align: left; cursor: pointer;
+}
+.app-template:hover { background: var(--ab-tonal-hover); }
+.app-template[aria-current='true'] { background: var(--ab-primary-soft); color: var(--ab-primary-soft-fg); font-weight: var(--ab-font-weight-semibold); }
+.app-template:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; }
+.app-email-body { min-height: 22rem; font-family: var(--ab-font-sans); line-height: var(--ab-leading-normal); }
+
+/* ── Calendar ──────────────────────────────────────────────────────────── */
+.app-cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: var(--ab-space-6); align-items: start; }
+@media (max-width: 1100px) { .app-cal-layout { grid-template-columns: minmax(0, 1fr); } }
+.app-cal-scroll { overflow-x: auto; }
+.app-cal__chip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-cal {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); overflow: hidden; background: var(--ab-bg);
+}
+.app-cal__dow { padding: var(--ab-space-2); background: var(--ab-surface); font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-semibold); letter-spacing: var(--ab-tracking-wide); text-transform: uppercase; color: var(--ab-text-muted); text-align: center; }
+.app-cal__cell { display: grid; align-content: start; gap: 0.25rem; min-height: 6.5rem; padding: var(--ab-space-2); border-top: 1px solid var(--ab-border); border-left: 1px solid var(--ab-border); }
+.app-cal__cell:nth-child(7n + 1) { border-left: 0; }
+.app-cal__cell.is-out { background: var(--ab-bg-subtle); }
+.app-cal__cell.is-today { box-shadow: inset 0 0 0 2px var(--ab-primary); }
+.app-cal__day { font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-bold); color: var(--ab-text-muted); }
+.app-cal__cell.is-today .app-cal__day { color: var(--ab-link); }
+.app-cal__chip { display: block; width: 100%; padding: 0.25rem 0.375rem; border: 1px solid transparent; border-radius: var(--ab-radius-sm); font: inherit; font-size: var(--ab-font-size-xs); text-align: left; cursor: pointer; }
+.app-cal__chip.is-pending { background: var(--ab-info-soft); color: var(--ab-info-soft-fg); border-color: var(--ab-info-border); }
+.app-cal__chip.is-confirmed { background: var(--ab-success-soft); color: var(--ab-success-soft-fg); border-color: var(--ab-success-border); }
+.app-cal__chip:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 1px; }
+.app-cal__busy { color: var(--ab-text-muted); }
+
+/* ── Offboarding ───────────────────────────────────────────────────────── */
+.app-checklist { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ab-border); }
+.app-checklist li { padding: var(--ab-space-2) 0; border-bottom: 1px solid var(--ab-border); }
+.app-done { color: var(--ab-text-muted); text-decoration: line-through; }
+.app-case-name { font-size: var(--ab-font-size-lg); }
+
+/* ── Hiring projects ───────────────────────────────────────────────────── */
+.app-overview { display: grid; gap: var(--ab-space-6); padding: clamp(1.5rem, 4vw, 2.5rem); }
+.app-overview__head { display: grid; gap: var(--ab-space-2); }
+.app-role > summary { list-style: none; cursor: pointer; }
+.app-role > summary::-webkit-details-marker { display: none; }
+.app-role > summary:hover .ab-row__title { color: var(--ab-link); }
+.app-role > summary:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; }
+.app-role__body { display: grid; gap: var(--ab-space-6); padding: var(--ab-space-4) 0 var(--ab-space-6); border-bottom: 1px solid var(--ab-border); }
+.app-role__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--ab-space-6); }
+.app-mini-table td { padding-block: var(--ab-space-1); }
+.app-health-editor {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--ab-space-3); align-items: end;
+  padding: var(--ab-space-4); border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg);
+}
+
+/* ── Pass 3: compactness ──────────────────────────────────────────────────
+   The desktop top bar is gone (name and sync live at the bottom of the
+   sidebar); headers, chips, rows and the record panel use less height. */
+
+/* Phones keep a slim top bar; desktop drops it. */
+.app-topbar-phone { min-height: 3rem; gap: var(--ab-space-3); justify-content: flex-start; }
+@media (min-width: 768px) { .app-topbar-phone { display: none; } }
+
+/* Sidebar footer: who you are, and sync. */
+.app-side-foot { display: grid; gap: var(--ab-space-1); padding: var(--ab-space-3) 0.25rem 0; border-top: 1px solid var(--ab-sidebar-border); }
+.ab-sidebar .app-user { width: 100%; justify-content: space-between; color: var(--ab-sidebar-fg); text-align: left; }
+.ab-sidebar .app-user:hover { background: var(--ab-sidebar-hover); }
+.ab-sidebar .app-user .grid { text-align: left; }
+.ab-sidebar .app-user__name { color: var(--ab-white); }
+.ab-sidebar .app-user__role { color: var(--ab-sidebar-muted); }
+.ab-sidebar .app-sync { color: var(--ab-sidebar-muted); width: 100%; }
+.ab-sidebar button.app-sync:hover { background: var(--ab-sidebar-hover); color: var(--ab-sidebar-fg); }
+.ab-sidebar .app-sync--bad { flex-wrap: wrap; background: var(--ab-danger-soft); color: var(--ab-danger-soft-fg); }
+.app-menu-up { position: absolute; bottom: calc(100% + 0.375rem); left: 0; min-width: 100%; }
+
+/* Page header: title, lead and actions on one line. */
+.app-page-header { align-items: center; gap: var(--ab-space-1) var(--ab-space-4); margin-bottom: var(--ab-space-2); }
+.app-page-header .ab-title { font-size: var(--ab-font-size-xl); }
+.app-page-lead { margin: 0; font-size: var(--ab-font-size-sm); color: var(--ab-text-muted); }
+.app-page-actions { margin-left: auto; flex-wrap: wrap; }
+.app-stack > * + *:not(dialog) { margin-top: var(--ab-space-4); }
+.app-stack > .app-page-header + * { margin-top: 0; }
+
+/* Count pills: a one-line stand-in for the big tiles. */
+.app-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
+.app-pill {
+  display: inline-flex; align-items: baseline; gap: 0.375rem; padding: 0.25rem 0.75rem; border: 0; border-radius: var(--ab-radius-pill);
+  background: var(--ab-surface); color: var(--ab-text-muted); font: inherit; font-size: var(--ab-font-size-sm); white-space: nowrap;
+}
+button.app-pill { cursor: pointer; }
+button.app-pill:hover { background: var(--ab-tonal-hover); }
+.app-pill__n { font-size: var(--ab-font-size-base); font-weight: var(--ab-font-weight-bold); color: var(--ab-heading); }
+.app-pill--danger .app-pill__n { color: var(--ab-danger-text); }
+.app-pill--warning .app-pill__n { color: var(--ab-warning-text); }
+.app-pill--success .app-pill__n { color: var(--ab-success-text); }
+.app-pill--primary .app-pill__n { color: var(--ab-link); }
+.app-pill.is-active, button.app-pill.is-active:hover { background: var(--ab-secondary); color: var(--ab-secondary-fg); }
+.app-pill.is-active .app-pill__n { color: var(--ab-secondary-fg); }
+.app-pill:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+
+/* The quick-view strip stays on screen while you scroll the list (wide screens). */
+.app-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-2) var(--ab-space-3); padding-block: 0.375rem; background: var(--ab-bg); }
+.app-search { flex: 0 1 18rem; min-width: 12rem; }
+@media (min-width: 1100px) {
+  .app-strip { position: sticky; top: 0; z-index: var(--ab-z-sticky); flex-wrap: nowrap; height: 3rem; box-sizing: border-box; }
+}
+@media (min-width: 1280px) {
+  .app-cand-table { overflow: clip; }
+  .app-table-compact { table-layout: fixed; }
+  .app-table-compact .col-select { width: 2.75rem; }
+  .app-table-compact .col-department { width: 10.5rem; }
+  .app-table-compact .col-stage { width: 13.5rem; }
+  .app-table-compact .col-emm { width: 10.25rem; }
+  .app-table-compact .col-next { width: 16rem; }
+  .app-table-compact .col-notes { width: 3.25rem; }
+  .app-table-compact td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-table-compact thead th { position: sticky; top: 3rem; z-index: 1; }
+}
+
+/* Table rows: one line each. */
+.app-table-compact .app-row-open--line { display: flex; align-items: baseline; gap: 0.5rem; max-width: 100%; }
+.app-row-open--line .app-row-open__name { flex: 0 1 auto; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-row-open__pos { flex: 1 1 0; min-width: 0; margin-left: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-table-compact td { padding-block: 0.3125rem; }
+.app-next-cell { display: flex; align-items: baseline; gap: 0.5rem; }
+.app-stage-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.app-page-actions .app-search { flex: 0 1 15rem; min-width: 10rem; max-width: 15rem; }
+@media (min-width: 1200px) { .app-page-actions { flex-wrap: nowrap; } }
+
+/* Board cards. */
+.app-board__card { gap: 0; padding: var(--ab-space-2) var(--ab-space-3); }
+.app-board__sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-board__badges { margin-top: 0.25rem; }
+.app-board__list { gap: var(--ab-space-1); }
+
+/* Lists in blocks: tighter rows. */
+.app-block { padding: var(--ab-space-3); gap: var(--ab-space-2); }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-row { --ab-row-padding: 0.5rem; }
+.app-block .ab-row__title { font-size: var(--ab-font-size-base); }
+.app-block__title { font-size: var(--ab-font-size-base); }
+.app-block__lead { margin-top: 0; }
+
+/* Record panel. */
+.app-sheet__head { gap: var(--ab-space-2); padding: var(--ab-space-3) var(--ab-space-5) var(--ab-space-3); }
+.app-sheet__titlerow { display: flex; align-items: center; gap: var(--ab-space-3); min-width: 0; }
+.app-sheet__name { flex: 0 1 auto; max-width: 55%; font-size: var(--ab-font-size-xl); }
+.app-sheet__meta { flex: 1 1 0; min-width: 0; margin: 0; }
+.app-sheet__actions { margin-left: auto; }
+.app-head-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-2) var(--ab-space-4); }
+.app-head-controls .ab-field { display: flex; flex-flow: row wrap; align-items: center; gap: var(--ab-space-2); }
+.app-head-controls .ab-label { margin: 0; white-space: nowrap; }
+.app-head-controls .ab-select { width: auto; min-width: 11rem; }
+.app-head-controls .app-next { flex: 1 1 14rem; min-width: 0; }
+.app-sheet__inner > .ab-tabs { padding-inline: var(--ab-space-5); }
+.app-sheet__inner > .ab-tabs .ab-tab { padding-block: 0.5rem; }
+.app-sheet__body { padding: var(--ab-space-4) var(--ab-space-5); }
+.app-sheet__body .app-stack > * + * { margin-top: var(--ab-space-3); }
+.app-panel-section { gap: var(--ab-space-2); padding: var(--ab-space-3); }
+.app-panel-section .ab-card__title { font-size: var(--ab-font-size-base); }
+.app-sheet .app-form-grid { gap: var(--ab-space-3); }
+.app-form-grid--4 { grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); }
+.app-assess-pair { display: grid; gap: var(--ab-space-3); grid-template-columns: minmax(0, 1fr); align-items: start; }
+.app-assess-pair .app-form-grid { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+@media (max-width: 767px) { .app-sheet__head { padding-inline: var(--ab-space-4); } }
+
+/* Interview questions: one line each, open one at a time. */
+.app-qa-list { border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); overflow: hidden; }
+.app-qa { border-bottom: 1px solid var(--ab-border); }
+.app-qa:last-child { border-bottom: 0; }
+.app-qa > summary { display: flex; gap: var(--ab-space-3); padding: 0.5rem var(--ab-space-3); cursor: pointer; font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); list-style: none; }
+.app-qa > summary::-webkit-details-marker { display: none; }
+.app-qa > summary::before { content: ''; flex: none; align-self: center; width: 0.5rem; height: 0.5rem; border-right: 2px solid var(--ab-text-muted); border-bottom: 2px solid var(--ab-text-muted); transform: rotate(-45deg); transition: transform var(--ab-duration-fast) var(--ab-ease-standard); }
+.app-qa[open] > summary::before { transform: rotate(45deg); }
+.app-qa > summary:hover { background: var(--ab-tonal-hover); }
+.app-qa > summary:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; }
+.app-qa__num { color: var(--ab-text-muted); font-weight: var(--ab-font-weight-bold); }
+.app-qa__body { display: grid; gap: var(--ab-space-2); padding: 0 var(--ab-space-3) var(--ab-space-3) 1.9rem; }
+
+.app-board__name { display: flex; align-items: center; gap: 0.375rem; padding-right: 1rem; }
+.app-board__nametext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-board__late { flex: none; }
+
+/* Phones: the quick-view pills scroll sideways in one row; the sidebar drawer shows sync text. */
+@media (max-width: 767px) {
+  .app-strip .app-pills { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding-bottom: 0.25rem; }
+  .app-page-actions .app-search { flex: 1 1 100%; max-width: none; }
+}
+@media (max-width: 480px) { .ab-sidebar .app-sync__text { display: inline; } }
+
+.app-savemark { flex: none; min-width: 3.5rem; font-size: var(--ab-font-size-xs); color: var(--ab-text-muted); text-align: right; }
+.app-sheet__actions { margin-left: 0; }
+
+.app-viewonly { margin: 0 0 var(--ab-space-3); padding: var(--ab-space-1) var(--ab-space-3); border-radius: var(--ab-radius-md); background: var(--ab-surface); color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); }
+
+.ab-input[readonly] { background: var(--ab-bg-subtle); }
+
+/* Email composer "More" menu and the interview time pickers. */
+.app-more__menu { position: absolute; bottom: calc(100% + 0.25rem); left: 0; min-width: 16rem; z-index: 2; }
+.app-slot-grid { display: grid; gap: var(--ab-space-3); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); align-items: start; }
+
+tr[data-selected] { background: var(--ab-primary-soft); }
+.app-cand-card[data-selected] { background: var(--ab-primary-soft); }
+.app-table-compact td.cell-badge { text-overflow: clip; }
+
+/* ── Pass 4: horizontal space ─────────────────────────────────────────────
+   The page uses the width it has (up to 105rem). The table shows what fits:
+   Department from 1600px. Under
+   1280px the list is cards. The record panel grows with the screen and
+   its tab layouts follow the panel's own width (container queries), not the window's. */
+.ab-page { max-width: 105rem; }
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .app-table-compact .col-department { display: none; }
+}
+@media (min-width: 1600px) {
+  .app-table-compact .col-next { width: 20rem; }
+}
+.app-table-compact th, .app-table-compact td { padding-inline: 0.75rem; }
+.app-table-compact td:first-child, .app-table-compact th:first-child { padding-inline: 0.75rem; }
+
+.app-board__col { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.app-board__list { grid-template-columns: minmax(0, 1fr); }
+.app-board__list > li, .app-board__card { min-width: 0; }
+.app-board__card { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.app-board__col.is-empty:not(.is-collapsed) { flex-basis: 10rem; }
+
+/* Today and similar lists: fixed columns so every row lines up; the badge column fits the longest stage name. */
+.ab-row.app-row-button { grid-template-columns: minmax(12rem, 22rem) minmax(0, 40rem) 15rem; justify-content: start; gap: var(--ab-space-2) var(--ab-space-5); }
+@media (max-width: 767px) { .ab-row.app-row-button { grid-template-columns: minmax(0, 1fr); } }
+
+/* Hiring projects: six numbers in one row. */
+.app-overview .app-kpis { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+
+/* Record panel: layouts follow the panel width. */
+.app-sheet__body { container: panel / inline-size; }
+.app-pair { display: grid; gap: var(--ab-space-3); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@container panel (min-width: 52rem) {
+  .app-assess-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-assess-pair .app-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-pair { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .app-form-grid--4 .app-span-2 { grid-column: span 2; }
+}
+.app-qa__body { max-width: 72ch; }
+
+/* A long next step ends in an ellipsis (its full text is the tooltip) instead of being cut off. */
+.app-next-cell { max-width: 100%; min-width: 0; }
+.app-next-cell__main { display: flex; flex: 0 1 auto; min-width: 0; }
+.app-next-cell__main > svg { flex: none; }
+.app-next-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-next-cell > .app-meta { flex: none; }
+
+/* Notes: a mark in the table (filled when there is a note), a popover to read or edit it. */
+.app-table-compact th.col-notes, .app-table-compact td.col-notes { padding-inline: 0.25rem; text-align: center; }
+.app-table-compact th.col-notes { color: var(--ab-text-muted); }
+.app-note-mark { all: unset; display: inline-grid; place-items: center; padding: 0.25rem; border-radius: var(--ab-radius-sm); color: var(--ab-text-subtle); cursor: pointer; }
+.app-note-mark:hover { background: var(--ab-tonal); color: var(--ab-link); }
+.app-note-mark.has-note { color: var(--ab-link); }
+.app-note-mark.has-note svg { fill: var(--ab-primary-soft); }
+.app-note-mark:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+.app-note-glyph { display: inline-flex; flex: none; margin-left: 0.375rem; color: var(--ab-link); vertical-align: -0.125rem; }
+.app-note-glyph svg { fill: var(--ab-primary-soft); }
+.app-note-pop {
+  position: fixed; z-index: var(--ab-z-dropdown); width: min(22rem, calc(100vw - 1rem)); display: grid; gap: var(--ab-space-2); padding: var(--ab-space-3);
+  border: 1px solid var(--ab-border); border-radius: var(--ab-radius-lg); background: var(--ab-surface-raised); box-shadow: var(--ab-shadow-lg);
+}
+.app-note-pop__head { display: flex; align-items: baseline; gap: var(--ab-space-2); min-width: 0; }
+.app-note-pop__title { font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+.app-note-pop__text { margin: 0; max-height: 12rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-note-pop__edit { min-height: 8rem; max-height: 14rem; }
+.app-note-pop__foot { display: flex; justify-content: flex-end; }
+
+@media (min-width: 1440px) and (max-width: 1599px) { .app-table-compact .col-next { width: 17.5rem; } }
+
+/* ── Shelf (record panel) sections ────────────────────────────────────────
+   Three kinds, so the eye knows what to do:
+   action    white card, navy top rule: what you do now
+   result    gray block: what came back
+   reference no box, just a rule under the title: context you look things up in. */
+.app-panel-section__head { padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong); }
+.app-panel-section .ab-card__title { display: flex; align-items: center; gap: var(--ab-space-2); }
+.app-sheet .app-panel-section[data-kind='action'] {
+  background: var(--ab-bg); border: 1px solid var(--ab-border-strong); border-top: 3px solid var(--ab-heading); border-radius: var(--ab-radius-md);
+}
+.app-sheet .app-panel-section[data-kind='reference'] { background: transparent; border-radius: 0; padding-inline: 0; }
+/* On white, neutral badges and tonal buttons go back to their own gray. */
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-badge--neutral { --_bg: var(--ab-tonal); --_border: transparent; }
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal:not([aria-pressed='true']):not(:hover) { background: var(--ab-tonal); }
+.app-sheet .app-panel-section:not([data-kind='result']) .ab-btn--tonal:not([aria-pressed='true']):not(.app-btn-danger-text):hover { background: var(--ab-tonal-hover); }
+/* The phase of the person colours the top of the record. */
+.app-sheet__head { border-top: 4px solid var(--phase, var(--ab-border)); }
+.app-sheet__head .app-next { background: var(--phase-soft, var(--ab-primary-soft)); color: var(--phase-fg, var(--ab-primary-soft-fg)); }
+
+/* ── Calendar spacing ───────────────────────────────────────────────────── */
+.app-side-row { padding: var(--ab-space-2) var(--ab-space-4); }
+.app-block .ab-rows > li:last-child > .app-row-button { border-bottom: 0; }
+.app-cal-stack { display: grid; gap: var(--ab-space-3); }
+.app-cal__day { padding-inline: 0.125rem; }
+.app-cal__chip { padding: var(--ab-space-1) var(--ab-space-2); }
+.app-cal__busy { padding-inline: 0.125rem; font-size: var(--ab-font-size-xs); }
+
+/* The composer's buttons sit under a rule, like a dialog footer. */
+.app-composer-foot { padding-top: var(--ab-space-3); border-top: 1px solid var(--ab-border); }
+
+/* A calendar chip: the time on top, the person under it (cut with an ellipsis, full text on hover). */
+.app-cal__chip { display: grid; gap: 0; line-height: 1.3; white-space: normal; }
+.app-cal__time { font-weight: var(--ab-font-weight-semibold); }
+.app-cal__who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Interview question rows: editors' buttons, and the role check list in the question dialog. */
+.app-qa__actions { display: flex; flex-wrap: wrap; gap: var(--ab-space-1); margin-top: var(--ab-space-1); }
+.app-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--ab-space-2) var(--ab-space-4); }
+.app-composer-foot { justify-content: flex-end; }
+/* The email and phone links in the record header sit in a clipped one-line box: keep their focus ring inside it. */
+.app-sheet__meta a:focus-visible { outline-offset: -2px; border-radius: var(--ab-radius-xs); }

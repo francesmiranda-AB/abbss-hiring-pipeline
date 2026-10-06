@@ -1,0 +1,94 @@
+[
+  {
+    "id": "q_seed_role_1",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Formula comprehension: SUMIF",
+    "question": "Open your Matching sheet. Pick any row and explain: what does your SUMIF formula calculate, and what does the result tell you about that account?",
+    "lookFor": "Explains what SUMIF does and connects the number to a business meaning.",
+    "watchOut": "Cannot explain the formula or describe what the output means.",
+    "note": "Applicants who copied formulas may be unable to explain why they reference specific columns.",
+    "sort": 1
+  },
+  {
+    "id": "q_seed_role_2",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Formula construction: COUNTIFS",
+    "question": "In a blank column, write a COUNTIFS formula that counts rows with the same Order Ref as this row AND Doc Type of \"Payment\". Show me as you type it.",
+    "lookFor": "Writes a working COUNTIFS with correct column references and both criteria.",
+    "watchOut": "Cannot construct the formula from scratch without copying.",
+    "note": "Struggling to write it from scratch suggests the original formulas may not have been written by the applicant.",
+    "sort": 2
+  },
+  {
+    "id": "q_seed_role_3",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Classification judgment: similar categories",
+    "question": "Two scenarios: A) 1 Credit Memo, 1 Invoice, 1 Payment, 0 Refunds, SUMIF=-958. B) 1 Credit Memo, 0 Invoices, 0 Payments, 0 Refunds, SUMIF=-75. What category is each and why?",
+    "lookFor": "Correctly identifies both as Missing Refund and explains the CM-Refund pairing.",
+    "watchOut": "Calls Scenario A 'Match', the most common error in sample files.",
+    "note": "This is drawn from actual errors in the sample applicant files.",
+    "sort": 3
+  },
+  {
+    "id": "q_seed_role_4",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Edge case: rounding boundary",
+    "question": "A group has 1 Invoice, 1 Payment, SUMIF = 0.01. Is this Match or Invoice > Payment? What would you do with this in a real reconciliation?",
+    "lookFor": "Recognises the rounding issue and classifies as Match with a real-world explanation.",
+    "watchOut": "Insists on Invoice > Payment because the number is technically positive.",
+    "note": "This pattern caused about 250 errors for one sample applicant.",
+    "sort": 4
+  },
+  {
+    "id": "q_seed_role_5",
+    "set": "role",
+    "roles": [
+      "AR Specialist",
+      "Refunds Specialist"
+    ],
+    "skill": "Real-world AR understanding",
+    "question": "You found 266 Missing Invoice entries totalling -$207,720. What would you do next and who would you involve?",
+    "lookFor": "Understands the financial implication and describes a logical next step with the right stakeholders.",
+    "watchOut": "Treats it as a data entry issue only.",
+    "note": "Separates candidates with real AR experience from those who only completed the exercise.",
+    "sort": 5
+  },
+  {
+    "id": "q_seed_beh_1",
+    "set": "behavioral",
+    "roles": [],
+    "skill": "Perseverance under pressure",
+    "question": "Tell me about a specific time, at this job or another, when you seriously considered giving up on a task or role. Walk me through exactly what happened and what you did next.",
+    "lookFor": "Gives a specific, real example with concrete detail, and describes what got them through it or what they honestly learned from stepping back.",
+    "watchOut": "Can't recall a specific instance, gives a vague or hypothetical answer, or blames external factors entirely with no self-reflection.",
+    "note": "Vague or rehearsed-sounding answers are worth a live follow-up.",
+    "sort": 1
+  },
+  {
+    "id": "q_seed_beh_2",
+    "set": "behavioral",
+    "roles": [],
+    "skill": "Adapting to sudden change",
+    "question": "A client changes the process on you in the middle of a task with no warning. Walk me through what you'd actually do, step by step.",
+    "lookFor": "Describes a calm, concrete process (clarify what changed, adjust the work, confirm with the client or supervisor if unsure).",
+    "watchOut": "Reacts with frustration or resistance, or gives a vague answer that avoids the scenario.",
+    "note": "Watch for answers that amount to \"I'd just figure it out\" with no process.",
+    "sort": 2
+  }
+]

@@ -1,0 +1,292 @@
+/* App-specific styles. AB tokens only: no raw colors, radii or shadows. */
+
+html, body { background: var(--ab-bg-subtle); }
+body {
+  margin: 0;
+  font-family: var(--ab-font-sans);
+  font-size: var(--ab-font-size-sm);
+  line-height: var(--ab-leading-normal);
+  color: var(--ab-text);
+  -webkit-font-smoothing: antialiased;
+}
+:where(a, button, [role='button'], summary, select, label[for]) { cursor: pointer; }
+:where(a) { color: var(--ab-link); }
+:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+
+/* ── Shell ─────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) { .ab-sidebar { position: sticky; top: 0; height: 100dvh; overflow-y: auto; } }
+.app-brand-mark {
+  display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem;
+  border-radius: var(--ab-radius-sm); background: var(--ab-white); color: var(--ab-navy-900);
+  font-weight: var(--ab-font-weight-extrabold); font-size: var(--ab-font-size-sm); letter-spacing: -0.04em;
+}
+.app-brand-sub { font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-medium); color: var(--ab-sidebar-muted); }
+.app-sidebar-rule { height: 1px; margin: var(--ab-space-3) 0.75rem; border: 0; background: var(--ab-sidebar-border); }
+.app-nav-count {
+  min-width: 1.5rem; padding: 0 0.375rem; border-radius: var(--ab-radius-pill);
+  background: var(--ab-white); color: var(--ab-navy-900);
+  font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-bold); text-align: center; line-height: 1.5rem;
+}
+.app-menu-button { display: none; }
+.app-backdrop { position: fixed; inset: 0; z-index: calc(var(--ab-z-overlay) - 1); background: var(--ab-scrim, rgba(8, 23, 49, 0.6)); }
+@media (max-width: 767px) {
+  .app-menu-button { display: inline-flex; }
+  .ab-sidebar { overflow-y: auto; }
+}
+
+.app-sync {
+  display: inline-flex; align-items: center; gap: var(--ab-space-2);
+  padding: 0.25rem 0.5rem; border: 0; border-radius: var(--ab-radius-sm); background: none;
+  color: var(--ab-text-muted); font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-medium);
+}
+button.app-sync:hover { background: var(--ab-tonal); color: var(--ab-text); }
+.app-sync--bad { color: var(--ab-danger-text); }
+@media (max-width: 480px) { .app-sync__text { display: none; } }
+.app-spin { animation: ab-spin 0.9s linear infinite; }
+
+.app-user {
+  display: inline-flex; align-items: center; gap: var(--ab-space-2);
+  padding: 0.375rem 0.625rem; border: 0; border-radius: var(--ab-radius-sm); background: none; color: var(--ab-text);
+}
+.app-user:hover { background: var(--ab-tonal); }
+.app-user__name { font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+.app-user__role { font-size: var(--ab-font-size-xs); color: var(--ab-text-muted); }
+.app-menu-right { position: absolute; right: 0; top: calc(100% + 0.375rem); }
+
+.app-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3);
+  padding: var(--ab-space-3) var(--ab-page-padding);
+  border-bottom: 1px solid var(--ab-warning-border); background: var(--ab-warning-soft); color: var(--ab-warning-soft-fg);
+}
+.app-centered { display: grid; place-items: center; min-height: 100dvh; padding: var(--ab-space-6); }
+.app-centered > * { width: min(36rem, 100%); }
+
+/* ── Sign in ───────────────────────────────────────────────────────────── */
+.app-signin { display: grid; place-items: center; min-height: 100dvh; padding: var(--ab-space-4); background: var(--ab-bg-subtle); }
+.app-signin__card { display: grid; gap: var(--ab-space-6); width: min(34rem, 100%); padding: clamp(2rem, 6vw, 3.5rem); }
+.app-signin__brand { margin: 0; font-size: var(--ab-font-size-xs); font-weight: var(--ab-font-weight-semibold); letter-spacing: var(--ab-tracking-wider); text-transform: uppercase; color: var(--ab-text-muted); }
+
+/* ── Kit helpers ───────────────────────────────────────────────────────── */
+.app-kpi-button { all: unset; display: grid; gap: 0.25rem; padding-top: var(--ab-space-3); border-top: 2px solid var(--ab-heading); cursor: pointer; }
+.app-kpi-button:hover .ab-kpi__value { color: var(--ab-link); }
+.app-kpi-button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 4px; border-radius: var(--ab-radius-xs); }
+.app-tab-count {
+  display: inline-block; margin-left: 0.375rem; padding: 0 0.375rem; border-radius: var(--ab-radius-pill);
+  background: var(--ab-tonal); color: var(--ab-tonal-fg); font-size: var(--ab-font-size-xs); letter-spacing: 0;
+}
+.ab-tab[aria-selected='true'] .app-tab-count { background: var(--ab-primary-soft); color: var(--ab-primary-soft-fg); }
+.ab-tabs--pills .ab-tab[aria-selected='true'] .app-tab-count { background: var(--ab-navy-700); color: var(--ab-white); }
+.app-modal-wide { width: min(52rem, calc(100vw - 2rem)); }
+.ab-modal__body { color: var(--ab-text); }
+.app-stack > * + * { margin-top: var(--ab-space-6); }
+.app-meta { font-size: var(--ab-font-size-xs); color: var(--ab-text-muted); }
+.app-num { font-variant-numeric: tabular-nums; }
+.app-link-button { all: unset; color: var(--ab-link); text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
+.app-link-button:hover { color: var(--ab-link-hover); }
+.app-link-button:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: 2px; border-radius: var(--ab-radius-xs); }
+.app-card-plain { padding: var(--ab-card-padding); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
+
+/* Inputs stay white inside the navy block, so their text must stay dark. */
+.ab-feature .ab-input, .ab-feature .ab-select, .ab-feature .ab-textarea { color: var(--ab-navy-900); background-color: var(--ab-white); }
+.ab-feature .ab-select option { color: var(--ab-navy-900); }
+
+/* Icon + label tabs (Table | Board) stay on one line. */
+.ab-tabs--pills .ab-tab { display: inline-flex; align-items: center; gap: 0.375rem; }
+
+/* ── Separation: white canvas, gray blocks, white items ────────────────────
+   Three surface modes only (white, gray, navy). Blocks group things; the rows,
+   tables and fields inside them sit on white. Status color goes on data
+   (badges, counts, KPI numbers), never on panels. */
+.ab-main { background: var(--ab-bg); }
+.ab-topbar { border-bottom: 1px solid var(--ab-border); }
+
+.app-block { display: grid; gap: var(--ab-space-3); padding: var(--ab-space-4); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }
+.app-block__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--ab-space-2) var(--ab-space-4); }
+.app-block__title {
+  display: inline-flex; align-items: center; gap: var(--ab-space-2); margin: 0;
+  font-size: var(--ab-font-size-lg); font-weight: var(--ab-font-weight-semibold); line-height: var(--ab-leading-tight); color: var(--ab-heading);
+}
+.app-block__lead { margin: calc(var(--ab-space-2) * -1) 0 0; color: var(--ab-text-muted); font-size: var(--ab-font-size-sm); max-width: 46rem; }
+
+/* Lists inside a gray surface go white. */
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .app-template-list, .app-checklist) {
+  border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); overflow: hidden;
+}
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows > li:last-child .ab-row, .ab-rows > .ab-row:last-child, .app-checklist li:last-child, .app-template-list li:last-child .app-template) { border-bottom: 0; }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-row { padding-inline: var(--ab-space-4); }
+:is(.app-block, .app-card-plain, .app-panel-section) .app-checklist li { padding-inline: var(--ab-space-3); }
+:is(.app-block, .app-card-plain) .ab-empty { border-radius: var(--ab-radius-md); background: var(--ab-bg); }
+/* Neutral badges and tonal buttons are the same gray as the block; lift them. */
+:is(.app-block, .app-card-plain, .app-board__col, .app-panel-section) .ab-badge--neutral { --_bg: var(--ab-bg); --_border: var(--ab-border); }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-btn--tonal { background: var(--ab-bg); }
+:is(.app-block, .app-card-plain, .app-panel-section) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
+
+/* Row hover: soft blue, the selected-state family. */
+.app-row-button:hover, .app-template:hover { background: var(--ab-tonal-hover); }
+
+/* KPI tiles: gray, with the top rule and number in the tile's status tone. */
+.app-kpis { gap: var(--ab-space-3); }
+.app-kpi { padding: var(--ab-space-3) var(--ab-space-4) var(--ab-space-4); border-radius: 0 0 var(--ab-radius-md) var(--ab-radius-md); background: var(--ab-surface); border-top-color: var(--ab-border-strong); }
+.app-kpi.app-kpi-button:hover { background: var(--ab-tonal-hover); }
+.ab-kpi.app-kpi--danger { border-top-color: var(--ab-danger); }
+.ab-kpi.app-kpi--danger .ab-kpi__value { color: var(--ab-danger-text); }
+.ab-kpi.app-kpi--warning { border-top-color: var(--ab-warning); }
+.ab-kpi.app-kpi--warning .ab-kpi__value { color: var(--ab-warning-text); }
+.ab-kpi.app-kpi--success { border-top-color: var(--ab-success); }
+.ab-kpi.app-kpi--success .ab-kpi__value { color: var(--ab-success-text); }
+.ab-kpi.app-kpi--primary { border-top-color: var(--ab-primary); }
+.ab-kpi.app-kpi--primary .ab-kpi__value { color: var(--ab-link); }
+.ab-feature .app-kpi { background: transparent; padding-inline: 0; border-radius: 0; border-top-color: var(--ab-feature-border); }
+.ab-feature .app-kpi .ab-kpi__value { color: inherit; }
+
+/* AB ships success/warning/danger toasts; info uses the info text color. */
+.ab-toast--info { --_accent: var(--ab-info-text); }
+
+/* ── Pass 2: hierarchy, compact tiles, one-line rows, phone cards ───────── */
+
+/* App titles are sentence case (AB). Uppercase stays on buttons, badges, tabs, table heads. */
+.app-card-plain .ab-card__title, .app-panel-section .ab-card__title {
+  text-transform: none; letter-spacing: normal; font-size: var(--ab-font-size-lg); font-weight: var(--ab-font-weight-semibold);
+}
+
+/* Compact KPI tiles (the navy feature block keeps AB's big numbers). */
+.app-kpi { padding: var(--ab-space-2) var(--ab-space-4) var(--ab-space-3); gap: 0; }
+.app-kpi .ab-kpi__value { font-size: var(--ab-font-size-3xl); }
+.ab-feature .app-kpi { padding: var(--ab-space-3) 0 0; }
+.ab-feature .app-kpi .ab-kpi__value { font-size: var(--ab-font-size-kpi); }
+.app-kpi-button { position: relative; }
+.app-kpi__go { position: absolute; top: var(--ab-space-3); right: var(--ab-space-3); color: var(--ab-text-subtle); }
+.app-kpi-button:hover .app-kpi__go { color: var(--ab-link); }
+
+/* Tonal buttons are gray; inside a white list in a gray block they must stay visible. */
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .ab-table-wrap) .ab-btn--tonal { background: var(--ab-tonal); }
+:is(.app-block, .app-card-plain, .app-panel-section) :is(.ab-rows, .ab-table-wrap) .ab-btn--tonal:hover { background: var(--ab-tonal-hover); }
+
+/* A destructive action that is confirmed or undoable: red text, soft red on hover (the button keeps its own shape). */
+.app-btn-danger-text { --_fg: var(--ab-danger-text); --_fg-hover: var(--ab-danger-soft-fg); --_bg-hover: var(--ab-danger-soft); --_bg-active: var(--ab-danger-soft); }
+.app-btn-danger-text.ab-btn--outline { --_border: var(--ab-danger-border); --_border-hover: var(--ab-danger-text); }
+/* A pressed toggle button reads as selected; pass and fail get their own colour. */
+.ab-btn[aria-pressed='true'] { --_bg: var(--ab-primary-soft); --_fg: var(--ab-primary-soft-fg); --_bg-hover: var(--ab-primary-soft); --_fg-hover: var(--ab-primary-soft-fg); --_border: var(--ab-primary-soft-fg); }
+.ab-btn.app-btn-pass[aria-pressed='true'] { --_bg: var(--ab-success-soft); --_fg: var(--ab-success-soft-fg); --_bg-hover: var(--ab-success-soft); --_fg-hover: var(--ab-success-soft-fg); --_border: var(--ab-success-border); }
+.ab-btn.ab-btn[aria-pressed='true'], .ab-btn.ab-btn[aria-pressed='true']:hover { background: var(--_bg); color: var(--_fg); border-color: var(--_border); }
+.ab-btn.app-btn-danger-text:hover, .ab-btn.app-btn-danger-text:active { background: var(--ab-danger-soft); color: var(--ab-danger-soft-fg); }
+.ab-btn.app-btn-fail[aria-pressed='true'] { --_bg: var(--ab-danger-soft); --_fg: var(--ab-danger-soft-fg); --_bg-hover: var(--ab-danger-soft); --_fg-hover: var(--ab-danger-soft-fg); --_border: var(--ab-danger-border); }
+.app-nowrap { white-space: nowrap; }
+.app-filepick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--ab-space-3); }
+.app-filepick > label:focus-within { outline: 2px solid var(--ab-ring); outline-offset: 2px; }
+
+.app-cal-layout .ab-card__title { text-transform: none; letter-spacing: normal; font-size: var(--ab-font-size-lg); font-weight: var(--ab-font-weight-semibold); }
+
+/* Forms: fields align to the top of the row, whatever their hint length. */
+.app-form-grid { align-items: start; }
+
+/* Hiring projects rows: title, badge, reason, count. */
+.app-role-row { grid-template-columns: minmax(0, 4fr) 9.5rem minmax(0, 6fr) 5rem; align-items: baseline; }
+.app-role-row__badge { display: inline-flex; }
+
+/* Candidates: one line per person. */
+.app-table-compact td { padding-block: 0.375rem; line-height: 1.3; }
+.app-table-compact .app-row-open { gap: 0; }
+.app-row-clickable { cursor: pointer; }
+.ab-table tbody tr.app-row-clickable:hover { background: var(--ab-tonal-hover); }
+.app-next-cell { display: grid; gap: 0.125rem; white-space: nowrap; }
+.app-next-cell__main { display: inline-flex; align-items: center; gap: 0.375rem; }
+
+.app-cand-cards { display: none; margin: 0; padding: 0; list-style: none; }
+.app-cand-card { display: flex; align-items: stretch; border: 1px solid var(--ab-border); border-radius: var(--ab-radius-md); background: var(--ab-bg); }
+.app-cand-card__check { display: grid; place-items: center; padding: 0 var(--ab-space-3); }
+.app-cand-card__body { all: unset; flex: 1; display: grid; gap: 0.25rem; justify-items: start; box-sizing: border-box; min-width: 0; padding: var(--ab-space-3); cursor: pointer; }
+.app-cand-card__body:focus-visible { outline: 2px solid var(--ab-ring); outline-offset: -2px; border-radius: var(--ab-radius-md); }
+
+/* The table needs about 1280px; below that people get cards (two across on tablets). */
+@media (max-width: 1279px) {
+  .app-cand-table { display: none; }
+  .app-cand-cards { display: grid; gap: var(--ab-space-2); grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); }
+}
+@media (max-width: 767px) {
+  .app-role-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Touch screens: lists and small buttons need a finger-sized target. */
+@media (pointer: coarse) {
+  .ab-btn--sm, .ab-tab, .app-note-mark { min-height: 2.75rem; }
+  .app-note-mark { min-width: 2.75rem; }
+  .app-row-button, .app-template { min-height: 2.75rem; }
+}
+
+/* Tabular figures draw a slashed zero in Mona Sans, which reads as code. */
+.ab-kpi__value { font-variant-numeric: normal; }
+
+/* Tab strips and table wrappers only scroll sideways. Without this the 1px
+   overlap of the active tab (and any rounding) draws a vertical scrollbar on
+   Windows, where scrollbars take space. */
+.ab-tabs, .ab-table-wrap { overflow-y: hidden; }
+
+/* A modal covers the page, so the page behind must not scroll or show its own scrollbar. */
+html:has(dialog[open]) { overflow: hidden; }
+
+/* AB's subtle gray is 4.2:1 on white; text that carries meaning uses the muted gray (passes AA). */
+.ab-subtle { color: var(--ab-text-muted); }
+
+/* Tailwind's reset zeroes the margins that center a modal dialog; put them back. */
+.ab-modal { margin: auto; }
+
+/* ── Where someone is in the process ──────────────────────────────────────
+   Phase colours say WHERE a person is. They are not status colours: amber and
+   red stay for "look at this". Built only from palette ramps. */
+:root {
+  --app-phase-intake: var(--ab-neutral-500);  --app-phase-intake-soft: var(--ab-neutral-100);  --app-phase-intake-fg: var(--ab-neutral-800);
+  --app-phase-assess: var(--ab-sky-600);      --app-phase-assess-soft: var(--ab-sky-100);      --app-phase-assess-fg: var(--ab-sky-800);
+  --app-phase-interview: var(--ab-navy-600);  --app-phase-interview-soft: var(--ab-navy-100);  --app-phase-interview-fg: var(--ab-navy-800);
+  --app-phase-decide: var(--ab-teal-600);     --app-phase-decide-soft: var(--ab-teal-100);     --app-phase-decide-fg: var(--ab-teal-800);
+  --app-phase-offer: var(--ab-green-600);     --app-phase-offer-soft: var(--ab-green-100);     --app-phase-offer-fg: var(--ab-green-800);
+  --app-phase-closed: var(--ab-neutral-700);  --app-phase-closed-soft: var(--ab-neutral-200);  --app-phase-closed-fg: var(--ab-neutral-900);
+}
+[data-phase='intake'] { --phase: var(--app-phase-intake); --phase-soft: var(--app-phase-intake-soft); --phase-fg: var(--app-phase-intake-fg); }
+[data-phase='assess'] { --phase: var(--app-phase-assess); --phase-soft: var(--app-phase-assess-soft); --phase-fg: var(--app-phase-assess-fg); }
+[data-phase='interview'] { --phase: var(--app-phase-interview); --phase-soft: var(--app-phase-interview-soft); --phase-fg: var(--app-phase-interview-fg); }
+[data-phase='decide'] { --phase: var(--app-phase-decide); --phase-soft: var(--app-phase-decide-soft); --phase-fg: var(--app-phase-decide-fg); }
+[data-phase='offer'] { --phase: var(--app-phase-offer); --phase-soft: var(--app-phase-offer-soft); --phase-fg: var(--app-phase-offer-fg); }
+[data-phase='closed'] { --phase: var(--app-phase-closed); --phase-soft: var(--app-phase-closed-soft); --phase-fg: var(--app-phase-closed-fg); }
+
+/* ── Dialog frame and groups ──────────────────────────────────────────────
+   A hairline under the title and over the buttons, and labelled groups inside,
+   built the same way as the record panel's sections (a tile, a title, a rule). */
+.ab-modal__header { padding-bottom: var(--ab-space-3); border-bottom: 1px solid var(--ab-border); }
+.ab-modal__body { padding-block: var(--ab-space-4); }
+.ab-modal__footer { padding-top: var(--ab-space-3); border-top: 1px solid var(--ab-border); }
+.app-dialog-groups { display: grid; gap: var(--ab-space-5); }
+.app-group { display: grid; gap: var(--ab-space-3); }
+.app-group__head { padding-bottom: var(--ab-space-2); border-bottom: 1px solid var(--ab-border-strong); }
+.app-group__title { display: flex; align-items: center; gap: var(--ab-space-2); margin: 0; font-size: var(--ab-font-size-base); font-weight: var(--ab-font-weight-semibold); color: var(--ab-heading); }
+.app-tile { display: inline-grid; flex: none; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: var(--ab-radius-md); }
+.app-tile[data-tone='neutral'] { background: var(--ab-neutral-200); color: var(--ab-neutral-800); }
+.app-tile[data-tone='sky'] { background: var(--ab-sky-100); color: var(--ab-sky-800); }
+.app-tile[data-tone='blue'] { background: var(--ab-blue-100); color: var(--ab-blue-800); }
+.app-tile[data-tone='green'] { background: var(--ab-green-100); color: var(--ab-green-800); }
+.app-tile[data-tone='red'] { background: var(--ab-red-100); color: var(--ab-red-800); }
+.app-tile[data-tone='amber'] { background: var(--ab-amber-100); color: var(--ab-amber-800); }
+
+/* A long dialog scrolls in its body; the title and the buttons stay put. */
+.ab-modal[open] { display: flex; flex-direction: column; overflow: hidden; }
+.ab-modal__body { min-height: 0; overflow-y: auto; }
+.ab-modal__header, .ab-modal__footer { flex: none; }
+
+/* ── Polish ───────────────────────────────────────────────────────────────── */
+/* A busy button is disabled so Enter and Space cannot fire it twice; it still shows its spinner at full strength. */
+.ab-btn[aria-busy='true']:disabled { opacity: 1; }
+/* Danger confirmations lead with a small warning tile. */
+.app-confirm { display: flex; align-items: flex-start; gap: var(--ab-space-3); }
+.app-sheet__missing { padding: var(--ab-space-6); }
+
+/* Hover, pressed and selected feedback for the app's own clickable elements. */
+.app-cal__chip:hover { filter: brightness(0.96); }
+.app-board__head:hover .app-board__title { color: var(--ab-link); }
+.app-cal__chip.is-passed { background: var(--ab-surface); color: var(--ab-text-muted); border-color: var(--ab-border); border-style: dashed; }
+.app-cand-card:hover { background: var(--ab-tonal-hover); }
+.app-cand-card[data-selected]:hover { background: var(--ab-primary-soft); }
+tr[data-selected]:hover, .ab-table tbody tr[data-selected].app-row-clickable:hover { background: var(--ab-primary-soft); }
+.app-row-button:active, .app-template:active, .app-pill:active, .app-board__card:active, .app-cal__chip:active { background: var(--ab-tonal-hover); }
+@media (pointer: coarse) {
+  .app-pill, .app-link-button, .app-board__head, .app-qa > summary, .app-cal__chip { min-height: 2.75rem; }
+}
