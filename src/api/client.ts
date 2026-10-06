@@ -4,10 +4,19 @@
 
 export const API_URL: string = (import.meta.env.VITE_API_URL || '').trim();
 
-// The production backend. A local dev server must never talk to it.
+// The production backend. Only the live site may talk to it: a local dev server or a
+// Vercel preview of some branch must never touch live data, whatever its settings say.
 const PROD_API_URL = 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec';
-const IS_LOCAL = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-export const API_BLOCKED = IS_LOCAL && API_URL === PROD_API_URL;
+const LIVE_HOSTS = ['abbss-hiring-pipeline.vercel.app'];
+
+// True when this page (by hostname) must not use this backend address.
+export function isBackendBlocked(apiUrl: string, hostname: string): boolean {
+  if (apiUrl !== PROD_API_URL) return false;
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostname);
+  const preview = /\.vercel\.app$/.test(hostname) && !LIVE_HOSTS.includes(hostname);
+  return local || preview;
+}
+export const API_BLOCKED = typeof location !== 'undefined' && isBackendBlocked(API_URL, location.hostname);
 
 export class ApiError extends Error {
   readonly network: boolean;
@@ -19,7 +28,7 @@ export class ApiError extends Error {
 
 async function send(action: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (!API_URL) throw new ApiError('The backend address is not set (VITE_API_URL).');
-  if (API_BLOCKED) throw new ApiError('A local copy of the app cannot use the production backend. Point VITE_API_URL at staging.');
+  if (API_BLOCKED) throw new ApiError('This copy of the app (local or a preview) cannot use the production backend. Point VITE_API_URL at staging.');
   let res: Response;
   try {
     res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...params }) });

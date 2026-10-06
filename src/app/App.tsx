@@ -17,7 +17,7 @@ export function App() {
     return (
       <div className="app-centered">
         <ErrorAlert title="The app isn't connected to a backend">
-          {API_BLOCKED ? 'A local copy of the app cannot use the production backend. Set VITE_API_URL to the staging URL in .env.local.' : 'Set VITE_API_URL to the backend web app URL.'}
+          {API_BLOCKED ? 'This copy of the app (local or a preview) cannot use the production backend. Set VITE_API_URL to the staging URL (locally in .env.local, on Vercel for the Preview environment).' : 'Set VITE_API_URL to the backend web app URL.'}
         </ErrorAlert>
       </div>
     );
