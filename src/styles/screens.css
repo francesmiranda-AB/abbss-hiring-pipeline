@@ -66,6 +66,8 @@
   .app-sheet__inner > .ab-tabs { padding-inline: var(--ab-space-4); }
 }
 .app-fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+/* Disables what it wraps without adding a box (used to lock header actions while the saved list shows). */
+.app-fieldset-inline { display: contents; }
 .app-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-next { padding: var(--ab-space-1) var(--ab-space-3); border-radius: var(--ab-radius-md); background: var(--ab-primary-soft); color: var(--ab-primary-soft-fg); font-size: var(--ab-font-size-sm); }
 .app-panel-section { display: grid; gap: var(--ab-space-3); padding: var(--ab-space-4); border-radius: var(--ab-radius-lg); background: var(--ab-surface); }

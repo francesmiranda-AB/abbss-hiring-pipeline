@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download } from 'lucide-react';
-import { useCandidates, useUpdateCandidate } from '@/api/queries';
+import { useCandidates, useSavedCopy, useUpdateCandidate } from '@/api/queries';
 import { uploadCv } from '@/api/actions';
 import { useUser } from '@/auth/auth';
 import type { Candidate } from '@/domain/types';
@@ -42,6 +42,7 @@ function NewForm() {
   const { candidates } = useCandidates();
   const actions = useCandidateActions();
   const update = useUpdateCandidate();
+  const waiting = useSavedCopy() > 0;
   const navigate = useNavigate();
   const toast = useToast();
   const blank = { name: '', email: '', phone: '', position: '', department: '', dateReceived: '', source: '', sourceOther: '', resumeNotes: '' };
@@ -130,7 +131,7 @@ function NewForm() {
           </div>
         </div>
       )}
-      <div><Button type="submit" variant="primary" busy={busy}>Add candidate</Button></div>
+      <div><Button type="submit" variant="primary" busy={busy} disabled={waiting}>Add candidate</Button></div>
     </form>
   );
 }

@@ -6,7 +6,7 @@ import { BULK_TEMPLATE_KEYS, EMAIL_TEMPLATE_LABELS, fillTemplate } from '@/domai
 import { emailEventFor } from '@/domain/autoAdvance';
 import { candidatesCsv, downloadText, todayStamp } from '@/domain/csv';
 import { API_URL } from '@/api/client';
-import { useConfig, useUpdateCandidate } from '@/api/queries';
+import { useConfig, useSavedCopy, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from './actions';
 import { Button, ConfirmDialog } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
@@ -14,6 +14,7 @@ import { useToast } from '@/ui/toast';
 export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear: () => void }) {
   const actions = useCandidateActions();
   const update = useUpdateCandidate();
+  const waiting = useSavedCopy() > 0;
   const config = useConfig();
   const toast = useToast();
   const [stage, setStage] = useState('');
@@ -69,17 +70,17 @@ export function BulkBar({ selected, onClear }: { selected: Candidate[]; onClear:
           <option value="">Change stage to</option>
           {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{stageName(s)}</option>)}
         </select>
-        <Button size="sm" variant="tonal" disabled={!stage} onClick={applyStage}>Apply</Button>
+        <Button size="sm" variant="tonal" disabled={!stage || waiting} onClick={applyStage}>Apply</Button>
       </div>
       <div className="app-bulk__group">
         <select className="ab-select" aria-label="Email template" value={template} onChange={(e) => setTemplate(e.target.value)}>
           <option value="">Send an email</option>
           {BULK_TEMPLATE_KEYS.map((k) => <option key={k} value={k}>{EMAIL_TEMPLATE_LABELS[k]}</option>)}
         </select>
-        <Button size="sm" variant="tonal" icon={Mail} busy={busy} disabled={!template} onClick={() => setConfirmSend(true)}>Send</Button>
+        <Button size="sm" variant="tonal" icon={Mail} busy={busy} disabled={!template || waiting} onClick={() => setConfirmSend(true)}>Send</Button>
       </div>
       <Button size="sm" variant="ghost" icon={Download} onClick={() => downloadText(`ABBSS_Selected_${todayStamp()}.csv`, candidatesCsv(selected))}>Export</Button>
-      <Button size="sm" variant="ghost" icon={Trash2} className="app-btn-danger-text" onClick={() => setConfirmDelete(true)}>Delete</Button>
+      <Button size="sm" variant="ghost" icon={Trash2} className="app-btn-danger-text" disabled={waiting} onClick={() => setConfirmDelete(true)}>Delete</Button>
       <Button size="sm" variant="ghost" icon={X} className="ml-auto" onClick={onClear}>Clear selection</Button>
       <ConfirmDialog open={confirmSend} title={`Send ${template ? EMAIL_TEMPLATE_LABELS[template] : 'email'} to ${withEmail.length} candidate${withEmail.length === 1 ? '' : 's'}?`}
         confirmLabel={`Send ${withEmail.length} email${withEmail.length === 1 ? '' : 's'}`} onClose={() => setConfirmSend(false)} onConfirm={sendAll}>

@@ -2,6 +2,8 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { getAll, saveCandidate, type Snapshot } from './actions';
 import { ApiError } from './client';
+import { markFresh, savedCopyTime, showingSavedCopy, subscribeSavedCopy } from './freshness';
+import { loadSnapshot, saveSnapshot as keepOnDevice } from './snapshotCache';
 import { useToast } from '@/ui/toast';
 import { DEFAULT_CONFIG } from '@/domain/attention';
 import type { Candidate } from '@/domain/types';
@@ -11,11 +13,35 @@ export const SNAPSHOT_KEY = ['snapshot'] as const;
 // A load that timed out is not retried (it already waited 30 s); the screen offers Try again instead.
 export const retrySnapshot = (count: number, error: Error) => count < 2 && !(error instanceof ApiError && error.timeout);
 
+// The copy saved on this device, read once per visit. Drawn at once, marked as old
+// (initialDataUpdatedAt 0 makes it stale, so the live list is fetched straight away).
+let bootCopy: Snapshot | undefined | null = null;
+function savedCopy(): Snapshot | undefined {
+  if (bootCopy === null) {
+    const c = loadSnapshot();
+    bootCopy = c?.data;
+    if (c) showingSavedCopy(c.savedAt);
+  }
+  return bootCopy;
+}
+async function loadLive(signal?: AbortSignal): Promise<Snapshot> {
+  const s = await getAll(signal);
+  keepOnDevice(s);
+  markFresh();
+  return s;
+}
+
 export function useSnapshot() {
   return useQuery({
-    queryKey: SNAPSHOT_KEY, queryFn: ({ signal }) => getAll(signal), staleTime: 2 * 60_000, refetchInterval: 5 * 60_000,
+    queryKey: SNAPSHOT_KEY, queryFn: ({ signal }) => loadLive(signal), staleTime: 2 * 60_000, refetchInterval: 5 * 60_000,
     retry: retrySnapshot, retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+    initialData: savedCopy, initialDataUpdatedAt: 0,
   });
+}
+
+// When the list on screen is the saved copy: the time it was saved (0 once live data is in).
+export function useSavedCopy(): number {
+  return useSyncExternalStore(subscribeSavedCopy, savedCopyTime);
 }
 
 // Everyone except soft-deleted records.
