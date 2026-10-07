@@ -9,6 +9,7 @@ import { roleScope } from '../candidates/filters';
 import { useCandidateActions } from '../candidates/actions';
 import { Badge, Button, ConfirmDialog, Dialog, DialogGroup, Empty, Field, PageHeader, Section, cx, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
+import type { Candidate } from '@/domain/types';
 
 const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -177,6 +178,9 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
   const overlap = !isConfirmed ? findOverlap(start, Number(duration), month) : null;
   if (!a || !slot) return null;
   const reload = () => qc.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+  // Show the server's answer on screen at once; the full reload (about 5 s) runs in the background.
+  const patchLocal = (patch: Partial<Candidate>) =>
+    qc.setQueryData<{ candidates: Candidate[] }>(SNAPSHOT_KEY, (s) => s && { ...s, candidates: s.candidates.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
 
   const confirm = async () => {
     if (!start || isNaN(start.getTime())) { setError('Enter the real date and time for the calendar.'); return; }
@@ -184,8 +188,10 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
     setError('');
     try {
       const res = await confirmInterview({ id, slotId, contact: a.candidateContact || '', startIso: start.toISOString(), durationMin: duration });
-      await reload();
-      await actions.advance(id, 'interviewScheduled', res.calendarWarning ? `Interview confirmed. ${res.calendarWarning}` : 'Interview confirmed');
+      patchLocal({ confirmedSlot: { ...slot, startIso: start.toISOString(), durationMin: Number(duration), meetLink: res.meetLink }, confirmedAt: new Date().toISOString() });
+      onClose();
+      // The stage move saves only the stage, then the list refreshes; neither holds up the person.
+      void actions.advance(id, 'interviewScheduled', res.calendarWarning ? `Interview confirmed. ${res.calendarWarning}` : 'Interview confirmed').then(() => reload());
     } catch (e) {
       // The confirm may have gone through even if the answer didn't come back: check before saying it failed.
       await reload();
@@ -198,13 +204,13 @@ function SlotDialog({ id, slotId, onClose }: { id: number; slotId: string; onClo
   };
   const undo = async () => {
     setBusy(true);
-    try { await unconfirmInterview(id); await reload(); toast.show({ message: 'Confirmation undone. The calendar event was removed.' }); }
+    try { await unconfirmInterview(id); patchLocal({ confirmedSlot: null, confirmedAt: '' }); toast.show({ message: 'Confirmation undone. The calendar event was removed.' }); void reload(); }
     catch (e) { toast.error(`Couldn't undo: ${(e as Error).message}`); }
     finally { setBusy(false); }
   };
   const remove = async () => {
     setBusy(true);
-    try { await removeInterviewSlot(id, slotId); await reload(); toast.show({ message: 'Time removed' }); onClose(); }
+    try { await removeInterviewSlot(id, slotId); patchLocal({ interviewSlots: (a.interviewSlots || []).filter((s) => String(s.id) !== String(slotId)) }); toast.show({ message: 'Time removed' }); onClose(); void reload(); }
     catch (e) { toast.error(`Couldn't remove it: ${(e as Error).message}`); }
     finally { setBusy(false); }
   };

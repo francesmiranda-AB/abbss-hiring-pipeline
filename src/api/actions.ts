@@ -23,10 +23,19 @@ export async function getAll(signal?: AbortSignal): Promise<Snapshot> {
   };
 }
 
+// Text the Sheet may hand back as a number (a phone typed as digits, a numeric position).
+const TEXT_FIELDS = ['phone', 'candidateContact', 'position', 'department', 'source', 'roleCategory', 'resumeNotes', 'notes', 'closedReason'] as const;
+
 // Sheet cells can come back as numbers or blanks; make the shapes the screens rely on dependable.
-function normalizeCandidate(raw: Candidate): Candidate {
+export function normalizeCandidate(raw: Candidate): Candidate {
+  const text: Partial<Record<(typeof TEXT_FIELDS)[number], string>> = {};
+  for (const k of TEXT_FIELDS) {
+    const v = (raw as unknown as Record<string, unknown>)[k];
+    if (typeof v === 'number' || typeof v === 'boolean') text[k] = String(v);
+  }
   return {
     ...raw,
+    ...text,
     id: Number(raw.id),
     name: String(raw.name ?? ''),
     email: String(raw.email ?? ''),

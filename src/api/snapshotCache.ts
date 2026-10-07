@@ -1,4 +1,4 @@
-import type { Snapshot } from './actions';
+import { normalizeCandidate, type Snapshot } from './actions';
 import { emmHighRiskFlag } from '@/domain/assessments';
 
 // The last list loaded, kept on this device so the app can draw it at once next time
@@ -33,7 +33,8 @@ export function loadSnapshot(now = Date.now()): SavedSnapshot | null {
     const ok = typeof saved?.savedAt === 'number' && Array.isArray(saved.data?.candidates)
       && now - saved.savedAt <= SNAPSHOT_MAX_AGE_MS && saved.savedAt <= now + 60_000;
     if (!ok) { clearSnapshot(); return null; }
-    return saved;
+    // Copies saved before a fix to the record shape get the same clean-up as live data.
+    return { ...saved, data: { ...saved.data, candidates: saved.data.candidates.map(normalizeCandidate) } };
   } catch {
     clearSnapshot();
     return null;

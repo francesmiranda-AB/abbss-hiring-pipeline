@@ -4,6 +4,8 @@ import type { Candidate } from '@/domain/types';
 import { CANDIDATE_STAGES, CLOSED_STAGES, interviewRoundLabel, stageName, stageTone } from '@/domain/stages';
 import { needsAttention } from '@/domain/attention';
 import { useConfig } from '@/api/queries';
+import { useUser } from '@/auth/auth';
+import type { AppRole } from '@/domain/types';
 import { Badge, cx } from '@/ui/kit';
 import { NoteGlyph } from './NoteMark';
 
@@ -17,10 +19,19 @@ function loadCollapsed(): Record<string, boolean> {
   return Object.fromEntries(CLOSED_STAGES.map((s) => [s, true]));
 }
 
-// Every candidate by where they are now, one column per stage (empty columns
-// stay, so the board reads as a map of the whole pipeline).
+// One column per stage. Empty columns stay, so the board reads as a map of the whole
+// pipeline, except that Operations' board starts at the Ops interview: the stages
+// before it are never theirs, and empty ones only pushed their cards off-screen.
+export function boardColumns(candidates: Candidate[], role: AppRole): Array<{ key: string; label: string }> {
+  const noStage = candidates.some((a) => !a.candidateStage);
+  const first = role === 'Operations' ? CANDIDATE_STAGES.indexOf('Initial Interview') : 0;
+  const stages = CANDIDATE_STAGES.filter((s, i) => i >= first || candidates.some((a) => a.candidateStage === s));
+  return [...(noStage ? [{ key: '', label: 'No stage set' }] : []), ...stages.map((s) => ({ key: s as string, label: stageName(s) }))];
+}
+
 export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]; onOpen: (id: number) => void }) {
   const config = useConfig();
+  const user = useUser();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const toggle = (stage: string) => {
     const next = { ...collapsed, [stage]: !collapsed[stage] };
@@ -28,7 +39,7 @@ export function CandidateBoard({ candidates, onOpen }: { candidates: Candidate[]
     try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)); } catch { /* per-device preference only */ }
   };
   const noStage = candidates.filter((a) => !a.candidateStage);
-  const columns = [...(noStage.length ? [{ key: '', label: 'No stage set' }] : []), ...CANDIDATE_STAGES.map((s) => ({ key: s as string, label: stageName(s) }))];
+  const columns = boardColumns(candidates, user.role);
   return (
     <ul className="app-board" aria-label="Pipeline board">
       {columns.map((col) => {
