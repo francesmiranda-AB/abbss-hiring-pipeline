@@ -7,6 +7,7 @@ import { FEATURES, ROLE_LABEL, homePath, visibleFeatures, type Feature } from '@
 import type { AppRole } from '@/domain/types';
 import { Link } from 'react-router-dom';
 import { Button, ErrorAlert, Skeleton } from '@/ui/kit';
+import { useSlow } from '@/ui/useSlow';
 import { Shell } from './Shell';
 import { SignIn } from './SignIn';
 import { useAssessmentSweep } from './useAssessmentSweep';
@@ -31,8 +32,23 @@ function SignedIn() {
   const snap = useSnapshot();
   const config = useConfig();
   useAssessmentSweep();
+  const slow = useSlow(snap.isLoading, 8_000);
   if (!user) return null;
-  if (snap.isLoading) return <Shell><Skeleton lines={6} /></Shell>;
+  if (snap.isLoading) {
+    return (
+      <Shell>
+        <div className="grid gap-4">
+          <Skeleton lines={6} />
+          {slow && (
+            <p className="ab-muted m-0" role="status">
+              Still loading. The server is slow right now.{' '}
+              <Button size="sm" variant="secondary" onClick={() => void snap.refetch()}>Try again</Button>
+            </p>
+          )}
+        </div>
+      </Shell>
+    );
+  }
   // No data at all (the first load failed): say so, instead of letting every page show an empty state.
   if (!snap.data) {
     return (

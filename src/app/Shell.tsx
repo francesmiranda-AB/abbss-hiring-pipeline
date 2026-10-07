@@ -1,4 +1,4 @@
-import { Suspense, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { AlertTriangle, ArrowLeftRight, ChevronDown, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,8 @@ import { needsAttentionFrom } from '@/domain/attention';
 import { isEndorsedToOperations } from '@/domain/stages';
 import { ROLE_LABEL, visibleFeatures } from '@/features/registry';
 import { Button, Skeleton, cx, useMenu } from '@/ui/kit';
+import { useSlow } from '@/ui/useSlow';
+import { ErrorBoundary } from './ErrorBoundary';
 import { ReportProblemDialog } from './ReportProblem';
 
 export const APP_VERSION = 2;
@@ -67,7 +69,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         )}
         <main id="main" className="ab-page">
-          <Suspense fallback={<Skeleton lines={5} />}>{children}</Suspense>
+          <ErrorBoundary resetKey={location.pathname}><Suspense fallback={<Skeleton lines={5} />}>{children}</Suspense></ErrorBoundary>
         </main>
       </div>
     </div>
@@ -78,6 +80,18 @@ function SyncStatus() {
   const snap = useSnapshot();
   const failed = useFailedSave();
   const qc = useQueryClient();
+  // The icon spins for the first load and for a refresh the person asked for. A quiet
+  // background refresh (every few minutes, or on returning to the tab) does not, but if it
+  // drags on we say so instead of hiding it.
+  const [asked, setAsked] = useState(false);
+  const busy = snap.isFetching;
+  useEffect(() => {
+    if (!busy) return;
+    return () => setAsked(false);
+  }, [busy]);
+  const spinning = busy && (!snap.data || asked);
+  const dragging = useSlow(busy && !!snap.data && !asked, 15_000);
+  const refresh = () => { setAsked(true); void qc.invalidateQueries({ queryKey: SNAPSHOT_KEY }); };
   if (failed) {
     return (
       <span className="app-sync app-sync--bad" role="status">
@@ -92,15 +106,24 @@ function SyncStatus() {
       <span className="app-sync app-sync--bad" role="status">
         <AlertTriangle size={16} aria-hidden />
         <span className="app-sync__text">Couldn't load the latest data</span>
-        <Button size="sm" variant="outline" onClick={() => qc.invalidateQueries({ queryKey: SNAPSHOT_KEY })}>Retry</Button>
+        <Button size="sm" variant="outline" onClick={refresh}>Retry</Button>
+      </span>
+    );
+  }
+  if (dragging) {
+    return (
+      <span className="app-sync app-sync--bad" role="status">
+        <RefreshCw size={14} aria-hidden className="app-spin" />
+        <span className="app-sync__text">Still syncing…</span>
+        <Button size="sm" variant="outline" onClick={refresh}>Retry</Button>
       </span>
     );
   }
   const at = snap.dataUpdatedAt ? new Date(snap.dataUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   return (
-    <button type="button" className="app-sync" onClick={() => qc.invalidateQueries({ queryKey: SNAPSHOT_KEY })} title="Load the latest data">
-      <RefreshCw size={14} aria-hidden className={cx(snap.isFetching && 'app-spin')} />
-      <span className="app-sync__text">{snap.isFetching && !at ? 'Loading' : at ? `Synced ${at}` : 'Not synced'}</span>
+    <button type="button" className="app-sync" onClick={refresh} title="Load the latest data">
+      <RefreshCw size={14} aria-hidden className={cx(spinning && 'app-spin')} />
+      <span className="app-sync__text">{spinning && !at ? 'Loading' : at ? `Synced ${at}` : 'Not synced'}</span>
     </button>
   );
 }

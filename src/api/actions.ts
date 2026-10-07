@@ -13,8 +13,8 @@ export interface Snapshot {
   minClientVersion: number;
 }
 
-export async function getAll(): Promise<Snapshot> {
-  const res = await call<{ data: Candidate[]; config?: ServerConfig; roleHealth?: Record<string, RoleHealthOverride>; minClientVersion?: number }>('getAll');
+export async function getAll(signal?: AbortSignal): Promise<Snapshot> {
+  const res = await call<{ data: Candidate[]; config?: ServerConfig; roleHealth?: Record<string, RoleHealthOverride>; minClientVersion?: number }>('getAll', {}, signal);
   return {
     candidates: (res.data || []).map(normalizeCandidate),
     config: { deadlineHours: 24, reminderHours: 12, ...(res.config || {}) },
