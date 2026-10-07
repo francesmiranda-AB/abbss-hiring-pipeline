@@ -111,7 +111,7 @@ function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; cap
         <p className="app-meta app-truncate app-sheet__meta" title={meta}>
           {[a.position || 'No position', a.department].filter(Boolean).join(', ')}
           {a.email && <>, <a href={`mailto:${a.email}`}>{a.email}</a></>}
-          {a.phone && <>, <a href={`tel:${a.phone.replace(/[^+\d]/g, '')}`}>{a.phone}</a></>}
+          {a.phone && <>, <a href={`tel:${String(a.phone).replace(/[^+\d]/g, '')}`}>{a.phone}</a></>}
         </p>
         {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{STATUS_LABEL[a.overallStatus] || a.overallStatus}</Badge>}
         <SaveMark />
