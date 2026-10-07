@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, X } from 'lucide-react';
-import { useCandidate, useSaveStatus } from '@/api/queries';
+import { useCandidate, useSavedCopy, useSaveStatus } from '@/api/queries';
 import type { Candidate } from '@/domain/types';
 import { CANDIDATE_STAGES, DEFAULT_NEXT_ACTION_BY_STAGE, REASON_STAGES, STATUS_LABEL, stageLabel, stageLabelFor, stagePhase, stageTone, type BadgeTone } from '@/domain/stages';
 import { OWNER_TO_ROLE, getStageTask } from '@/domain/attention';
@@ -45,6 +45,7 @@ export function CandidatePanel({ id }: { id: number | null }) {
   const tab: Section = SECTIONS.some((x) => x.key === rawTab) ? (rawTab as Section) : 'overview';
   const ref = useRef<HTMLDialogElement>(null);
   const [compose, setCompose] = useState<string | null>(null);
+  const waiting = useSavedCopy() > 0;
   const editable: Record<Section, boolean> = { overview: caps.details, assessments: caps.assessments, interview: caps.interview || caps.schedule, outcome: caps.outcome, activity: true };
   const close = useCallback(() => setParams((p) => { const n = new URLSearchParams(p); n.delete('candidate'); n.delete('tab'); return n; }), [setParams]);
   useEffect(() => {
@@ -63,8 +64,9 @@ export function CandidatePanel({ id }: { id: number | null }) {
           <PanelHeader a={a} caps={caps} onClose={close} onCompose={setCompose} onTab={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
           <Tabs label="Record sections" panelId="record-panel" tabs={SECTIONS} value={tab} onChange={(k) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', k); return n; }, { replace: true })} />
           <div className="app-sheet__body" id="record-panel" role="tabpanel">
-            {!editable[tab] && <p className="app-viewonly">View only{caps.stage ? '' : ': this is not your step'}</p>}
-            <fieldset disabled={!editable[tab]} className="app-fieldset">
+            {waiting ? <p className="app-viewonly">Updating. You can edit once the latest data is in.</p>
+              : !editable[tab] && <p className="app-viewonly">View only{caps.stage ? '' : ': this is not your step'}</p>}
+            <fieldset disabled={!editable[tab] || waiting} className="app-fieldset">
               {tab === 'overview' && <OverviewSection a={a} onDeleted={close} />}
               {tab === 'assessments' && <AssessmentsSection a={a} />}
               {tab === 'interview' && <InterviewSection a={a} />}
@@ -92,6 +94,7 @@ function SaveMark() {
 
 function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; caps: Capabilities; onClose: () => void; onCompose: (template: string) => void; onTab: (tab: PanelTab) => void }) {
   const navigate = useNavigate();
+  const waiting = useSavedCopy() > 0;
   const primary = primaryActionFor(a, caps);
   const actions = useCandidateActions();
   const task = getStageTask(a);
@@ -113,11 +116,11 @@ function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; cap
         {a.overallStatus && a.overallStatus !== 'In Progress' && <Badge tone={STATUS_TONE[a.overallStatus] || 'neutral'}>{STATUS_LABEL[a.overallStatus] || a.overallStatus}</Badge>}
         <SaveMark />
         <div className="ab-cluster flex-none app-sheet__actions">
-          {caps.email && <EmailMenu a={a} onPick={onCompose} />}
+          {caps.email && <fieldset disabled={waiting} className="app-fieldset-inline"><EmailMenu a={a} onPick={onCompose} /></fieldset>}
           <Button variant="ghost" icon={X} aria-label="Close record" onClick={onClose} />
         </div>
       </div>
-      <div className="app-head-controls">
+      <fieldset disabled={waiting} className="app-head-controls app-fieldset">
         <Field label="Stage" htmlFor={`stage-${a.id}`}>
           {!caps.stage ? <Badge tone={stageTone(a.candidateStage)}>{stageLabel(a)}</Badge> : (
             <select id={`stage-${a.id}`} className="ab-select" value={a.candidateStage} onChange={(e) => changeStage(e.target.value)}>
@@ -138,7 +141,7 @@ function PanelHeader({ a, caps, onClose, onCompose, onTab }: { a: Candidate; cap
             else navigate('/calendar');
           }}>{primary.label}</Button>
         )}
-      </div>
+      </fieldset>
     </header>
   );
 }

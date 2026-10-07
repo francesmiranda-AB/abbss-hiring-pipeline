@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, FileSignature, MoreHorizontal, Paperclip, PenLine, Send, UserRound } from 'lucide-react';
-import { useConfig, useUpdateCandidate } from '@/api/queries';
+import { useConfig, useSavedCopy, useUpdateCandidate } from '@/api/queries';
 import { API_URL } from '@/api/client';
 import { useUser } from '@/auth/auth';
 import { EMAIL_ATTACHMENTS, OFFER_FIELD_TEMPLATES, fillTemplate } from '@/domain/emailTemplates';
@@ -30,6 +30,7 @@ export function Composer({ a, template, drafts, setDraft, onSent }: {
   const user = useUser();
   const actions = useCandidateActions();
   const update = useUpdateCandidate();
+  const waiting = useSavedCopy() > 0;
   const toast = useToast();
   const filled = useMemo(() => fillTemplate(template, a, { apiUrl: API_URL, config }), [template, a, config]);
   const key = `${a.id}:${template}`;
@@ -124,7 +125,7 @@ ${body}`).then(() => toast.show({ message: 'Email copied' })); }}><Copy size={16
             </div>
           )}
         </div>
-        <Button variant="primary" icon={Send} busy={busy} onClick={send}>Send</Button>
+        <Button variant="primary" icon={Send} busy={busy} disabled={waiting} title={waiting ? 'Waiting for the latest data' : undefined} onClick={send}>Send</Button>
       </div>
       <ConfirmDialog open={askUnmark} quiet title="Clear the sent mark?" confirmLabel="Clear mark" onClose={() => setAskUnmark(false)}
         onConfirm={() => { setAskUnmark(false); void actions.unrecordEmailSent(a.id, template); }}>

@@ -1,10 +1,10 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { AlertTriangle, ArrowLeftRight, ChevronDown, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, ChevronDown, Clock, Menu, MessageSquareWarning, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, useUser } from '@/auth/auth';
 import { usePrefetchQuestions } from '@/api/interviewQuestions';
-import { SNAPSHOT_KEY, useCandidates, useConfig, useFailedSave, useSnapshot } from '@/api/queries';
+import { SNAPSHOT_KEY, useCandidates, useConfig, useFailedSave, useSavedCopy, useSnapshot } from '@/api/queries';
 import { needsAttentionFrom } from '@/domain/attention';
 import { isEndorsedToOperations } from '@/domain/stages';
 import { ROLE_LABEL, visibleFeatures } from '@/features/registry';
@@ -27,6 +27,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const attention = scope.filter((a) => needsAttentionFrom(a, user.role, config)).length;
   const snap = useSnapshot();
   const outdated = (snap.data?.minClientVersion || 0) > APP_VERSION;
+  const savedAt = useSavedCopy();
 
   const groups = (['work', 'more'] as const).map((g) => features.filter((f) => f.group === g)).filter((g) => g.length);
   return (
@@ -68,12 +69,28 @@ export function Shell({ children }: { children: ReactNode }) {
             <Button size="sm" variant="secondary" onClick={() => window.location.reload()}>Reload</Button>
           </div>
         )}
+        {savedAt > 0 && (
+          <div className="app-banner" role="status">
+            <Clock size={18} aria-hidden />
+            <span>
+              Showing the list from {savedTimeLabel(savedAt)}.{' '}
+              {snap.isError ? "Couldn't get the latest, so it may be out of date. Actions stay locked until it loads." : 'Getting the latest. Actions unlock in a moment.'}
+            </span>
+          </div>
+        )}
         <main id="main" className="ab-page">
           <ErrorBoundary resetKey={location.pathname}><Suspense fallback={<Skeleton lines={5} />}>{children}</Suspense></ErrorBoundary>
         </main>
       </div>
     </div>
   );
+}
+
+// "3:24 PM" today, "Tue 3:24 PM" otherwise.
+function savedTimeLabel(at: number): string {
+  const d = new Date(at);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
 }
 
 function SyncStatus() {
@@ -84,6 +101,7 @@ function SyncStatus() {
   // background refresh (every few minutes, or on returning to the tab) does not, but if it
   // drags on we say so instead of hiding it.
   const [asked, setAsked] = useState(false);
+  const savedAt = useSavedCopy();
   const busy = snap.isFetching;
   useEffect(() => {
     if (!busy) return;
@@ -119,11 +137,12 @@ function SyncStatus() {
       </span>
     );
   }
-  const at = snap.dataUpdatedAt ? new Date(snap.dataUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+  const shownAt = savedAt || snap.dataUpdatedAt;
+  const at = shownAt ? new Date(shownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   return (
     <button type="button" className="app-sync" onClick={refresh} title="Load the latest data">
       <RefreshCw size={14} aria-hidden className={cx(spinning && 'app-spin')} />
-      <span className="app-sync__text">{spinning && !at ? 'Loading' : at ? `Synced ${at}` : 'Not synced'}</span>
+      <span className="app-sync__text">{spinning && !at ? 'Loading' : at ? `${savedAt ? 'Last synced' : 'Synced'} ${at}` : 'Not synced'}</span>
     </button>
   );
 }

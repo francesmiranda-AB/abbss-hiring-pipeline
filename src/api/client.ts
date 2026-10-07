@@ -2,6 +2,8 @@
 // so the browser skips the CORS preflight Apps Script can't answer. There is
 // no login (see auth.tsx), so no token goes with it.
 
+import { savedCopyTime } from './freshness';
+
 export const API_URL: string = (import.meta.env.VITE_API_URL || '').trim();
 
 // The production backend. Only the live site may talk to it: a local dev server or a
@@ -38,6 +40,7 @@ async function send(action: string, params: Record<string, unknown>, signal?: Ab
   if (!API_URL) throw new ApiError('The backend address is not set (VITE_API_URL).');
   if (API_BLOCKED) throw new ApiError('This copy of the app (local or a preview) cannot use the production backend. Point VITE_API_URL at staging.');
   const read = isRead(action);
+  if (!read && savedCopyTime()) throw new ApiError('Waiting for the latest data. Try again in a moment.');
   const ms = read ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS;
   const ctrl = new AbortController();
   let timedOut = false;

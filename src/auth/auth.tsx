@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { AppRole } from '@/domain/types';
+import { clearSnapshot } from '@/api/snapshotCache';
 
 // No login, by decision (2026-10-02): people pick who they are from the team
 // list, and the choice is remembered on this device. The backend stays open
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     switchPerson: () => {
       try { localStorage.removeItem(KEY); } catch { /* nothing saved */ }
+      clearSnapshot();
       setUser(null);
     },
   }), [user]);
