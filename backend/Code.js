@@ -415,6 +415,23 @@ const JOB_ATTACHED_COLUMNS = {13:'grit',35:'grit',36:'grit',15:'values',16:'valu
 // Numeric stage (retired: the named Candidate Stage is the only position), DISC
 // (retired), Interview Result (unused). New rows still get a 1 in the stage column.
 const FROZEN_COLUMNS = [8,10,11,12,24];
+// Column 29 (EMM JSON): the candidate list doesn't carry the grading detail any more, so a
+// save of a graded EMM without fullResult keeps the stored fullResult/catWrong. A save that
+// brings a new fullResult (the grader) replaces it; a save with no EMM at all keeps the cell.
+function keepEmmDetail_(row, existing){
+  if(isBlankCell_(existing[29])) return;
+  var stored={};
+  try{ stored=JSON.parse(existing[29]); }catch(e){ return; }
+  if(!stored.fullResult) return;
+  if(isBlankCell_(row[29])){ row[29]=existing[29]; return; }
+  var incoming;
+  try{ incoming=JSON.parse(row[29]); }catch(e){ return; }
+  if(!incoming || incoming.fullResult || !incoming.graded) return;
+  incoming.fullResult=stored.fullResult;
+  if(stored.catWrong) incoming.catWrong=stored.catWrong;
+  if(stored.catWrongTruncated) incoming.catWrongTruncated=stored.catWrongTruncated;
+  row[29]=JSON.stringify(incoming);
+}
 function isBlankCell_(v){ return v===''||v===null||v===undefined; }
 // New clients send _changed: the record fields they actually edited since the
 // Sheet last confirmed the record. Older clients don't, and keep the old behavior.
@@ -440,6 +457,7 @@ function applyColumnOwnership_(row, existing, d){
   // overallStatus: a client that didn't change it must not overwrite a newer
   // status set by the job or another person.
   if(changed && !touched('overallStatus')) row[9] = existing[9];
+  keepEmmDetail_(row, existing);
   return row;
 }
 
@@ -1738,16 +1756,50 @@ function doGet(e){
     else if(a==='previewMigrationDateFix')out=previewMigrationDateFix();
     else if(a==='getRoleDashboard')out=getRoleDashboardData();
     else if(a==='getAllOffboarding')out={success:true,data:getAllOffboarding()};
+    else if(a==='getEmmDetail')out=getEmmDetail({id:e.parameter.id});
     else out={success:false,error:'Unknown: '+a};
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }catch(err){return ContentService.createTextOutput(JSON.stringify({success:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}
 }
 
 function getAllResponse_(){
-  return {success:true,data:getAllApplicants(),
+  return {success:true,data:getAllApplicants().map(listApplicant_),
     config:{deadlineHours:ASSESSMENT_DEADLINE_HOURS,reminderHours:ASSESSMENT_REMINDER_HOURS,reminderTemplate:REMINDER_TEMPLATE,features:featureFlags_()},
     minClientVersion:MIN_CLIENT_VERSION,roleHealth:getRoleHealthOverrides()};
 }
+// The candidate list leaves out the big EMM grading detail (fullResult, catWrong: about
+// 60% of the reply); getEmmDetail serves it for one candidate when a screen needs it.
+// The "flagged for review" mark it decides travels with the list.
+function listApplicant_(a){
+  if(!a.emm || (!a.emm.fullResult && !a.emm.catWrong)) return a;
+  var emm={};
+  Object.keys(a.emm).forEach(function(k){ if(k!=='fullResult' && k!=='catWrong' && k!=='catWrongTruncated') emm[k]=a.emm[k]; });
+  emm.highRiskFlag=emmHighRisk_(a.emm);
+  return Object.assign({}, a, {emm:emm});
+}
+// Same rule as emmHighRiskFlag in the app (src/domain/assessments.ts).
+function emmHighRisk_(emm){
+  if(!emm || !emm.graded) return false;
+  if(typeof emm.highRiskFlag==='boolean') return emm.highRiskFlag;
+  try{
+    var fr=emm.fullResult ? JSON.parse(emm.fullResult) : null;
+    return !!(fr && fr.flags && fr.flags.some(function(f){ return f.level==='high'; }));
+  }catch(e){ return false; }
+}
+function getEmmDetail(d){
+  var id=String((d && d.id) || '');
+  var t=SpreadsheetApp.openById(MASTER_SHEET_ID).getSheetByName('Applicants');
+  if(!t || !id) return {success:false, error:'Candidate not found.'};
+  var rows=t.getDataRange().getValues();
+  for(var i=1;i<rows.length;i++){
+    if(String(rows[i][0])!==id) continue;
+    var blob={};
+    try{ blob=rows[i][29] ? JSON.parse(rows[i][29]) : {}; }catch(e){ blob={}; }
+    return {success:true, data:{fullResult:blob.fullResult||'', catWrong:blob.catWrong||[], catWrongTruncated:!!blob.catWrongTruncated}};
+  }
+  return {success:false, error:'Candidate not found.'};
+}
+
 // whoami while sign-in is off: best effort, never blocks.
 function identifyQuiet_(idToken){
   try{ var who=identify_(idToken); return who.error ? null : who; }catch(e){ return null; }
@@ -1790,6 +1842,7 @@ function doPost(e){
     else if(p.action==='saveOffboarding')out=saveOffboarding(p.data);
     else if(p.action==='deleteOffboarding')out=deleteOffboarding(p.data.id);
     else if(p.action==='getInterviewQuestions')out=getInterviewQuestions();
+    else if(p.action==='getEmmDetail')out=getEmmDetail(p.data);
     else if(p.action==='saveInterviewQuestion')out=saveInterviewQuestion(p.data);
     else if(p.action==='deleteInterviewQuestion')out=deleteInterviewQuestion(p.data);
     else if(p.action==='reorderInterviewQuestions')out=reorderInterviewQuestions(p.data);
