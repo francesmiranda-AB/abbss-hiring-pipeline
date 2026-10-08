@@ -114,6 +114,13 @@ async function saveWithRollback(qc: QueryClient, toast: ToastApi, id: number, pa
     return true;
   } catch (e) {
     bumpSaves(-1);
+    // The reply was lost (timeout, Google dropped it, connection): the save may well have gone
+    // through, so don't undo it on screen. Reload the list and keep what the server has.
+    if (e instanceof ApiError && e.network) {
+      toast.show({ message: `Couldn't confirm the save for ${current.name}. Checking with the server; if the change isn't there afterwards, enter it again.`, tone: 'info' });
+      void qc.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+      return false;
+    }
     // Put back only the fields this save changed; later edits stay.
     const latest = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)?.candidates.find((a) => a.id === id);
     if (latest) {
