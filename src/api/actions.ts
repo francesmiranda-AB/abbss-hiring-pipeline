@@ -1,4 +1,4 @@
-import { ApiError, call } from './client';
+import { call } from './client';
 import type { Candidate, OffboardingCase, RoleHealthOverride, ServerConfig } from '@/domain/types';
 import type { InterviewQuestion, QuestionDraft } from '@/domain/interviewQuestions';
 
@@ -13,20 +13,9 @@ export interface Snapshot {
   minClientVersion: number;
 }
 
-// Apps Script parks each reply on a second Google address. When that hop fails, Google sends
-// the browser back to the main address without the request, and the backend answers
-// "Unknown: undefined". That is a dropped reply, so it is reported as a network failure (retried).
-export const BOUNCED_REPLY = 'Unknown: undefined';
-
 export async function getAll(signal?: AbortSignal): Promise<Snapshot> {
-  type Raw = { data: Candidate[]; config?: ServerConfig; roleHealth?: Record<string, RoleHealthOverride>; minClientVersion?: number };
-  let res: Raw;
-  try {
-    res = await call<Raw>('getAll', {}, signal);
-  } catch (e) {
-    if (e instanceof ApiError && e.message === BOUNCED_REPLY) throw new ApiError("Google's server didn't pass the reply on.", { network: true });
-    throw e;
-  }
+  // A reply Google dropped is handled (and raced) in client.ts.
+  const res = await call<{ data: Candidate[]; config?: ServerConfig; roleHealth?: Record<string, RoleHealthOverride>; minClientVersion?: number }>('getAll', {}, signal);
   return {
     candidates: (res.data || []).map(normalizeCandidate),
     config: { deadlineHours: 24, reminderHours: 12, ...(res.config || {}) },
