@@ -3,11 +3,14 @@ import { useAuth } from '@/auth/auth';
 import { useConfig, useSnapshot } from '@/api/queries';
 import { API_BLOCKED, API_URL } from '@/api/client';
 import { CandidateActionsProvider } from '@/features/candidates/actions';
-import { FEATURES, ROLE_LABEL, homePath, visibleFeatures, type Feature } from '@/features/registry';
+import { FEATURES, ROLE_LABEL, homePath, preloadPage, visibleFeatures, type Feature } from '@/features/registry';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import type { AppRole } from '@/domain/types';
 import { Link } from 'react-router-dom';
 import { Button, ErrorAlert, Skeleton } from '@/ui/kit';
-import { useSlow } from '@/ui/useSlow';
+import { useElapsed } from '@/ui/useSlow';
+import { loadingText } from './loadingText';
 import { Shell } from './Shell';
 import { SignIn } from './SignIn';
 import { useAssessmentSweep } from './useAssessmentSweep';
@@ -32,29 +35,32 @@ function SignedIn() {
   const snap = useSnapshot();
   const config = useConfig();
   useAssessmentSweep();
-  const slow = useSlow(snap.isLoading, 8_000);
+  const secs = useElapsed(snap.isLoading);
+  const location = useLocation();
+  const role = user?.role;
+  useEffect(() => { if (role) preloadPage(location.pathname, role); }, [role]); // eslint-disable-line react-hooks/exhaustive-deps -- once per person, at sign-in
   if (!user) return null;
   if (snap.isLoading) {
     return (
       <Shell>
         <div className="grid gap-4">
           <Skeleton lines={6} />
-          {slow && (
-            <p className="ab-muted m-0" role="status">
-              Still loading. The server is slow right now.{' '}
-              <Button size="sm" variant="secondary" onClick={() => void snap.refetch()}>Try again</Button>
-            </p>
-          )}
+          <LoadingNote secs={secs} attempt={snap.failureCount + 1} />
         </div>
       </Shell>
     );
   }
-  // No data at all (the first load failed): say so, instead of letting every page show an empty state.
+  // No data at all (every attempt failed): this is the one point where refreshing is the advice.
   if (!snap.data) {
     return (
       <Shell>
-        <ErrorAlert title="Couldn't load the hiring data" action={<Button size="sm" variant="secondary" onClick={() => void snap.refetch()}>Try again</Button>}>
-          {snap.error instanceof Error ? snap.error.message : 'The server did not answer.'} Nothing on this page is missing; it just hasn't loaded.
+        <ErrorAlert title="Couldn't load the hiring data" action={(
+          <div className="ab-cluster">
+            <Button size="sm" variant="primary" onClick={() => window.location.reload()}>Refresh the page</Button>
+            <Button size="sm" variant="secondary" onClick={() => void snap.refetch()}>Try again</Button>
+          </div>
+        )}>
+          {snap.error instanceof Error ? snap.error.message : 'The server did not answer.'} The app tried 3 times. Refresh the page to start over. Nothing you saved is lost.
         </ErrorAlert>
       </Shell>
     );
@@ -71,6 +77,10 @@ function SignedIn() {
       </Routes>
     </Shell>
   );
+}
+
+function LoadingNote({ secs, attempt }: { secs: number; attempt: number }) {
+  return <p className="ab-muted m-0" role="status" aria-live="polite">{loadingText(secs, attempt)}</p>;
 }
 
 function NotAllowed({ feature, role, home }: { feature: Feature; role: AppRole; home: string }) {

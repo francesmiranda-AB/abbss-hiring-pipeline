@@ -22,9 +22,9 @@ import { Button, Dialog, DialogGroup, Field } from '@/ui/kit';
 
 interface CloseRequest { ids: number[]; stage?: string; reason?: string }
 interface CandidateActions {
-  setOutcome: (ids: number[], change: OutcomeChange, label: string) => Promise<void>;
+  setOutcome: (ids: number[], change: OutcomeChange, label: string, extra?: Partial<Candidate>) => Promise<boolean>;
   decide: (id: number, decision: Decision) => Promise<void>;
-  advance: (id: number, event: AdvanceEvent | '', actionLabel?: string) => Promise<void>;
+  advance: (id: number, event: AdvanceEvent | '', actionLabel?: string, extra?: Partial<Candidate>) => Promise<boolean>;
   advanceMany: (ids: number[], event: AdvanceEvent | '') => Promise<void>;
   openClose: (req: CloseRequest) => void;
   recordEmailSent: (id: number, key: string) => Promise<boolean>;
@@ -82,26 +82,30 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
     sendEmail({ to: opsNotifyRecipients(), subject: msg.subject, body: msg.body }).catch(() => { /* a notice; never blocks the move */ });
   }, [config]);
 
-  const setOutcome = useCallback(async (ids: number[], change: OutcomeChange, label: string) => {
-    const done: Array<{ id: number; prev: ReturnType<typeof snapshotOutcome> }> = [];
+  // `extra` rides along in the same save (and the same Undo), e.g. the interview result
+  // that caused the move: one round trip instead of two.
+  const setOutcome = useCallback(async (ids: number[], change: OutcomeChange, label: string, extra: Partial<Candidate> = {}) => {
+    const done: Array<{ id: number; prev: Partial<Candidate> }> = [];
     for (const id of ids) {
       const a = get(id);
       if (!a) continue;
-      const patch = applyOutcome(a, change);
+      const patch = { ...applyOutcome(a, change), ...extra };
       if (!Object.keys(patch).length) continue;
-      const prev = snapshotOutcome(a);
+      const prev: Partial<Candidate> = { ...snapshotOutcome(a) };
+      for (const k of Object.keys(extra) as Array<keyof Candidate>) (prev as Record<string, unknown>)[k] = a[k];
       if (await update(id, patch)) {
         done.push({ id, prev });
         if (patch.candidateStage) onStageEntered({ ...a, ...patch }, patch.candidateStage);
       }
     }
-    if (!done.length) return;
+    if (!done.length) return false;
     toast.show({
       message: label, tone: 'success',
       action: { label: 'Undo', onClick: () => {
         void Promise.all(done.map(({ id, prev }) => update(id, prev, { undoStage: true }))).then(() => toast.show({ message: 'Change undone', tone: 'info' }));
       } },
     });
+    return true;
   }, [get, update, toast, onStageEntered]);
 
   const decide = useCallback(async (id: number, decision: Decision) => {
@@ -112,18 +116,19 @@ export function CandidateActionsProvider({ children }: { children: ReactNode }) 
     await setOutcome([id], ch, `${DECISION_LABEL[decision]}: ${a.name}`);
   }, [get, setOutcome, toast]);
 
-  const advance = useCallback(async (id: number, event: AdvanceEvent | '', actionLabel?: string) => {
+  // Returns true when it saved (the stage move, plus `extra` if given); false when nothing was saved.
+  const advance = useCallback(async (id: number, event: AdvanceEvent | '', actionLabel?: string, extra?: Partial<Candidate>) => {
     const a = get(id);
-    if (!a) { if (actionLabel) toast.show({ message: actionLabel }); return; }
+    if (!a) { if (actionLabel) toast.show({ message: actionLabel }); return false; }
     const prompt = event ? CLOSE_PROMPT_EVENTS[event] : undefined;
     if (prompt) {
       if (actionLabel) toast.show({ message: actionLabel });
       if (a.overallStatus === 'In Progress') setCloseReq({ ids: [id], ...prompt });
-      return;
+      return false;
     }
     const target = autoAdvanceTarget(a, event);
-    if (!target) { if (actionLabel) toast.show({ message: actionLabel }); return; }
-    await setOutcome([id], { stage: target }, `${actionLabel ? `${actionLabel}. ` : ''}${a.name} moved to ${target}`);
+    if (!target) { if (actionLabel) toast.show({ message: actionLabel }); return false; }
+    return setOutcome([id], { stage: target }, `${actionLabel ? `${actionLabel}. ` : ''}${a.name} moved to ${target}`, extra);
   }, [get, setOutcome, toast]);
 
   // For bulk sends: one move (and one Undo) per target stage instead of a toast per person.

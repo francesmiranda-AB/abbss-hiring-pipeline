@@ -14,17 +14,18 @@ export interface Feature {
   group: 'work' | 'more';
   defaultOn: boolean;
   page: LazyExoticComponent<ComponentType>;
+  load: () => Promise<{ default: ComponentType }>;
 }
 
 export const FEATURES: Feature[] = [
-  { key: 'today', path: '/today', label: 'Today', icon: ListChecks, roles: ['HR', 'Operations', 'PM', 'CEO'], group: 'work', defaultOn: true, page: lazy(() => import('./today/TodayPage')) },
-  { key: 'candidates', path: '/candidates', label: 'Candidates', icon: Users, roles: ['HR', 'Operations', 'PM'], group: 'work', defaultOn: true, page: lazy(() => import('./candidates/CandidatesPage')) },
-  { key: 'newCandidate', path: '/new', label: 'Add candidate', icon: UserPlus, roles: ['HR'], group: 'work', defaultOn: true, page: lazy(() => import('./new/NewCandidatePage')) },
-  { key: 'calendar', path: '/calendar', label: 'Interview calendar', icon: CalendarDays, roles: ['HR', 'Operations'], group: 'work', defaultOn: true, page: lazy(() => import('./calendar/CalendarPage')) },
-  { key: 'grader', path: '/grader', label: 'EMM grader', icon: FileCheck2, roles: ['HR'], group: 'work', defaultOn: true, page: lazy(() => import('./grader/GraderPage')) },
-  { key: 'email', path: '/email', label: 'Email', icon: Mail, roles: ['HR'], group: 'work', defaultOn: true, page: lazy(() => import('./email/EmailPage')) },
-  { key: 'projects', path: '/projects', label: 'Hiring projects', icon: BarChart3, roles: ['PM', 'CEO'], group: 'more', defaultOn: true, page: lazy(() => import('./projects/ProjectsPage')) },
-  { key: 'offboarding', path: '/offboarding', label: 'Offboarding', icon: DoorOpen, roles: ['HR'], group: 'more', defaultOn: true, page: lazy(() => import('./offboarding/OffboardingPage')) },
+  { key: 'today', path: '/today', label: 'Today', icon: ListChecks, roles: ['HR', 'Operations', 'PM', 'CEO'], group: 'work', defaultOn: true, load: () => import('./today/TodayPage'), page: lazy(() => import('./today/TodayPage')) },
+  { key: 'candidates', path: '/candidates', label: 'Candidates', icon: Users, roles: ['HR', 'Operations', 'PM'], group: 'work', defaultOn: true, load: () => import('./candidates/CandidatesPage'), page: lazy(() => import('./candidates/CandidatesPage')) },
+  { key: 'newCandidate', path: '/new', label: 'Add candidate', icon: UserPlus, roles: ['HR'], group: 'work', defaultOn: true, load: () => import('./new/NewCandidatePage'), page: lazy(() => import('./new/NewCandidatePage')) },
+  { key: 'calendar', path: '/calendar', label: 'Interview calendar', icon: CalendarDays, roles: ['HR', 'Operations'], group: 'work', defaultOn: true, load: () => import('./calendar/CalendarPage'), page: lazy(() => import('./calendar/CalendarPage')) },
+  { key: 'grader', path: '/grader', label: 'EMM grader', icon: FileCheck2, roles: ['HR'], group: 'work', defaultOn: true, load: () => import('./grader/GraderPage'), page: lazy(() => import('./grader/GraderPage')) },
+  { key: 'email', path: '/email', label: 'Email', icon: Mail, roles: ['HR'], group: 'work', defaultOn: true, load: () => import('./email/EmailPage'), page: lazy(() => import('./email/EmailPage')) },
+  { key: 'projects', path: '/projects', label: 'Hiring projects', icon: BarChart3, roles: ['PM', 'CEO'], group: 'more', defaultOn: true, load: () => import('./projects/ProjectsPage'), page: lazy(() => import('./projects/ProjectsPage')) },
+  { key: 'offboarding', path: '/offboarding', label: 'Offboarding', icon: DoorOpen, roles: ['HR'], group: 'more', defaultOn: true, load: () => import('./offboarding/OffboardingPage'), page: lazy(() => import('./offboarding/OffboardingPage')) },
 ];
 
 export function visibleFeatures(role: AppRole, flags: Record<string, boolean> = {}): Feature[] {
@@ -38,3 +39,10 @@ export function homePath(role: AppRole, flags: Record<string, boolean> = {}): st
 }
 
 export const ROLE_LABEL: Record<AppRole, string> = { HR: 'HR', Operations: 'Operations', PM: 'Project Manager', CEO: 'CEO' };
+
+// Start downloading the page someone is about to see while the data loads, instead of after.
+export function preloadPage(pathname: string, role: AppRole, flags: Record<string, boolean> = {}): void {
+  const list = visibleFeatures(role, flags);
+  const f = list.find((x) => pathname.startsWith(x.path)) || list.find((x) => x.path === homePath(role, flags));
+  void f?.load().catch(() => { /* the page loads normally later; this was only a head start */ });
+}

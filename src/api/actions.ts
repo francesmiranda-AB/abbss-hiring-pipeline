@@ -1,4 +1,4 @@
-import { call } from './client';
+import { ApiError, call } from './client';
 import type { Candidate, OffboardingCase, RoleHealthOverride, ServerConfig } from '@/domain/types';
 import type { InterviewQuestion, QuestionDraft } from '@/domain/interviewQuestions';
 
@@ -13,8 +13,20 @@ export interface Snapshot {
   minClientVersion: number;
 }
 
+// Apps Script parks each reply on a second Google address. When that hop fails, Google sends
+// the browser back to the main address without the request, and the backend answers
+// "Unknown: undefined". That is a dropped reply, so it is reported as a network failure (retried).
+export const BOUNCED_REPLY = 'Unknown: undefined';
+
 export async function getAll(signal?: AbortSignal): Promise<Snapshot> {
-  const res = await call<{ data: Candidate[]; config?: ServerConfig; roleHealth?: Record<string, RoleHealthOverride>; minClientVersion?: number }>('getAll', {}, signal);
+  type Raw = { data: Candidate[]; config?: ServerConfig; roleHealth?: Record<string, RoleHealthOverride>; minClientVersion?: number };
+  let res: Raw;
+  try {
+    res = await call<Raw>('getAll', {}, signal);
+  } catch (e) {
+    if (e instanceof ApiError && e.message === BOUNCED_REPLY) throw new ApiError("Google's server didn't pass the reply on.", { network: true });
+    throw e;
+  }
   return {
     candidates: (res.data || []).map(normalizeCandidate),
     config: { deadlineHours: 24, reminderHours: 12, ...(res.config || {}) },
@@ -90,6 +102,10 @@ export const removeInterviewSlot = (id: number, slotId: string) => call('removeI
 
 export const setRoleHealthOverride = (data: { role: string; status?: string; reason?: string; setBy?: string; pmNote?: string }) =>
   call('setRoleHealthOverride', { data });
+
+// One candidate's full EMM grading detail (the list may leave it out to stay small).
+export const getEmmDetail = (id: number) =>
+  call<{ data?: { fullResult?: string; catWrong?: unknown[]; catWrongTruncated?: boolean } }>('getEmmDetail', { data: { id } }).then((r) => r.data || {});
 
 export const getAllOffboarding = () => call<{ data: OffboardingCase[] }>('getAllOffboarding').then((r) => r.data || []);
 export const saveOffboarding = (data: Partial<OffboardingCase>) => call<{ data?: OffboardingCase }>('saveOffboarding', { data });

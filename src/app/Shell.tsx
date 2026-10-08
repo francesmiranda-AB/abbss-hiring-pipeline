@@ -9,7 +9,7 @@ import { needsAttentionFrom } from '@/domain/attention';
 import { isEndorsedToOperations } from '@/domain/stages';
 import { ROLE_LABEL, visibleFeatures } from '@/features/registry';
 import { Button, Skeleton, cx, useMenu } from '@/ui/kit';
-import { useSlow } from '@/ui/useSlow';
+import { useElapsed, useSlow } from '@/ui/useSlow';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ReportProblemDialog } from './ReportProblem';
 
@@ -28,6 +28,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const snap = useSnapshot();
   const outdated = (snap.data?.minClientVersion || 0) > APP_VERSION;
   const savedAt = useSavedCopy();
+  const waitSecs = useElapsed(savedAt > 0 && snap.isFetching);
 
   const groups = (['work', 'more'] as const).map((g) => features.filter((f) => f.group === g)).filter((g) => g.length);
   return (
@@ -74,7 +75,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <Clock size={18} aria-hidden />
             <span>
               Showing the list from {savedTimeLabel(savedAt)}.{' '}
-              {snap.isError ? "Couldn't get the latest, so it may be out of date. Actions stay locked until it loads." : 'Getting the latest. Actions unlock in a moment.'}
+              {snap.isError ? "Couldn't get the latest, so it may be out of date. Actions stay locked until it loads; use Retry at the bottom left." : `Getting the latest${waitSecs ? `, ${waitSecs} s` : ''}. Actions unlock when it arrives. No need to refresh.`}
             </span>
           </div>
         )}
@@ -109,6 +110,7 @@ function SyncStatus() {
   }, [busy]);
   const spinning = busy && (!snap.data || asked);
   const dragging = useSlow(busy && !!snap.data && !asked, 15_000);
+  const syncSecs = useElapsed(busy && !!snap.data && !asked);
   const refresh = () => { setAsked(true); void qc.invalidateQueries({ queryKey: SNAPSHOT_KEY }); };
   if (failed) {
     return (
@@ -132,7 +134,7 @@ function SyncStatus() {
     return (
       <span className="app-sync app-sync--bad" role="status">
         <RefreshCw size={14} aria-hidden className="app-spin" />
-        <span className="app-sync__text">Still syncing…</span>
+        <span className="app-sync__text" title="You can keep working; the list on screen stays as it is.">Still syncing, {syncSecs} s</span>
         <Button size="sm" variant="outline" onClick={refresh}>Retry</Button>
       </span>
     );
