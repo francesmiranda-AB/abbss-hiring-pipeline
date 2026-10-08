@@ -17,7 +17,13 @@ const PROD_SCRIPT_ID = '1kt0pyJYL0Vu_4o46hYYY5GO91kWrtpDQxi4z0dvXyVfQsJdiJQk83sT
 const PROD_MASTER_SHEET_ID = '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0';
 const PROD_DAVID_CALENDAR_ID = 'operations@ab-businesssupport.com';
 const PROD_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec';
-const IS_PROD_SCRIPT = (function(){ try{ return ScriptApp.getScriptId()===PROD_SCRIPT_ID; }catch(e){ return false; } })();
+// Production 2 (2026-10-08): a fresh copy of this project that serves the app, because the
+// original project's replies kept failing on Google's side. The original stays deployed for
+// links in emails already sent and keeps running the reminder job (its trigger owner is the sender).
+const PROD2_SCRIPT_ID = '1EXN_X7HRUIU_K6_6thQ6ZwzuqusiiM0uVP64rKHQt1CvYcQHus7NqPg-';
+const PROD2_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxYQJxWkw1AO_h2fmh4JoGnO3VOt1yQEQh4tMDIwiaBppUuejvHG-SBKd_swGKg0IPE/exec';
+const THIS_SCRIPT_ID = (function(){ try{ return ScriptApp.getScriptId(); }catch(e){ return ''; } })();
+const IS_PROD_SCRIPT = THIS_SCRIPT_ID===PROD_SCRIPT_ID || THIS_SCRIPT_ID===PROD2_SCRIPT_ID;
 const IS_STAGING = !IS_PROD_SCRIPT;
 const MASTER_SHEET_ID = (function(){
   var id = envProp_('MASTER_SHEET_ID', IS_PROD_SCRIPT ? PROD_MASTER_SHEET_ID : '');
@@ -47,7 +53,7 @@ const CV_FOLDER_NAME = envProp_('CV_FOLDER_NAME', 'ABBSS Applicant CVs');
 // the email-open tracking pixel) must be built from this hardcoded constant
 // instead, so they can never pick up that broken variant. If this
 // deployment is ever redeployed under a new URL, update this one line.
-const PUBLIC_WEBAPP_URL = envProp_('PUBLIC_WEBAPP_URL', IS_PROD_SCRIPT ? PROD_WEBAPP_URL : '');
+const PUBLIC_WEBAPP_URL = envProp_('PUBLIC_WEBAPP_URL', !IS_PROD_SCRIPT ? '' : (THIS_SCRIPT_ID===PROD2_SCRIPT_ID && PROD2_WEBAPP_URL ? PROD2_WEBAPP_URL : PROD_WEBAPP_URL));
 
 // Every email goes through here. Staging fails closed: without MAIL_REDIRECT
 // it refuses to send, so a copied Sheet can never email a real candidate.

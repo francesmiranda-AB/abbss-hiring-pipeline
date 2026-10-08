@@ -8,12 +8,16 @@ export const API_URL: string = (import.meta.env.VITE_API_URL || '').trim();
 
 // The production backend. Only the live site may talk to it: a local dev server or a
 // Vercel preview of some branch must never touch live data, whatever its settings say.
-const PROD_API_URL = 'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec';
+// The original production project and production 2 (the fresh copy serving the app since 2026-10-08).
+const PROD_API_URLS = [
+  'https://script.google.com/macros/s/AKfycbzuMsCMlqGhFBBSLpWGBMT0jkfHATvi9WJCKDm_KUdIaocK8N3TdM7hbaXeJjl-uj6F/exec',
+  'https://script.google.com/macros/s/AKfycbxYQJxWkw1AO_h2fmh4JoGnO3VOt1yQEQh4tMDIwiaBppUuejvHG-SBKd_swGKg0IPE/exec',
+];
 const LIVE_HOSTS = ['abbss-hiring-pipeline.vercel.app'];
 
 // True when this page (by hostname) must not use this backend address.
 export function isBackendBlocked(apiUrl: string, hostname: string): boolean {
-  if (apiUrl !== PROD_API_URL) return false;
+  if (!PROD_API_URLS.includes(apiUrl)) return false;
   const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostname);
   const preview = /\.vercel\.app$/.test(hostname) && !LIVE_HOSTS.includes(hostname);
   return local || preview;
