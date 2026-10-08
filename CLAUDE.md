@@ -21,7 +21,11 @@ Internal hiring app for AB Business Support (at most 5 staff users). Vite + Reac
 ## Rules
 - Never point a local dev server at the production backend (`VITE_API_URL` must be staging locally). The app also refuses the production address on any `*.vercel.app` preview except the live site (`isBackendBlocked` in `src/api/client.ts`); on Vercel set `VITE_API_URL` per environment (Preview = staging, Production = live).
 - A CV upload sends the candidate id (`uploadCv`), so the server writes the CV link onto the row itself; the app only advances the stage afterwards.
-- Every commit message starts with its Jira key (`AB-24` lean-out and interview questions, `AB-29` frontend).
+- Every commit message starts with its Jira key (`AB-24` lean-out and interview questions, `AB-29` frontend, `AB-32` post-release fixes). One branch per change, named after its key.
+- Loading (`src/api/`): reads (`get*` actions) give up after 30 s and writes after 90 s with a "may have been saved" message (`client.ts`). `useSnapshot` retries a dropped first load twice but never a timed-out one, and stays fresh for 2 minutes. The sync icon spins only for the first load or a refresh the person asked for.
+- Saved copy: the last list is kept in `localStorage` (`snapshotCache.ts`, without `emm.fullResult`, dropped after 12 hours and on Switch person) and drawn at once on the next visit. Until live data arrives, writes are refused (`freshness.ts`, checked in `client.ts`) and the record panel, bulk bar, Composer Send and Add candidate are disabled; `useAssessmentSweep` waits for live data.
+- Data from the Sheet goes through `normalizeCandidate` (`actions.ts`): text fields that arrive as numbers become text. Don't call string methods on candidate fields that skip it.
+- `ErrorBoundary` wraps the page area (`src/app/Shell.tsx`); a missing page file after a release reloads the app once (`vite:preloadError` in `main.tsx`, guarded against loops).
 - Sheet columns never move; the backend decides which columns a save may change (`_changed`). Data-model changes are out of scope until the backend remake.
 - No login, a product decision: people pick their name and role (`src/auth/auth.tsx`). Never put secrets, keys or tokens in this repo; it is public.
 - Candidate-facing links (`trackOpen`, `pickSlot`, `viewAssessment`) stay public.
