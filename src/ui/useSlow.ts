@@ -11,3 +11,15 @@ export function useSlow(active: boolean, ms: number): boolean {
   }, [active, ms]);
   return slow;
 }
+
+// Whole seconds since `active` turned true (0 while it is false), for "Still loading, 12 s".
+export function useElapsed(active: boolean): number {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const t0 = Date.now();
+    const iv = setInterval(() => setSecs(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => { clearInterval(iv); setSecs(0); };
+  }, [active]);
+  return secs;
+}

@@ -10,6 +10,7 @@ import { refreshAssessments } from '@/api/actions';
 import { useReplaceCandidate, useUpdateCandidate } from '@/api/queries';
 import { useCandidateActions } from '../../candidates/actions';
 import { printEmmReport } from '../../grader/report';
+import { useEmmDetail } from '@/api/emmDetail';
 import { Badge, Button, fmtDateTime } from '@/ui/kit';
 import { useToast } from '@/ui/toast';
 import { SavingInput, SavingTextarea, PanelSection } from './common';
@@ -109,8 +110,9 @@ function EmmBlock({ a, manual }: { a: Candidate; manual: boolean }) {
       void actions.advance(a.id, 'assessmentsSubmitted');
     }
   };
+  const detail = useEmmDetail(a);
   let g: Partial<GradeResult> = {};
-  try { g = a.emm?.fullResult ? JSON.parse(a.emm.fullResult) : {}; } catch { g = {}; }
+  try { g = detail.emm?.fullResult ? JSON.parse(detail.emm.fullResult) : {}; } catch { g = {}; }
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -136,6 +138,8 @@ function EmmBlock({ a, manual }: { a: Candidate; manual: boolean }) {
             {!g.catByCat && <div className="ab-kpi"><span className="ab-kpi__value">{a.emm.actPct}%</span><span className="ab-kpi__label">Action points</span></div>}
           </div>
           {emmHighRiskFlag(a) && <div className="ab-alert ab-alert--warning"><span className="ab-alert__icon" aria-hidden><AlertTriangle size={18} /></span><p className="ab-alert__title">Flagged for review</p><div>A high-severity integrity flag came up. See the flags below before deciding.</div></div>}
+          {detail.loading && <p className="app-meta m-0" role="status">Loading the detailed result…</p>}
+          {detail.unavailable && <p className="app-meta m-0">The detailed result didn't load. The scores above are complete.</p>}
           {g.rubric && (
             <div className="ab-table-wrap">
               <table className="ab-table">
@@ -175,7 +179,7 @@ function EmmBlock({ a, manual }: { a: Candidate; manual: boolean }) {
           )}
           <SavingTextarea id={`emmn-${a.id}`} label="HR notes on the EMM" value={a.emm.notes} onSave={(x) => update(a.id, { emm: { ...a.emm, notes: x } })} placeholder="Observations, integrity concerns, recommendations" />
           <div className="ab-cluster">
-            <Button variant="tonal" size="sm" icon={Printer} onClick={() => { const err = printEmmReport(a); if (err) toast.error(err); }}>Print report</Button>
+            <Button variant="tonal" size="sm" icon={Printer} disabled={detail.loading} onClick={() => { const err = printEmmReport({ ...a, emm: detail.emm }); if (err) toast.error(err); }}>Print report</Button>
             {caps.grader && <Button variant="ghost" size="sm" icon={FileCheck2} onClick={() => navigate(`/grader?candidate=${a.id}`)}>Re-grade</Button>}
           </div>
         </>

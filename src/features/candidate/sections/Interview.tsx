@@ -16,10 +16,16 @@ export function InterviewSection({ a }: { a: Candidate }) {
   const actions = useCandidateActions();
   const caps = useCaps(a);
   const iv = a.interview || {};
+  // Passed: the result and the stage move go in one save (one Undo). If there is no move to
+  // make, the result is saved on its own. Failed saves the result, then asks how to close.
   const setResult = async (result: 'pass' | 'fail') => {
-    if (!(await update(a.id, { interview: { ...iv, result } }))) return;
-    if (result === 'pass') await actions.advance(a.id, 'interviewPassed', 'Interview marked as passed');
-    else await actions.advance(a.id, 'interviewFailed', 'Interview marked as failed');
+    const interview = { ...iv, result };
+    if (result === 'pass') {
+      if (!(await actions.advance(a.id, 'interviewPassed', 'Interview marked as passed', { interview }))) await update(a.id, { interview });
+      return;
+    }
+    if (!(await update(a.id, { interview }))) return;
+    await actions.advance(a.id, 'interviewFailed', 'Interview marked as failed');
   };
   return (
     <div className="app-stack">
