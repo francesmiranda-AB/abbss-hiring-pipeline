@@ -13,6 +13,12 @@ describe('who may use the production backend', () => {
   it('a local dev server may not', () => {
     for (const h of ['localhost', '127.0.0.1', '[::1]']) expect(isBackendBlocked(PROD, h)).toBe(true);
   });
+  it('production 2 is guarded the same way', () => {
+    const PROD2 = 'https://script.google.com/macros/s/AKfycbxYQJxWkw1AO_h2fmh4JoGnO3VOt1yQEQh4tMDIwiaBppUuejvHG-SBKd_swGKg0IPE/exec';
+    expect(isBackendBlocked(PROD2, 'abbss-hiring-pipeline.vercel.app')).toBe(false);
+    expect(isBackendBlocked(PROD2, 'localhost')).toBe(true);
+    expect(isBackendBlocked(PROD2, 'abbss-hiring-pipeline-abc123.vercel.app')).toBe(true);
+  });
   it('a Vercel preview of any branch may not', () => {
     expect(isBackendBlocked(PROD, 'abbss-hiring-pipeline-git-ab-29-frontend-rebuild-team.vercel.app')).toBe(true);
     expect(isBackendBlocked(PROD, 'abbss-hiring-pipeline-abc123.vercel.app')).toBe(true);

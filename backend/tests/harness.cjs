@@ -35,6 +35,7 @@ function row(values) {
 }
 
 const PROD_SCRIPT_ID = '1kt0pyJYL0Vu_4o46hYYY5GO91kWrtpDQxi4z0dvXyVfQsJdiJQk83sTm';
+const PROD2_SCRIPT_ID = '1EXN_X7HRUIU_K6_6thQ6ZwzuqusiiM0uVP64rKHQt1CvYcQHus7NqPg-';
 // forms: {grit:[rows], values:[rows], emm:[rows]} -- response sheets (row 0 is the header).
 function load({props = {}, applicants = [], sheets = {}, failCalendar = false, scriptId = PROD_SCRIPT_ID, forms = {}, tokeninfo = {}, onSleep = null} = {}) {
   const log = {mail: [], calInsert: [], calRemove: [], logger: [], tokenFetches: 0};
@@ -50,7 +51,7 @@ function load({props = {}, applicants = [], sheets = {}, failCalendar = false, s
   const formSS = rows => { const sh = makeSheet([new Array(NCOLS).fill('header'), ...(rows || [])]); return {getSheetByName: () => sh, getSheets: () => [sh]}; };
   const FORM_IDS = {'1sU7HPe9Nn69RdHyuCrpisCKdGTDHNO3c0furVEqgfFk': formSS(forms.grit), '16jRYZIFG_5O2Dh-7Wvj4MKVfsDV9FsOIXKPJiTFYCbc': formSS(forms.values), '1ZTh5NtZtxvcFfx1kmiW40s4jRyAZdz9T3sNhoZB3SEI': formSS(forms.emm)};
   const otherSS = formSS([]);
-  const masterId = props.MASTER_SHEET_ID || (scriptId === PROD_SCRIPT_ID ? '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0' : '__none__');
+  const masterId = props.MASTER_SHEET_ID || ([PROD_SCRIPT_ID, PROD2_SCRIPT_ID].includes(scriptId) ? '1URrEVs7iOdgbFa_Z29eQwrgBeCwfTFZSKQLqjV5wkP0' : '__none__');
   const env = {
     console, log, book,
     PropertiesService: {getScriptProperties: () => ({getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; }})},
@@ -95,4 +96,4 @@ async function run() {
   process.exitCode = failed ? 1 : 0;
 }
 
-module.exports = {load, row, test, run, NCOLS};
+module.exports = {load, row, test, run, NCOLS, PROD_SCRIPT_ID, PROD2_SCRIPT_ID};
